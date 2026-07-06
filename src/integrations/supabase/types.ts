@@ -14,16 +14,416 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          org_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          org_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          org_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_lines: {
+        Row: {
+          batch: string | null
+          created_at: string
+          discount_pct: number | null
+          expiry_date: string | null
+          field_confidence: Json | null
+          free_quantity: number | null
+          gst_rate: number | null
+          hsn: string | null
+          id: string
+          invoice_id: string
+          line_no: number | null
+          line_total: number | null
+          match_confidence: number | null
+          matched_product_id: string | null
+          mfg_date: string | null
+          mrp: number | null
+          needs_review: boolean | null
+          org_id: string
+          quantity: number | null
+          rate: number | null
+          raw_description: string | null
+          tax_amount: number | null
+          taxable_value: number | null
+          unit: string | null
+        }
+        Insert: {
+          batch?: string | null
+          created_at?: string
+          discount_pct?: number | null
+          expiry_date?: string | null
+          field_confidence?: Json | null
+          free_quantity?: number | null
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          invoice_id: string
+          line_no?: number | null
+          line_total?: number | null
+          match_confidence?: number | null
+          matched_product_id?: string | null
+          mfg_date?: string | null
+          mrp?: number | null
+          needs_review?: boolean | null
+          org_id: string
+          quantity?: number | null
+          rate?: number | null
+          raw_description?: string | null
+          tax_amount?: number | null
+          taxable_value?: number | null
+          unit?: string | null
+        }
+        Update: {
+          batch?: string | null
+          created_at?: string
+          discount_pct?: number | null
+          expiry_date?: string | null
+          field_confidence?: Json | null
+          free_quantity?: number | null
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          invoice_id?: string
+          line_no?: number | null
+          line_total?: number | null
+          match_confidence?: number | null
+          matched_product_id?: string | null
+          mfg_date?: string | null
+          mrp?: number | null
+          needs_review?: boolean | null
+          org_id?: string
+          quantity?: number | null
+          rate?: number | null
+          raw_description?: string | null
+          tax_amount?: number | null
+          taxable_value?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_lines_matched_product_id_fkey"
+            columns: ["matched_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          confidence: number | null
+          created_at: string
+          error_message: string | null
+          grand_total: number | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          mime_type: string | null
+          org_id: string
+          raw_extraction: Json | null
+          status: Database["public"]["Enums"]["invoice_status"]
+          storage_path: string
+          subtotal: number | null
+          supplier_gstin: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          tax_total: number | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          error_message?: string | null
+          grand_total?: number | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          mime_type?: string | null
+          org_id: string
+          raw_extraction?: Json | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          storage_path: string
+          subtotal?: number | null
+          supplier_gstin?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          tax_total?: number | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence?: number | null
+          created_at?: string
+          error_message?: string | null
+          grand_total?: number | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          mime_type?: string | null
+          org_id?: string
+          raw_extraction?: Json | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          storage_path?: string
+          subtotal?: number | null
+          supplier_gstin?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          tax_total?: number | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memberships: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memberships_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string
+          gstin: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          gstin?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          gstin?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          aliases: string[] | null
+          brand: string | null
+          category: string | null
+          created_at: string
+          gst_rate: number | null
+          hsn: string | null
+          id: string
+          mrp: number | null
+          name: string
+          org_id: string
+          pack_size: string | null
+          purchase_rate: number | null
+          selling_rate: number | null
+          sku: string | null
+          unit: string | null
+        }
+        Insert: {
+          aliases?: string[] | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          mrp?: number | null
+          name: string
+          org_id: string
+          pack_size?: string | null
+          purchase_rate?: number | null
+          selling_rate?: number | null
+          sku?: string | null
+          unit?: string | null
+        }
+        Update: {
+          aliases?: string[] | null
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          mrp?: number | null
+          name?: string
+          org_id?: string
+          pack_size?: string | null
+          purchase_rate?: number | null
+          selling_rate?: number | null
+          sku?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          code: string | null
+          contact: string | null
+          created_at: string
+          gstin: string | null
+          id: string
+          name: string
+          org_id: string
+        }
+        Insert: {
+          address?: string | null
+          code?: string | null
+          contact?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          name: string
+          org_id: string
+        }
+        Update: {
+          address?: string | null
+          code?: string | null
+          contact?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_org_role: {
+        Args: { _org: string; _role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
+      is_org_member: { Args: { _org: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "operator" | "accountant"
+      invoice_status:
+        | "uploaded"
+        | "processing"
+        | "review"
+        | "approved"
+        | "rejected"
+        | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +550,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "operator", "accountant"],
+      invoice_status: [
+        "uploaded",
+        "processing",
+        "review",
+        "approved",
+        "rejected",
+        "failed",
+      ],
+    },
   },
 } as const
