@@ -81,7 +81,7 @@ export const extractInvoice = createServerFn({ method: "POST" })
       : { type: "file" as const, data: `data:${mime};base64,${base64}`, mediaType: mime };
 
     try {
-      const { experimental_output } = await generateText({
+      const result = await generateText({
         model,
         system: SYSTEM_PROMPT,
         messages: [{
@@ -91,9 +91,9 @@ export const extractInvoice = createServerFn({ method: "POST" })
             contentBlock as never,
           ],
         }],
-        experimental_output: Output.object({ schema: ExtractionSchema }),
+        output: Output.object({ schema: ExtractionSchema }),
       });
-      const parsed = experimental_output;
+      const parsed = result.output as z.infer<typeof ExtractionSchema>;
 
       // Persist
       await supabase.from("invoice_lines").delete().eq("invoice_id", inv.id);
