@@ -167,13 +167,19 @@ async def extract(
     mime_type: Optional[str] = Form(None),
 ) -> InvoiceExtraction:
     if not GOOGLE_API_KEY:
+        log.error("extract: GOOGLE_API_KEY missing")
         raise HTTPException(500, "GOOGLE_API_KEY not configured on the service")
 
     raw = await file.read()
     if not raw:
+        log.warning("extract: empty file received filename=%s", file.filename)
         raise HTTPException(400, "Empty file")
 
     mime = mime_type or file.content_type or "application/octet-stream"
+    log.info(
+        "extract: file received filename=%s bytes=%d mime=%s",
+        file.filename, len(raw), mime,
+    )
     b64 = base64.b64encode(raw).decode("ascii")
 
     payload = {
@@ -194,13 +200,22 @@ async def extract(
         },
     }
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            GEMINI_ENDPOINT,
-            params={"key": GOOGLE_API_KEY},
-            json=payload,
-        )
+    log.info("extract: calling Gemini model=%s", GEMINI_MODEL)
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload,
+            )
+    except httpx.HTTPError as e:
+        log.exception("extract: HTTP error calling Gemini")
+        raise HTTPException(502, f"Gemini transport error: {e}") from e
+
+    dt_ms = (time.time() - t0) * 1000
+    log.info("extract: Gemini responded status=%s in %.1fms", resp.status_code, dt_ms)
+
     if resp.status_code >= 400:
+        log.error("extract: Gemini error body=%s", resp.text[:1000])
         raise HTTPException(resp.status_code, f"Gemini error: {resp.text[:500]}")
 
     data = resp.json()
@@ -208,6 +223,18 @@ async def extract(
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         parsed = json.loads(text)
     except (KeyError, IndexError, json.JSONDecodeError) as e:
+        log.exception("extract: malformed Gemini response raw=%s", str(data)[:800])
         raise HTTPException(502, f"Malformed Gemini response: {e}") from e
 
-    return InvoiceExtraction.model_validate(parsed)
+    try:
+        result = InvoiceExtraction.model_validate(parsed)
+    except Exception as e:
+        log.exception("extract: schema validation failed parsed=%s", str(parsed)[:800])
+        raise HTTPException(502, f"Schema validation failed: {e}") from e
+
+    log.info(
+        "extract: done lines=%d supplier=%s",
+        len(result.lines), result.supplier_name,
+    )
+    return result
+
