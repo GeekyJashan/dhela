@@ -9,6 +9,9 @@ import { toast } from "sonner";
 import { FileUp, Loader2 } from "lucide-react";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { extractInvoice } from "@/lib/invoices.functions";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("upload");
 
 export const Route = createFileRoute("/_authenticated/upload")({
   head: () => ({ meta: [{ title: "Upload invoice — Ledgerly" }] }),
@@ -26,16 +29,22 @@ function Upload() {
   const upload = async () => {
     if (!file) return;
     setBusy(true);
+    log.info("upload:start", { name: file.name, size: file.size, type: file.type });
     try {
       setStep("Reading your workspace…");
       const { orgId } = await getOrg();
+      log.debug("upload:got_org", { orgId });
 
       setStep("Uploading invoice…");
       const path = `${orgId}/${crypto.randomUUID()}-${file.name}`;
       const { error: upErr } = await supabase.storage.from("invoices").upload(path, file, {
         contentType: file.type, upsert: false,
       });
-      if (upErr) throw upErr;
+      if (upErr) {
+        log.error("upload:storage_failed", { path, err: upErr });
+        throw upErr;
+      }
+      log.info("upload:storage_ok", { path });
 
       const { data: { user } } = await supabase.auth.getUser();
       const { data: inv, error: insErr } = await supabase.from("invoices").insert({
@@ -45,14 +54,21 @@ function Upload() {
         status: "uploaded",
         uploaded_by: user!.id,
       }).select("id").single();
-      if (insErr) throw insErr;
+      if (insErr) {
+        log.error("upload:insert_failed", { err: insErr });
+        throw insErr;
+      }
+      log.info("upload:invoice_row_created", { invoiceId: inv.id });
 
       setStep("AI is reading the invoice…");
+      const t0 = Date.now();
       await extract({ data: { invoiceId: inv.id } });
+      log.info("upload:extract_done", { invoiceId: inv.id, ms: Date.now() - t0 });
 
       toast.success("Invoice processed. Review it now.");
       navigate({ to: "/invoices/$id", params: { id: inv.id } });
     } catch (e) {
+      log.error("upload:failed", { err: e });
       toast.error((e as Error).message);
     } finally {
       setBusy(false); setStep("");
