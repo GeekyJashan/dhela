@@ -10,15 +10,22 @@ Deploy to any container host (Render / Fly / Railway / Cloud Run).
 """
 from __future__ import annotations
 
-import base64
-import json
-import os
+import logging
+import time
+import uuid
 from typing import Any, List, Optional
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# ---------- logging ----------
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+)
+log = logging.getLogger("invoice-extractor")
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
@@ -27,7 +34,6 @@ GEMINI_ENDPOINT = (
     f"{GEMINI_MODEL}:generateContent"
 )
 
-# Restrict to your deployed frontend origin(s) in production.
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()
 ]
@@ -39,6 +45,25 @@ app.add_middleware(
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_logger(request: Request, call_next):
+    rid = uuid.uuid4().hex[:8]
+    t0 = time.time()
+    log.info("→ %s %s %s", rid, request.method, request.url.path)
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # pragma: no cover
+        log.exception("✗ %s unhandled %s", rid, exc)
+        raise
+    log.info(
+        "← %s %s %s status=%s %.1fms",
+        rid, request.method, request.url.path,
+        response.status_code, (time.time() - t0) * 1000,
+    )
+    return response
+
 
 
 # -------- Response schema (mirrors the frontend Zod schema) --------
