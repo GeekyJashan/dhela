@@ -1,122 +1,101 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const LineSchema = z.object({
-  line_no: z.number().nullable(),
+  line_no: z.number().nullable().optional(),
   raw_description: z.string(),
-  hsn: z.string().nullable(),
-  quantity: z.number().nullable(),
-  free_quantity: z.number().nullable(),
-  unit: z.string().nullable(),
-  rate: z.number().nullable(),
-  mrp: z.number().nullable(),
-  discount_pct: z.number().nullable(),
-  gst_rate: z.number().nullable(),
-  taxable_value: z.number().nullable(),
-  tax_amount: z.number().nullable(),
-  line_total: z.number().nullable(),
-  batch: z.string().nullable(),
-  mfg_date: z.string().nullable(),
-  expiry_date: z.string().nullable(),
-  confidence: z.number().nullable(),
+  hsn: z.string().nullable().optional(),
+  quantity: z.number().nullable().optional(),
+  free_quantity: z.number().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  rate: z.number().nullable().optional(),
+  mrp: z.number().nullable().optional(),
+  discount_pct: z.number().nullable().optional(),
+  gst_rate: z.number().nullable().optional(),
+  taxable_value: z.number().nullable().optional(),
+  tax_amount: z.number().nullable().optional(),
+  line_total: z.number().nullable().optional(),
+  batch: z.string().nullable().optional(),
+  mfg_date: z.string().nullable().optional(),
+  expiry_date: z.string().nullable().optional(),
+  confidence: z.number().nullable().optional(),
 });
 
 const ExtractionSchema = z.object({
-  supplier_name: z.string().nullable(),
-  supplier_gstin: z.string().nullable(),
-  invoice_number: z.string().nullable(),
-  invoice_date: z.string().nullable(),
-  subtotal: z.number().nullable(),
-  tax_total: z.number().nullable(),
-  grand_total: z.number().nullable(),
-  overall_confidence: z.number().nullable(),
-  notes: z.string().nullable(),
+  supplier_name: z.string().nullable().optional(),
+  supplier_gstin: z.string().nullable().optional(),
+  invoice_number: z.string().nullable().optional(),
+  invoice_date: z.string().nullable().optional(),
+  subtotal: z.number().nullable().optional(),
+  tax_total: z.number().nullable().optional(),
+  grand_total: z.number().nullable().optional(),
+  overall_confidence: z.number().nullable().optional(),
+  notes: z.string().nullable().optional(),
   lines: z.array(LineSchema),
 });
-
-const SYSTEM_PROMPT = `You are an expert Indian purchase-invoice parser used by pharma, FMCG, hardware and grocery distributors.
-Extract every product line and every header field precisely as printed on the invoice.
-
-Rules:
-- Return dates in YYYY-MM-DD format when possible; return null if unreadable.
-- Quantities and money are numbers (no currency symbols).
-- Detect free schemes (e.g. "10+1", "BUY 100 GET 12 FREE") and record billed qty in quantity, free units in free_quantity.
-- Set confidence (0-100) per line based on legibility.
-- Prefer null over guessing.
-- Extract HSN, batch, expiry, mfg date whenever printed.`;
 
 export const extractInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const apiUrl = process.env.EXTRACTION_API_URL;
+    if (!apiUrl) throw new Error("EXTRACTION_API_URL not configured");
+
     const { data: inv, error: invErr } = await supabase
       .from("invoices").select("*").eq("id", data.invoiceId).single();
     if (invErr || !inv) throw new Error(invErr?.message ?? "Invoice not found");
 
-    await supabase.from("invoices").update({ status: "processing", error_message: null }).eq("id", inv.id);
+    await supabase.from("invoices")
+      .update({ status: "processing", error_message: null }).eq("id", inv.id);
 
-    // Download file
     const { data: fileBlob, error: dlErr } = await supabase.storage
       .from("invoices").download(inv.storage_path);
     if (dlErr || !fileBlob) {
-      await supabase.from("invoices").update({ status: "failed", error_message: dlErr?.message ?? "download failed" }).eq("id", inv.id);
+      await supabase.from("invoices").update({
+        status: "failed", error_message: dlErr?.message ?? "download failed",
+      }).eq("id", inv.id);
       throw new Error(dlErr?.message ?? "Download failed");
     }
-    const buf = new Uint8Array(await fileBlob.arrayBuffer());
-    const base64 = btoa(String.fromCharCode(...buf));
+
     const mime = inv.mime_type ?? fileBlob.type ?? "application/octet-stream";
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
-    const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
-
-    const isImage = mime.startsWith("image/");
-    const contentBlock = isImage
-      ? { type: "image" as const, image: `data:${mime};base64,${base64}` }
-      : { type: "file" as const, data: `data:${mime};base64,${base64}`, mediaType: mime };
-
     try {
-      const result = await generateText({
-        model,
-        system: SYSTEM_PROMPT,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: "Extract the full purchase invoice as structured JSON." },
-            contentBlock as never,
-          ],
-        }],
-        output: Output.object({ schema: ExtractionSchema }),
-      });
-      const parsed = result.output as z.infer<typeof ExtractionSchema>;
+      const form = new FormData();
+      form.append("file", fileBlob, inv.storage_path.split("/").pop() ?? "invoice");
+      form.append("mime_type", mime);
 
-      // Persist
+      const resp = await fetch(`${apiUrl.replace(/\/$/, "")}/extract`, {
+        method: "POST",
+        body: form,
+      });
+      if (!resp.ok) {
+        throw new Error(`Extraction service ${resp.status}: ${(await resp.text()).slice(0, 400)}`);
+      }
+      const parsed = ExtractionSchema.parse(await resp.json());
+
       await supabase.from("invoice_lines").delete().eq("invoice_id", inv.id);
       const linesToInsert = parsed.lines.map((l, i) => ({
         invoice_id: inv.id,
         org_id: inv.org_id,
         line_no: l.line_no ?? i + 1,
         raw_description: l.raw_description,
-        hsn: l.hsn,
-        quantity: l.quantity,
-        free_quantity: l.free_quantity,
-        unit: l.unit,
-        rate: l.rate,
-        mrp: l.mrp,
-        discount_pct: l.discount_pct,
-        gst_rate: l.gst_rate,
-        taxable_value: l.taxable_value,
-        tax_amount: l.tax_amount,
-        line_total: l.line_total,
-        batch: l.batch,
-        mfg_date: l.mfg_date,
-        expiry_date: l.expiry_date,
-        match_confidence: l.confidence,
+        hsn: l.hsn ?? null,
+        quantity: l.quantity ?? null,
+        free_quantity: l.free_quantity ?? null,
+        unit: l.unit ?? null,
+        rate: l.rate ?? null,
+        mrp: l.mrp ?? null,
+        discount_pct: l.discount_pct ?? null,
+        gst_rate: l.gst_rate ?? null,
+        taxable_value: l.taxable_value ?? null,
+        tax_amount: l.tax_amount ?? null,
+        line_total: l.line_total ?? null,
+        batch: l.batch ?? null,
+        mfg_date: l.mfg_date ?? null,
+        expiry_date: l.expiry_date ?? null,
+        match_confidence: l.confidence ?? null,
         needs_review: (l.confidence ?? 0) < 90,
       }));
       if (linesToInsert.length) {
@@ -126,23 +105,23 @@ export const extractInvoice = createServerFn({ method: "POST" })
 
       await supabase.from("invoices").update({
         status: "review",
-        supplier_name: parsed.supplier_name,
-        supplier_gstin: parsed.supplier_gstin,
-        invoice_number: parsed.invoice_number,
-        invoice_date: parsed.invoice_date,
-        subtotal: parsed.subtotal,
-        tax_total: parsed.tax_total,
-        grand_total: parsed.grand_total,
-        confidence: parsed.overall_confidence,
+        supplier_name: parsed.supplier_name ?? null,
+        supplier_gstin: parsed.supplier_gstin ?? null,
+        invoice_number: parsed.invoice_number ?? null,
+        invoice_date: parsed.invoice_date ?? null,
+        subtotal: parsed.subtotal ?? null,
+        tax_total: parsed.tax_total ?? null,
+        grand_total: parsed.grand_total ?? null,
+        confidence: parsed.overall_confidence ?? null,
         raw_extraction: parsed as never,
       }).eq("id", inv.id);
 
       return { ok: true, lineCount: linesToInsert.length };
     } catch (err) {
-      const msg = NoObjectGeneratedError.isInstance(err)
-        ? "Model returned unstructured output"
-        : (err as Error).message;
-      await supabase.from("invoices").update({ status: "failed", error_message: msg }).eq("id", inv.id);
+      const msg = (err as Error).message ?? "Extraction failed";
+      await supabase.from("invoices").update({
+        status: "failed", error_message: msg,
+      }).eq("id", inv.id);
       throw new Error(msg);
     }
   });
