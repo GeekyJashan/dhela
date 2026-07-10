@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -16,9 +16,12 @@ export const Route = createFileRoute("/_authenticated")({
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/invoices", label: "Invoices", icon: Files },
-  { to: "/upload", label: "Upload", icon: FileUp },
+  { to: "/invoices", label: "Purchases", icon: Files },
+  { to: "/upload", label: "Upload invoice", icon: FileUp },
+  { to: "/sales", label: "Sales", icon: Receipt },
+  { to: "/retailers", label: "Retailers", icon: Store },
   { to: "/products", label: "Products", icon: Package },
+  { to: "/pricing", label: "Pricing", icon: Tag },
   { to: "/suppliers", label: "Suppliers", icon: Users },
 ] as const;
 
