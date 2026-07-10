@@ -55,6 +55,30 @@ export type Database = {
           },
         ]
       }
+      hsn_codes: {
+        Row: {
+          category: string | null
+          code: string
+          description: string
+          gst_rate: number
+          search_tsv: unknown
+        }
+        Insert: {
+          category?: string | null
+          code: string
+          description: string
+          gst_rate: number
+          search_tsv?: unknown
+        }
+        Update: {
+          category?: string | null
+          code?: string
+          description?: string
+          gst_rate?: number
+          search_tsv?: unknown
+        }
+        Relationships: []
+      }
       invoice_lines: {
         Row: {
           batch: string | null
@@ -279,27 +303,106 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
           created_at: string
           created_by: string
+          default_margin_pct: number | null
+          email: string | null
           gstin: string | null
           id: string
           name: string
+          phone: string | null
+          state_code: string | null
         }
         Insert: {
+          address?: string | null
           created_at?: string
           created_by: string
+          default_margin_pct?: number | null
+          email?: string | null
           gstin?: string | null
           id?: string
           name: string
+          phone?: string | null
+          state_code?: string | null
         }
         Update: {
+          address?: string | null
           created_at?: string
           created_by?: string
+          default_margin_pct?: number | null
+          email?: string | null
           gstin?: string | null
           id?: string
           name?: string
+          phone?: string | null
+          state_code?: string | null
         }
         Relationships: []
+      }
+      product_price_overrides: {
+        Row: {
+          created_at: string
+          discount_pct: number | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          product_id: string
+          retailer_id: string | null
+          selling_rate: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_pct?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          product_id: string
+          retailer_id?: string | null
+          selling_rate: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_pct?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          product_id?: string
+          retailer_id?: string | null
+          selling_rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_overrides_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_overrides_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_overrides_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -307,9 +410,12 @@ export type Database = {
           brand: string | null
           category: string | null
           created_at: string
+          current_stock: number | null
+          default_margin_pct: number | null
           gst_rate: number | null
           hsn: string | null
           id: string
+          last_purchase_rate: number | null
           mrp: number | null
           name: string
           org_id: string
@@ -324,9 +430,12 @@ export type Database = {
           brand?: string | null
           category?: string | null
           created_at?: string
+          current_stock?: number | null
+          default_margin_pct?: number | null
           gst_rate?: number | null
           hsn?: string | null
           id?: string
+          last_purchase_rate?: number | null
           mrp?: number | null
           name: string
           org_id: string
@@ -341,9 +450,12 @@ export type Database = {
           brand?: string | null
           category?: string | null
           created_at?: string
+          current_stock?: number | null
+          default_margin_pct?: number | null
           gst_rate?: number | null
           hsn?: string | null
           id?: string
+          last_purchase_rate?: number | null
           mrp?: number | null
           name?: string
           org_id?: string
@@ -359,6 +471,285 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailers: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          credit_limit: number | null
+          default_discount_pct: number | null
+          email: string | null
+          gstin: string | null
+          id: string
+          name: string
+          notes: string | null
+          org_id: string
+          outstanding_balance: number | null
+          phone: string | null
+          pincode: string | null
+          price_tier: string | null
+          state_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_limit?: number | null
+          default_discount_pct?: number | null
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          outstanding_balance?: number | null
+          phone?: string | null
+          pincode?: string | null
+          price_tier?: string | null
+          state_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_limit?: number | null
+          default_discount_pct?: number | null
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          outstanding_balance?: number | null
+          phone?: string | null
+          pincode?: string | null
+          price_tier?: string | null
+          state_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoice_lines: {
+        Row: {
+          batch: string | null
+          cgst_amount: number | null
+          cost_price: number | null
+          created_at: string
+          description: string
+          discount_amount: number | null
+          discount_pct: number | null
+          expiry_date: string | null
+          free_quantity: number | null
+          gst_rate: number | null
+          hsn: string | null
+          id: string
+          igst_amount: number | null
+          line_no: number | null
+          line_total: number | null
+          mrp: number | null
+          org_id: string
+          product_id: string | null
+          profit: number | null
+          quantity: number
+          rate: number
+          sales_invoice_id: string
+          sgst_amount: number | null
+          tax_amount: number | null
+          taxable_value: number | null
+          unit: string | null
+        }
+        Insert: {
+          batch?: string | null
+          cgst_amount?: number | null
+          cost_price?: number | null
+          created_at?: string
+          description: string
+          discount_amount?: number | null
+          discount_pct?: number | null
+          expiry_date?: string | null
+          free_quantity?: number | null
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          igst_amount?: number | null
+          line_no?: number | null
+          line_total?: number | null
+          mrp?: number | null
+          org_id: string
+          product_id?: string | null
+          profit?: number | null
+          quantity?: number
+          rate?: number
+          sales_invoice_id: string
+          sgst_amount?: number | null
+          tax_amount?: number | null
+          taxable_value?: number | null
+          unit?: string | null
+        }
+        Update: {
+          batch?: string | null
+          cgst_amount?: number | null
+          cost_price?: number | null
+          created_at?: string
+          description?: string
+          discount_amount?: number | null
+          discount_pct?: number | null
+          expiry_date?: string | null
+          free_quantity?: number | null
+          gst_rate?: number | null
+          hsn?: string | null
+          id?: string
+          igst_amount?: number | null
+          line_no?: number | null
+          line_total?: number | null
+          mrp?: number | null
+          org_id?: string
+          product_id?: string | null
+          profit?: number | null
+          quantity?: number
+          rate?: number
+          sales_invoice_id?: string
+          sgst_amount?: number | null
+          tax_amount?: number | null
+          taxable_value?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoice_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoices: {
+        Row: {
+          amount_paid: number | null
+          cgst_total: number | null
+          created_at: string
+          created_by: string | null
+          discount_total: number | null
+          due_date: string | null
+          grand_total: number | null
+          id: string
+          igst_total: number | null
+          invoice_date: string
+          invoice_number: string
+          is_interstate: boolean | null
+          notes: string | null
+          org_id: string
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          place_of_supply: string | null
+          retailer_id: string
+          round_off: number | null
+          sgst_total: number | null
+          status: Database["public"]["Enums"]["sales_invoice_status"]
+          subtotal: number | null
+          tax_total: number | null
+          total_cost: number | null
+          total_profit: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          cgst_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          discount_total?: number | null
+          due_date?: string | null
+          grand_total?: number | null
+          id?: string
+          igst_total?: number | null
+          invoice_date?: string
+          invoice_number: string
+          is_interstate?: boolean | null
+          notes?: string | null
+          org_id: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          place_of_supply?: string | null
+          retailer_id: string
+          round_off?: number | null
+          sgst_total?: number | null
+          status?: Database["public"]["Enums"]["sales_invoice_status"]
+          subtotal?: number | null
+          tax_total?: number | null
+          total_cost?: number | null
+          total_profit?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number | null
+          cgst_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          discount_total?: number | null
+          due_date?: string | null
+          grand_total?: number | null
+          id?: string
+          igst_total?: number | null
+          invoice_date?: string
+          invoice_number?: string
+          is_interstate?: boolean | null
+          notes?: string | null
+          org_id?: string
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          place_of_supply?: string | null
+          retailer_id?: string
+          round_off?: number | null
+          sgst_total?: number | null
+          status?: Database["public"]["Enums"]["sales_invoice_status"]
+          subtotal?: number | null
+          tax_total?: number | null
+          total_cost?: number | null
+          total_profit?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
             referencedColumns: ["id"]
           },
         ]
@@ -414,6 +805,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string }; Returns: boolean }
+      next_sales_invoice_number: { Args: { _org: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "operator" | "accountant"
@@ -424,6 +816,8 @@ export type Database = {
         | "approved"
         | "rejected"
         | "failed"
+      payment_status: "unpaid" | "partial" | "paid"
+      sales_invoice_status: "draft" | "issued" | "paid" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -560,6 +954,8 @@ export const Constants = {
         "rejected",
         "failed",
       ],
+      payment_status: ["unpaid", "partial", "paid"],
+      sales_invoice_status: ["draft", "issued", "paid", "cancelled"],
     },
   },
 } as const

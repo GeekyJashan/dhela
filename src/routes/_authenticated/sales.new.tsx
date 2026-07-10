@@ -1,0 +1,307 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { saveSalesInvoice } from "@/lib/sales.functions";
+import { getCurrentOrg } from "@/lib/org.functions";
+import {
+  suggestPrice, splitGst, computeLine, computeInvoiceTotals,
+  amountInWords,
+  type SalesLineDraft, type PriceOverride, type ProductForPricing,
+} from "@/lib/pricing";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Trash2, Plus, Save, Send } from "lucide-react";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/_authenticated/sales/new")({
+  head: () => ({ meta: [{ title: "New sales invoice — Ledgerly" }] }),
+  component: NewSalesInvoice,
+});
+
+type Product = ProductForPricing & {
+  name: string; sku: string | null; hsn: string | null;
+  unit: string | null; current_stock: number | null;
+};
+
+type Retailer = {
+  id: string; name: string; state_code: string | null;
+  default_discount_pct: number | null; gstin: string | null;
+};
+
+type RowDraft = SalesLineDraft & { key: string };
+
+const blankRow = (): RowDraft => ({
+  key: crypto.randomUUID(),
+  product_id: null, description: "", hsn: null, batch: null, expiry_date: null,
+  quantity: 1, free_quantity: 0, unit: null, mrp: null, rate: 0,
+  discount_pct: 0, gst_rate: 0, cost_price: null,
+});
+
+function NewSalesInvoice() {
+  const navigate = useNavigate();
+  const save = useServerFn(saveSalesInvoice);
+  const getOrg = useServerFn(getCurrentOrg);
+
+  const [orgState, setOrgState] = useState<string | null>(null);
+  const [orgMargin, setOrgMargin] = useState<number | null>(15);
+  const [retailerId, setRetailerId] = useState<string>("");
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [rows, setRows] = useState<RowDraft[]>([blankRow()]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { orgId } = await getOrg();
+      const { data } = await supabase.from("organizations")
+        .select("state_code, default_margin_pct").eq("id", orgId).single();
+      if (data) {
+        setOrgState(data.state_code ?? null);
+        setOrgMargin(Number(data.default_margin_pct ?? 15));
+      }
+    })();
+  }, [getOrg]);
+
+  const { data: retailers } = useQuery({
+    queryKey: ["retailers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("retailers")
+        .select("id, name, state_code, default_discount_pct, gstin").order("name");
+      if (error) throw error;
+      return data as Retailer[];
+    },
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products", "for-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products")
+        .select("id, name, sku, hsn, gst_rate, mrp, unit, selling_rate, purchase_rate, last_purchase_rate, default_margin_pct, current_stock")
+        .order("name");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
+  const { data: overrides } = useQuery({
+    queryKey: ["price-overrides"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_price_overrides")
+        .select("product_id, retailer_id, selling_rate, discount_pct");
+      if (error) throw error;
+      return data as PriceOverride[];
+    },
+  });
+
+  const retailer = retailers?.find(r => r.id === retailerId) ?? null;
+  const { isInterstate } = splitGst(orgState, retailer?.state_code);
+
+  const computed = useMemo(() => rows.map(r => ({ ...r, ...computeLine(r, isInterstate) })), [rows, isInterstate]);
+  const totals = useMemo(() => computeInvoiceTotals(computed), [computed]);
+
+  const pickProduct = (rowKey: string, productId: string) => {
+    const p = products?.find(x => x.id === productId);
+    if (!p) return;
+    const s = suggestPrice(p, retailerId || null, overrides ?? [], orgMargin);
+    setRows(rs => rs.map(r => r.key === rowKey ? {
+      ...r,
+      product_id: p.id,
+      description: p.name,
+      hsn: p.hsn,
+      unit: p.unit,
+      mrp: p.mrp ? Number(p.mrp) : null,
+      rate: s.rate,
+      discount_pct: s.discountPct || Number(retailer?.default_discount_pct ?? 0),
+      gst_rate: Number(p.gst_rate ?? 0),
+      cost_price: Number(p.last_purchase_rate ?? p.purchase_rate ?? 0),
+    } : r));
+  };
+
+  const updateRow = (key: string, patch: Partial<RowDraft>) =>
+    setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
+
+  const removeRow = (key: string) => setRows(rs => rs.filter(r => r.key !== key));
+  const addRow = () => setRows(rs => [...rs, blankRow()]);
+
+  const submit = async (status: "draft" | "issued") => {
+    if (!retailerId) { toast.error("Pick a retailer"); return; }
+    if (!computed.length || computed.every(r => !r.description)) { toast.error("Add at least one line"); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        retailer_id: retailerId,
+        invoice_date: invoiceDate,
+        due_date: dueDate || null,
+        place_of_supply: retailer?.state_code ?? null,
+        is_interstate: isInterstate,
+        notes: notes || null,
+        status,
+        ...totals,
+        lines: computed
+          .filter(r => r.description && r.quantity > 0)
+          .map((r, i) => {
+            const { key, ...rest } = r; void key;
+            return { ...rest, line_no: i + 1 };
+          }),
+      };
+      const res = await save({ data: payload });
+      toast.success(`Invoice ${res.invoice_number} ${status === "issued" ? "issued" : "saved as draft"}`);
+      navigate({ to: "/sales/$id", params: { id: res.id! } });
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-4xl">New sales invoice</h1>
+          <p className="text-muted-foreground mt-1">
+            {isInterstate ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
+            {orgState ? ` · From state ${orgState}` : " · Set your organization state code in settings"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>Save draft</Button>
+          <Button onClick={() => submit("issued")} disabled={saving}><Send className="h-4 w-4 mr-2"/>Issue invoice</Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Bill to</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="md:col-span-2">
+            <Label>Retailer *</Label>
+            <Select value={retailerId} onValueChange={setRetailerId}>
+              <SelectTrigger><SelectValue placeholder="Choose retailer" /></SelectTrigger>
+              <SelectContent>
+                {retailers?.map(r => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}{r.state_code ? ` — ${r.state_code}` : ""}{r.gstin ? ` · ${r.gstin}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Invoice date</Label>
+            <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>Due date</Label>
+            <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Line items</CardTitle>
+          <Button size="sm" variant="outline" onClick={addRow}><Plus className="h-4 w-4 mr-2"/>Add row</Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[240px]">Product</TableHead>
+                <TableHead>HSN</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead className="w-20">Qty</TableHead>
+                <TableHead className="w-24">Rate</TableHead>
+                <TableHead className="w-20">Disc%</TableHead>
+                <TableHead className="w-20">GST%</TableHead>
+                <TableHead className="text-right">Taxable</TableHead>
+                <TableHead className="text-right">Tax</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right text-success">Profit</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {computed.map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell>
+                    <Select value={r.product_id ?? ""} onValueChange={(v) => pickProduct(r.key, v)}>
+                      <SelectTrigger><SelectValue placeholder={r.description || "Pick product"} /></SelectTrigger>
+                      <SelectContent>
+                        {products?.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}{p.current_stock != null ? ` · stock ${p.current_stock}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell><Input value={r.hsn ?? ""} onChange={e => updateRow(r.key, { hsn: e.target.value })} /></TableCell>
+                  <TableCell><Input value={r.batch ?? ""} onChange={e => updateRow(r.key, { batch: e.target.value })} /></TableCell>
+                  <TableCell><Input type="number" value={r.quantity} onChange={e => updateRow(r.key, { quantity: Number(e.target.value) })} /></TableCell>
+                  <TableCell><Input type="number" value={r.rate} onChange={e => updateRow(r.key, { rate: Number(e.target.value) })} /></TableCell>
+                  <TableCell><Input type="number" value={r.discount_pct} onChange={e => updateRow(r.key, { discount_pct: Number(e.target.value) })} /></TableCell>
+                  <TableCell><Input type="number" value={r.gst_rate} onChange={e => updateRow(r.key, { gst_rate: Number(e.target.value) })} /></TableCell>
+                  <TableCell className="text-right tabular-nums">{r.taxable_value.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.tax_amount.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-medium">{r.line_total.toFixed(2)}</TableCell>
+                  <TableCell className={`text-right tabular-nums ${r.profit >= 0 ? "text-success" : "text-destructive"}`}>{r.profit.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => removeRow(r.key)}><Trash2 className="h-3.5 w-3.5"/></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+          <CardContent>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Terms, transport, remarks…" rows={5} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <Line label="Subtotal" v={totals.subtotal} />
+            <Line label="Discount" v={-totals.discount_total} />
+            {isInterstate
+              ? <Line label="IGST" v={totals.igst_total} />
+              : <><Line label="CGST" v={totals.cgst_total} /><Line label="SGST" v={totals.sgst_total} /></>
+            }
+            <Line label="Round off" v={totals.round_off} />
+            <div className="border-t pt-2 mt-2 flex justify-between text-lg font-semibold">
+              <span>Grand total</span>
+              <span className="tabular-nums">₹ {totals.grand_total.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="text-xs text-muted-foreground italic pt-1">{amountInWords(totals.grand_total)}</div>
+            <div className="border-t pt-2 mt-2 flex justify-between">
+              <span className="text-muted-foreground">Cost</span>
+              <span className="tabular-nums">₹ {totals.total_cost.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex justify-between font-medium text-success">
+              <span>Profit</span>
+              <span className="tabular-nums">₹ {totals.total_profit.toLocaleString("en-IN")}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Line({ label, v }: { label: string; v: number }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">₹ {v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+    </div>
+  );
+}
