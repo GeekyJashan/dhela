@@ -162,6 +162,22 @@ export const approveInvoice = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     log.info("approve:start", { invoiceId: data.invoiceId, userId });
+
+    // Update product stock + last purchase rate for matched lines
+    const { data: lines } = await supabase.from("invoice_lines")
+      .select("matched_product_id, quantity, free_quantity, rate")
+      .eq("invoice_id", data.invoiceId);
+    for (const l of lines ?? []) {
+      if (!l.matched_product_id) continue;
+      const { data: p } = await supabase.from("products")
+        .select("current_stock").eq("id", l.matched_product_id).single();
+      const added = Number(l.quantity ?? 0) + Number(l.free_quantity ?? 0);
+      await supabase.from("products").update({
+        current_stock: Number(p?.current_stock ?? 0) + added,
+        last_purchase_rate: l.rate ?? undefined,
+      }).eq("id", l.matched_product_id);
+    }
+
     const { error } = await supabase.from("invoices").update({
       status: "approved", approved_by: userId, approved_at: new Date().toISOString(),
     }).eq("id", data.invoiceId);
@@ -172,3 +188,4 @@ export const approveInvoice = createServerFn({ method: "POST" })
     log.info("approve:done", { invoiceId: data.invoiceId });
     return { ok: true };
   });
+
