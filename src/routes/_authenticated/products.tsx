@@ -63,7 +63,7 @@ function Products() {
       } finally {
         setAiLoading(false);
       }
-    }, 700);
+    }, 1500);
     return () => clearTimeout(t);
   }, [form.name, open, aiSuggestHsn]);
 
@@ -83,11 +83,13 @@ function Products() {
     queryKey: ["hsn_search", hsnQuery],
     enabled: hsnQuery.length >= 2,
     queryFn: async () => {
-      const q = hsnQuery.trim();
-      const { data } = await supabase.from("hsn_codes")
+      const q = hsnQuery.trim().replace(/[,()*]/g, " ").trim();
+      const { data, error } = await supabase.from("hsn_codes")
         .select("code, description, gst_rate, category")
-        .or(`code.ilike.${q}%,description.ilike.%${q}%,category.ilike.%${q}%`)
-        .limit(10);
+        .or(`code.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%`)
+        .order("code")
+        .limit(200);
+      if (error) throw error;
       return data ?? [];
     },
   });
