@@ -27,9 +27,47 @@ const empty = {
 function Products() {
   const qc = useQueryClient();
   const getOrg = useServerFn(getCurrentOrg);
+  const aiSuggestHsn = useServerFn(suggestHsn);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<typeof empty>(empty);
   const [hsnQuery, setHsnQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiHint, setAiHint] = useState<string | null>(null);
+  const hsnTouchedRef = useRef(false);
+
+  // Auto-suggest HSN via GenAI when product name changes (debounced).
+  // Skips if the user has already typed/picked an HSN.
+  useEffect(() => {
+    if (!open) return;
+    if (hsnTouchedRef.current) return;
+    const name = form.name.trim();
+    if (name.length < 3) { setAiHint(null); return; }
+    const t = setTimeout(async () => {
+      setAiLoading(true);
+      setAiHint(null);
+      try {
+        const s = await aiSuggestHsn({ data: { name } });
+        if (hsnTouchedRef.current) return; // user typed while we waited
+        if (s.hsn) {
+          setForm(f => ({
+            ...f,
+            hsn: f.hsn || s.hsn || "",
+            gst_rate: f.gst_rate || (s.gst_rate != null ? String(s.gst_rate) : ""),
+          }));
+          setAiHint(`AI: ${s.hsn}${s.gst_rate != null ? ` · GST ${s.gst_rate}%` : ""}${s.description ? ` · ${s.description}` : ""}`);
+        } else {
+          setAiHint("AI couldn't classify — search manually below");
+        }
+      } catch (e) {
+        setAiHint(`AI failed: ${(e as Error).message}`);
+      } finally {
+        setAiLoading(false);
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [form.name, open, aiSuggestHsn]);
+
+
 
   const { data } = useQuery({
     queryKey: ["products"],
