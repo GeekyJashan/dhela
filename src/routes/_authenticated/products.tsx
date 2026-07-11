@@ -138,7 +138,7 @@ function Products() {
           <h1 className="font-display text-4xl">Products</h1>
           <p className="text-muted-foreground mt-1">Your catalog. Used for AI matching, pricing, and sales.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New product</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Add product</DialogTitle></DialogHeader>
@@ -151,9 +151,21 @@ function Products() {
 
               <div className="col-span-2 space-y-2">
                 <div className="flex gap-2">
-                  <Input placeholder="HSN code" value={form.hsn} onChange={e => setForm({ ...form, hsn: e.target.value })} />
-                  <Input placeholder="GST %" value={form.gst_rate} onChange={e => setForm({ ...form, gst_rate: e.target.value })} />
+                  <Input placeholder="HSN code" value={form.hsn}
+                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
+                  <Input placeholder="GST %" value={form.gst_rate}
+                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
                 </div>
+                <div className="text-xs flex items-center gap-1.5 min-h-[18px]">
+                  {aiLoading ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">AI classifying HSN…</span></>
+                  ) : aiHint ? (
+                    <><Sparkles className="h-3 w-3 text-primary" /><span className="text-muted-foreground">{aiHint}</span></>
+                  ) : (
+                    <span className="text-muted-foreground/70">HSN auto-fills from product name. Edit or search to override.</span>
+                  )}
+                </div>
+
                 <div className="relative">
                   <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
                   <Input className="pl-8" placeholder="Search HSN by name or code (e.g. paracetamol, 3004, cement)" value={hsnQuery} onChange={e => setHsnQuery(e.target.value)} />
