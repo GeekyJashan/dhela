@@ -125,8 +125,7 @@ function Products() {
       });
       if (error) throw error;
       toast.success("Product added");
-      setOpen(false);
-      setForm(empty);
+      handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) { toast.error((e as Error).message); }
   };
