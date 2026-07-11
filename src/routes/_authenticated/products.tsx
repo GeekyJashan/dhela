@@ -1,16 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurrentOrg } from "@/lib/org.functions";
+import { suggestHsn } from "@/lib/hsn.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Sparkles, Loader2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/products")({
   head: () => ({ meta: [{ title: "Products — Ledgerly" }] }),
@@ -25,9 +27,47 @@ const empty = {
 function Products() {
   const qc = useQueryClient();
   const getOrg = useServerFn(getCurrentOrg);
+  const aiSuggestHsn = useServerFn(suggestHsn);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<typeof empty>(empty);
   const [hsnQuery, setHsnQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiHint, setAiHint] = useState<string | null>(null);
+  const hsnTouchedRef = useRef(false);
+
+  // Auto-suggest HSN via GenAI when product name changes (debounced).
+  // Skips if the user has already typed/picked an HSN.
+  useEffect(() => {
+    if (!open) return;
+    if (hsnTouchedRef.current) return;
+    const name = form.name.trim();
+    if (name.length < 3) { setAiHint(null); return; }
+    const t = setTimeout(async () => {
+      setAiLoading(true);
+      setAiHint(null);
+      try {
+        const s = await aiSuggestHsn({ data: { name } });
+        if (hsnTouchedRef.current) return; // user typed while we waited
+        if (s.hsn) {
+          setForm(f => ({
+            ...f,
+            hsn: f.hsn || s.hsn || "",
+            gst_rate: f.gst_rate || (s.gst_rate != null ? String(s.gst_rate) : ""),
+          }));
+          setAiHint(`AI: ${s.hsn}${s.gst_rate != null ? ` · GST ${s.gst_rate}%` : ""}${s.description ? ` · ${s.description}` : ""}`);
+        } else {
+          setAiHint("AI couldn't classify — search manually below");
+        }
+      } catch (e) {
+        setAiHint(`AI failed: ${(e as Error).message}`);
+      } finally {
+        setAiLoading(false);
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [form.name, open, aiSuggestHsn]);
+
+
 
   const { data } = useQuery({
     queryKey: ["products"],
@@ -53,8 +93,20 @@ function Products() {
   });
 
   const pickHsn = (h: { code: string; gst_rate: number }) => {
+    hsnTouchedRef.current = true;
     setForm(f => ({ ...f, hsn: h.code, gst_rate: String(h.gst_rate) }));
     setHsnQuery("");
+    setAiHint(null);
+  };
+
+  const handleDialogOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (!o) {
+      setForm(empty);
+      setHsnQuery("");
+      setAiHint(null);
+      hsnTouchedRef.current = false;
+    }
   };
 
   const submit = async () => {
@@ -73,8 +125,7 @@ function Products() {
       });
       if (error) throw error;
       toast.success("Product added");
-      setOpen(false);
-      setForm(empty);
+      handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -86,7 +137,7 @@ function Products() {
           <h1 className="font-display text-4xl">Products</h1>
           <p className="text-muted-foreground mt-1">Your catalog. Used for AI matching, pricing, and sales.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New product</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Add product</DialogTitle></DialogHeader>
@@ -99,9 +150,21 @@ function Products() {
 
               <div className="col-span-2 space-y-2">
                 <div className="flex gap-2">
-                  <Input placeholder="HSN code" value={form.hsn} onChange={e => setForm({ ...form, hsn: e.target.value })} />
-                  <Input placeholder="GST %" value={form.gst_rate} onChange={e => setForm({ ...form, gst_rate: e.target.value })} />
+                  <Input placeholder="HSN code" value={form.hsn}
+                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
+                  <Input placeholder="GST %" value={form.gst_rate}
+                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
                 </div>
+                <div className="text-xs flex items-center gap-1.5 min-h-[18px]">
+                  {aiLoading ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">AI classifying HSN…</span></>
+                  ) : aiHint ? (
+                    <><Sparkles className="h-3 w-3 text-primary" /><span className="text-muted-foreground">{aiHint}</span></>
+                  ) : (
+                    <span className="text-muted-foreground/70">HSN auto-fills from product name. Edit or search to override.</span>
+                  )}
+                </div>
+
                 <div className="relative">
                   <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
                   <Input className="pl-8" placeholder="Search HSN by name or code (e.g. paracetamol, 3004, cement)" value={hsnQuery} onChange={e => setHsnQuery(e.target.value)} />
