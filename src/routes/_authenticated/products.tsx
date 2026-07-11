@@ -1,16 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurrentOrg } from "@/lib/org.functions";
+import { suggestHsn } from "@/lib/hsn.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Sparkles, Loader2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/products")({
   head: () => ({ meta: [{ title: "Products — Ledgerly" }] }),
