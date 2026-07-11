@@ -164,6 +164,98 @@ async def health() -> dict[str, Any]:
     return {"ok": True, "model": GEMINI_MODEL, "has_key": bool(GOOGLE_API_KEY)}
 
 
+# ---------- HSN suggestion ----------
+class HsnSuggestRequest(BaseModel):
+    name: str
+    context: Optional[str] = None  # optional extra info (brand, pack size, etc)
+
+
+class HsnSuggestion(BaseModel):
+    hsn: Optional[str] = None
+    gst_rate: Optional[float] = None
+    description: Optional[str] = None
+    confidence: Optional[float] = None
+    reasoning: Optional[str] = None
+
+
+HSN_SCHEMA: dict[str, Any] = {
+    "type": "OBJECT",
+    "properties": {
+        "hsn": {"type": "STRING", "nullable": True, "description": "Indian HSN/SAC code, 4-8 digits"},
+        "gst_rate": {"type": "NUMBER", "nullable": True, "description": "GST % (0/5/12/18/28)"},
+        "description": {"type": "STRING", "nullable": True},
+        "confidence": {"type": "NUMBER", "nullable": True, "description": "0-100"},
+        "reasoning": {"type": "STRING", "nullable": True},
+    },
+    "required": ["hsn", "gst_rate"],
+}
+
+HSN_SYSTEM_PROMPT = """You are an expert on the Indian GST HSN/SAC classification system.
+Given a product name (and optional context), return the single most appropriate HSN code
+and the standard Indian GST rate for that item.
+
+Rules:
+- HSN must be a real Indian HSN/SAC code (typically 4, 6 or 8 digits).
+- gst_rate must be one of 0, 5, 12, 18, 28.
+- If the product is clearly a service, use the appropriate SAC code.
+- If genuinely ambiguous, pick the most common classification for that product in Indian retail/distribution and lower the confidence.
+- Never invent codes. If you truly cannot classify, return null hsn with a short reasoning.
+Respond ONLY with valid JSON matching the schema."""
+
+
+@app.post("/suggest-hsn", response_model=HsnSuggestion)
+async def suggest_hsn(req: HsnSuggestRequest) -> HsnSuggestion:
+    if not GOOGLE_API_KEY:
+        log.error("suggest-hsn: GOOGLE_API_KEY missing")
+        raise HTTPException(500, "GOOGLE_API_KEY not configured on the service")
+
+    name = (req.name or "").strip()
+    if len(name) < 2:
+        raise HTTPException(400, "Product name too short")
+
+    user_text = f"Product name: {name}"
+    if req.context:
+        user_text += f"\nContext: {req.context}"
+
+    payload = {
+        "systemInstruction": {"parts": [{"text": HSN_SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": HSN_SCHEMA,
+            "temperature": 0.1,
+        },
+    }
+
+    log.info("suggest-hsn: calling Gemini name=%r", name)
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload,
+            )
+    except httpx.HTTPError as e:
+        log.exception("suggest-hsn: HTTP error")
+        raise HTTPException(502, f"Gemini transport error: {e}") from e
+
+    log.info("suggest-hsn: status=%s in %.1fms", resp.status_code, (time.time() - t0) * 1000)
+    if resp.status_code >= 400:
+        log.error("suggest-hsn: Gemini error body=%s", resp.text[:500])
+        raise HTTPException(resp.status_code, f"Gemini error: {resp.text[:300]}")
+
+    data = resp.json()
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        parsed = json.loads(text)
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        log.exception("suggest-hsn: malformed response raw=%s", str(data)[:600])
+        raise HTTPException(502, f"Malformed Gemini response: {e}") from e
+
+    result = HsnSuggestion.model_validate(parsed)
+    log.info("suggest-hsn: → hsn=%s gst=%s conf=%s", result.hsn, result.gst_rate, result.confidence)
+    return result
+
+
 @app.post("/extract", response_model=InvoiceExtraction)
 async def extract(
     file: UploadFile = File(...),
