@@ -93,8 +93,20 @@ function Products() {
   });
 
   const pickHsn = (h: { code: string; gst_rate: number }) => {
+    hsnTouchedRef.current = true;
     setForm(f => ({ ...f, hsn: h.code, gst_rate: String(h.gst_rate) }));
     setHsnQuery("");
+    setAiHint(null);
+  };
+
+  const handleDialogOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (!o) {
+      setForm(empty);
+      setHsnQuery("");
+      setAiHint(null);
+      hsnTouchedRef.current = false;
+    }
   };
 
   const submit = async () => {
