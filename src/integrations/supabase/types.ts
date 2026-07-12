@@ -189,6 +189,7 @@ export type Database = {
           confidence: number | null
           created_at: string
           error_message: string | null
+          extraction_engine: string | null
           grand_total: number | null
           id: string
           invoice_date: string | null
@@ -212,6 +213,7 @@ export type Database = {
           confidence?: number | null
           created_at?: string
           error_message?: string | null
+          extraction_engine?: string | null
           grand_total?: number | null
           id?: string
           invoice_date?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           confidence?: number | null
           created_at?: string
           error_message?: string | null
+          extraction_engine?: string | null
           grand_total?: number | null
           id?: string
           invoice_date?: string | null
@@ -816,6 +819,7 @@ export type Database = {
         | "approved"
         | "rejected"
         | "failed"
+        | "queued"
       payment_status: "unpaid" | "partial" | "paid"
       sales_invoice_status: "draft" | "issued" | "paid" | "cancelled"
     }
@@ -953,6 +957,7 @@ export const Constants = {
         "approved",
         "rejected",
         "failed",
+        "queued",
       ],
       payment_status: ["unpaid", "partial", "paid"],
       sales_invoice_status: ["draft", "issued", "paid", "cancelled"],
