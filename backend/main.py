@@ -333,3 +333,198 @@ async def extract(
     )
     return result
 
+
+# ---------- OCR extraction (cheap, header only) ----------
+import io
+import re
+
+try:
+    import pytesseract  # type: ignore
+    from PIL import Image  # type: ignore
+except Exception as _e:  # pragma: no cover
+    pytesseract = None
+    Image = None
+
+try:
+    import pdfplumber  # type: ignore
+except Exception:  # pragma: no cover
+    pdfplumber = None
+
+try:
+    from pdf2image import convert_from_bytes  # type: ignore
+except Exception:  # pragma: no cover
+    convert_from_bytes = None
+
+
+_DATE_PATTERNS = [
+    (re.compile(r"\b(\d{2})[/-](\d{2})[/-](\d{4})\b"), "%d-%m-%Y"),
+    (re.compile(r"\b(\d{4})[/-](\d{2})[/-](\d{2})\b"), "%Y-%m-%d"),
+    (re.compile(r"\b(\d{2})[/-](\d{2})[/-](\d{2})\b"), "%d-%m-%y"),
+]
+
+_GSTIN_RE = re.compile(r"\b(\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9])\b")
+_INV_NO_RE = re.compile(r"(?:invoice|bill|inv)[\s\-#:no.]*([A-Z0-9][A-Z0-9/\-]{2,20})", re.I)
+_TOTAL_RE = re.compile(r"(?:grand\s*total|total\s*amount|net\s*amount|amount\s*payable|invoice\s*total)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+_TAX_RE = re.compile(r"(?:total\s*tax|tax\s*amount|cgst\s*\+\s*sgst|igst)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+_SUBTOTAL_RE = re.compile(r"(?:sub\s*total|taxable\s*value|taxable\s*amount)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+_DATE_LINE_RE = re.compile(r"(?:invoice\s*date|bill\s*date|dated)[^\d]{0,10}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", re.I)
+
+
+def _to_number(s: Optional[str]) -> Optional[float]:
+    if not s:
+        return None
+    try:
+        return float(s.replace(",", "").strip())
+    except ValueError:
+        return None
+
+
+def _normalise_date(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    from datetime import datetime
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y", "%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(raw.strip(), fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def _guess_supplier(text: str) -> Optional[str]:
+    # First non-empty line that isn't obviously a heading like "TAX INVOICE"
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        low = s.lower()
+        if any(k in low for k in ("tax invoice", "invoice", "gstin", "bill of")):
+            continue
+        if len(s) < 3 or len(s) > 80:
+            continue
+        return s
+    return None
+
+
+def _ocr_pdf_bytes(raw: bytes) -> str:
+    text_parts: list[str] = []
+    if pdfplumber is not None:
+        try:
+            with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                for page in pdf.pages[:5]:
+                    t = page.extract_text() or ""
+                    if t.strip():
+                        text_parts.append(t)
+        except Exception as e:
+            log.warning("ocr: pdfplumber failed: %s", e)
+    joined = "\n".join(text_parts).strip()
+    if joined:
+        return joined
+    # Fallback: rasterise + tesseract
+    if convert_from_bytes is None or pytesseract is None:
+        return ""
+    try:
+        images = convert_from_bytes(raw, dpi=200, first_page=1, last_page=3)
+        return "\n".join(pytesseract.image_to_string(img) for img in images)
+    except Exception as e:
+        log.warning("ocr: pdf raster failed: %s", e)
+        return ""
+
+
+def _ocr_image_bytes(raw: bytes) -> str:
+    if pytesseract is None or Image is None:
+        return ""
+    try:
+        img = Image.open(io.BytesIO(raw))
+        return pytesseract.image_to_string(img)
+    except Exception as e:
+        log.warning("ocr: image failed: %s", e)
+        return ""
+
+
+def _parse_header_from_text(text: str) -> InvoiceExtraction:
+    supplier_gstin = None
+    m = _GSTIN_RE.search(text)
+    if m:
+        supplier_gstin = m.group(1)
+
+    inv_no = None
+    m = _INV_NO_RE.search(text)
+    if m:
+        inv_no = m.group(1).strip(" .:#")
+
+    inv_date = None
+    m = _DATE_LINE_RE.search(text)
+    if m:
+        inv_date = _normalise_date(m.group(1))
+    if not inv_date:
+        m = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b", text)
+        if m:
+            inv_date = _normalise_date(m.group(1))
+
+    grand_total = None
+    m = _TOTAL_RE.search(text)
+    if m:
+        grand_total = _to_number(m.group(1))
+
+    tax_total = None
+    m = _TAX_RE.search(text)
+    if m:
+        tax_total = _to_number(m.group(1))
+
+    subtotal = None
+    m = _SUBTOTAL_RE.search(text)
+    if m:
+        subtotal = _to_number(m.group(1))
+    if subtotal is None and grand_total is not None and tax_total is not None:
+        subtotal = round(grand_total - tax_total, 2)
+
+    supplier = _guess_supplier(text)
+
+    # Confidence heuristic: how many key fields we found
+    found = sum(x is not None for x in [supplier, supplier_gstin, inv_no, inv_date, grand_total])
+    conf = round(found / 5.0 * 100.0, 1)
+
+    return InvoiceExtraction(
+        supplier_name=supplier,
+        supplier_gstin=supplier_gstin,
+        invoice_number=inv_no,
+        invoice_date=inv_date,
+        subtotal=subtotal,
+        tax_total=tax_total,
+        grand_total=grand_total,
+        overall_confidence=conf,
+        notes="Extracted via OCR (header only). Line items must be entered manually.",
+        lines=[],
+    )
+
+
+@app.post("/extract-ocr", response_model=InvoiceExtraction)
+async def extract_ocr(
+    file: UploadFile = File(...),
+    mime_type: Optional[str] = Form(None),
+) -> InvoiceExtraction:
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "Empty file")
+    mime = (mime_type or file.content_type or "").lower()
+    log.info("ocr: file=%s bytes=%d mime=%s", file.filename, len(raw), mime)
+
+    t0 = time.time()
+    if "pdf" in mime or (file.filename or "").lower().endswith(".pdf"):
+        text = _ocr_pdf_bytes(raw)
+    else:
+        text = _ocr_image_bytes(raw)
+    log.info("ocr: text extracted chars=%d in %.1fms", len(text), (time.time() - t0) * 1000)
+
+    if not text.strip():
+        raise HTTPException(422, "OCR could not read any text from the file. Try the AI engine.")
+
+    result = _parse_header_from_text(text)
+    log.info(
+        "ocr: parsed supplier=%s inv=%s date=%s total=%s conf=%s",
+        result.supplier_name, result.invoice_number, result.invoice_date,
+        result.grand_total, result.overall_confidence,
+    )
+    return result
+

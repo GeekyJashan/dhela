@@ -1,9 +1,10 @@
-# Invoice Extraction Service (FastAPI + Gemini 2.5 Flash)
+# Invoice Extraction Service (FastAPI)
 
-A standalone Python service that receives an invoice file and returns
-structured JSON extracted by Google Gemini 2.5 Flash. The frontend
-(TanStack Start app) calls this service via the `EXTRACTION_API_URL`
-env var.
+Two engines, one service:
+- `POST /extract` — full extraction via Google Gemini 2.5 Flash (higher cost, higher accuracy).
+- `POST /extract-ocr` — header-only via Tesseract + pdfplumber + regex (~free).
+- `POST /suggest-hsn` — Gemini HSN classifier for a product name.
+- `GET /health`.
 
 ## Local run
 
@@ -11,11 +12,43 @@ env var.
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export GOOGLE_API_KEY=your_google_ai_studio_key
+
+# System deps for OCR (once):
+#   macOS:  brew install tesseract poppler
+#   Ubuntu: sudo apt-get install -y tesseract-ocr poppler-utils
+
+export GOOGLE_API_KEY=your_google_ai_studio_key   # only needed for AI + HSN
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Get a key at https://aistudio.google.com/apikey (free tier available).
+
+## Background queue (bulk uploads)
+
+Bulk uploads create `invoices` rows with `status='queued'`. Two workers pick them up:
+
+1. The client fires a one-shot POST to `/api/public/hooks/process-invoice-queue` right after enqueue, so users see immediate progress while the tab is open.
+2. A `pg_cron` job hits the same endpoint every minute — this is what makes the flow tab-close-safe. Set it up once:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule(
+  'process-invoice-queue',
+  '* * * * *',
+  $$
+  select net.http_post(
+    url := 'https://project--c95c083c-3887-434b-a85f-e8bcbe9139e6.lovable.app/api/public/hooks/process-invoice-queue',
+    headers := '{"Content-Type":"application/json"}'::jsonb,
+    body := '{"limit": 5}'::jsonb
+  );
+  $$
+);
+```
+
+Swap the URL to `project--...-dev.lovable.app` for the preview build.
+
 
 ## Endpoints
 

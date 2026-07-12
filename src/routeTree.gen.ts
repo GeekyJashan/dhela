@@ -23,6 +23,7 @@ import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedSalesNewRouteImport } from './routes/_authenticated/sales.new'
 import { Route as AuthenticatedSalesIdRouteImport } from './routes/_authenticated/sales.$id'
 import { Route as AuthenticatedInvoicesIdRouteImport } from './routes/_authenticated/invoices.$id'
+import { Route as ApiPublicHooksProcessInvoiceQueueRouteImport } from './routes/api/public/hooks/process-invoice-queue'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -94,6 +95,12 @@ const AuthenticatedInvoicesIdRoute = AuthenticatedInvoicesIdRouteImport.update({
   path: '/invoices/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksProcessInvoiceQueueRoute =
+  ApiPublicHooksProcessInvoiceQueueRouteImport.update({
+    id: '/api/public/hooks/process-invoice-queue',
+    path: '/api/public/hooks/process-invoice-queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/sales/new': typeof AuthenticatedSalesNewRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/sales/': typeof AuthenticatedSalesIndexRoute
+  '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -124,6 +132,7 @@ export interface FileRoutesByTo {
   '/sales/new': typeof AuthenticatedSalesNewRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/sales': typeof AuthenticatedSalesIndexRoute
+  '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -141,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated/sales/new': typeof AuthenticatedSalesNewRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/sales/': typeof AuthenticatedSalesIndexRoute
+  '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/sales/new'
     | '/invoices/'
     | '/sales/'
+    | '/api/public/hooks/process-invoice-queue'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/sales/new'
     | '/invoices'
     | '/sales'
+    | '/api/public/hooks/process-invoice-queue'
   id:
     | '__root__'
     | '/'
@@ -189,12 +201,14 @@ export interface FileRouteTypes {
     | '/_authenticated/sales/new'
     | '/_authenticated/invoices/'
     | '/_authenticated/sales/'
+    | '/api/public/hooks/process-invoice-queue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksProcessInvoiceQueueRoute: typeof ApiPublicHooksProcessInvoiceQueueRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -297,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInvoicesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/process-invoice-queue': {
+      id: '/api/public/hooks/process-invoice-queue'
+      path: '/api/public/hooks/process-invoice-queue'
+      fullPath: '/api/public/hooks/process-invoice-queue'
+      preLoaderRoute: typeof ApiPublicHooksProcessInvoiceQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -335,17 +356,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksProcessInvoiceQueueRoute:
+    ApiPublicHooksProcessInvoiceQueueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
