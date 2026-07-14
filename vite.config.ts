@@ -34,10 +34,12 @@ export default defineConfig(({ command, mode }) => {
       tailwindcss(),
       tsConfigPaths({ projects: ["./tsconfig.json"] }),
       // src/server.ts wraps SSR errors; nitro builds a plain Node server
-      // locally. Set NITRO_PRESET=vercel (or netlify, …) on the host to
-      // target its serverless output instead.
+      // locally. Vercel builds are auto-detected (VERCEL=1); NITRO_PRESET
+      // still overrides for any other host (netlify, cloudflare, …).
       tanstackStart({ server: { entry: "server" } }),
-      ...(command === "build" ? [nitro({ preset: process.env.NITRO_PRESET ?? "node-server" })] : []),
+      ...(command === "build"
+        ? [nitro({ preset: process.env.NITRO_PRESET ?? (process.env.VERCEL ? "vercel" : "node-server") })]
+        : []),
       viteReact(),
     ],
   };
