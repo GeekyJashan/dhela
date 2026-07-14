@@ -18,6 +18,109 @@ export const Route = createFileRoute("/_authenticated/pricing")({
   component: PricingPage,
 });
 
+type StockGroupRow = {
+  id: string; name: string; hsn_code: string | null;
+  discount_a: number; discount_b: number; discount_c: number;
+  products: { count: number }[];
+};
+
+function StockGroupsCard() {
+  const qc = useQueryClient();
+  const [drafts, setDrafts] = useState<Record<string, { name: string; a: string; b: string; c: string }>>({});
+
+  const { data: groups } = useQuery({
+    queryKey: ["stock_groups"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("stock_groups")
+        .select("id, name, hsn_code, discount_a, discount_b, discount_c, products(count)")
+        .order("name");
+      if (error) throw error;
+      return data as unknown as StockGroupRow[];
+    },
+  });
+
+  const draftFor = (g: StockGroupRow) => drafts[g.id] ?? {
+    name: g.name,
+    a: String(Number(g.discount_a ?? 0)),
+    b: String(Number(g.discount_b ?? 0)),
+    c: String(Number(g.discount_c ?? 0)),
+  };
+
+  const patch = (g: StockGroupRow, p: Partial<{ name: string; a: string; b: string; c: string }>) =>
+    setDrafts(d => ({ ...d, [g.id]: { ...draftFor(g), ...p } }));
+
+  const isDirty = (g: StockGroupRow) => {
+    const d = drafts[g.id];
+    if (!d) return false;
+    return d.name !== g.name
+      || Number(d.a) !== Number(g.discount_a ?? 0)
+      || Number(d.b) !== Number(g.discount_b ?? 0)
+      || Number(d.c) !== Number(g.discount_c ?? 0);
+  };
+
+  const saveGroup = async (g: StockGroupRow) => {
+    const d = draftFor(g);
+    const { error } = await supabase.from("stock_groups").update({
+      name: d.name.trim() || g.name,
+      discount_a: Number(d.a) || 0,
+      discount_b: Number(d.b) || 0,
+      discount_c: Number(d.c) || 0,
+    }).eq("id", g.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${d.name} saved`);
+    setDrafts(({ [g.id]: _gone, ...rest }) => rest);
+    qc.invalidateQueries({ queryKey: ["stock_groups"] });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Stock group discounts</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Products are grouped automatically by HSN code. Set the discount each retailer
+          category gets — sales invoices pick these up automatically.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Group</TableHead>
+            <TableHead>HSN</TableHead>
+            <TableHead className="text-right">Products</TableHead>
+            <TableHead className="w-28">Disc% — A</TableHead>
+            <TableHead className="w-28">Disc% — B</TableHead>
+            <TableHead className="w-28">Disc% — C</TableHead>
+            <TableHead></TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {groups?.map(g => {
+              const d = draftFor(g);
+              return (
+                <TableRow key={g.id}>
+                  <TableCell><Input value={d.name} onChange={e => patch(g, { name: e.target.value })} /></TableCell>
+                  <TableCell className="font-mono text-xs">{g.hsn_code ?? "—"}</TableCell>
+                  <TableCell className="text-right tabular-nums">{g.products?.[0]?.count ?? 0}</TableCell>
+                  <TableCell><Input type="number" value={d.a} onChange={e => patch(g, { a: e.target.value })} /></TableCell>
+                  <TableCell><Input type="number" value={d.b} onChange={e => patch(g, { b: e.target.value })} /></TableCell>
+                  <TableCell><Input type="number" value={d.c} onChange={e => patch(g, { c: e.target.value })} /></TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant={isDirty(g) ? "default" : "ghost"} disabled={!isDirty(g)} onClick={() => saveGroup(g)}>Save</Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {!groups?.length && (
+              <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                No stock groups yet — they're created automatically when you add products with an HSN code.
+              </TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PricingPage() {
   const qc = useQueryClient();
   const save = useServerFn(upsertPriceOverride);
@@ -80,7 +183,7 @@ function PricingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-4xl">Pricing rules</h1>
-          <p className="text-muted-foreground mt-1">Set a custom rate per product, or a special rate for a specific retailer.</p>
+          <p className="text-muted-foreground mt-1">Stock-group discounts by retailer category, plus per-product or per-retailer overrides.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2"/>New override</Button></DialogTrigger>
@@ -119,6 +222,8 @@ function PricingPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <StockGroupsCard />
 
       <Card>
         <CardHeader><CardTitle>Overrides ({rows?.length ?? 0})</CardTitle></CardHeader>

@@ -4,8 +4,8 @@
  *   1. Override for (product, retailer) — dealer-specific price
  *   2. Override for (product, retailer = NULL) — product default custom rate
  *   3. product.selling_rate (manually set)
- *   4. last_purchase_rate * (1 + margin%)   margin resolved from
- *        product.default_margin_pct ?? org.default_margin_pct ?? 15
+ *   4. product.mrp — billing basis; the stock-group A/B/C discount does the pricing
+ *   5. last_purchase_rate * (1 + margin%) — only when no MRP is known
  */
 export type PriceOverride = {
   product_id: string;
@@ -24,26 +24,56 @@ export type ProductForPricing = {
   gst_rate: number | null;
 };
 
+export type RetailerCategory = "A" | "B" | "C";
+
+export type StockGroup = {
+  id: string;
+  name: string;
+  hsn_code: string | null;
+  discount_a: number | null;
+  discount_b: number | null;
+  discount_c: number | null;
+};
+
+/** Discount % for a retailer category from the product's stock group. */
+export function stockGroupDiscount(group: StockGroup | null | undefined, category: RetailerCategory | null | undefined): number | null {
+  if (!group) return null;
+  switch (category ?? "C") {
+    case "A": return Number(group.discount_a ?? 0);
+    case "B": return Number(group.discount_b ?? 0);
+    default: return Number(group.discount_c ?? 0);
+  }
+}
+
 export function suggestPrice(
   product: ProductForPricing,
   retailerId: string | null,
   overrides: PriceOverride[],
   orgDefaultMarginPct: number | null,
-): { rate: number; discountPct: number; source: string } {
+): { rate: number; discountPct: number | null; source: string } {
   const dealer = overrides.find(o => o.product_id === product.id && o.retailer_id === retailerId);
   if (dealer) return { rate: Number(dealer.selling_rate), discountPct: Number(dealer.discount_pct ?? 0), source: "dealer-override" };
 
   const global = overrides.find(o => o.product_id === product.id && o.retailer_id === null);
   if (global) return { rate: Number(global.selling_rate), discountPct: Number(global.discount_pct ?? 0), source: "product-override" };
 
+  // discountPct: null means "no override — resolve from stock group / retailer".
   if (product.selling_rate && Number(product.selling_rate) > 0) {
-    return { rate: Number(product.selling_rate), discountPct: 0, source: "product-default" };
+    return { rate: Number(product.selling_rate), discountPct: null, source: "product-default" };
   }
 
+  // Bill on MRP; the stock-group A/B/C discount carries the pricing.
+  if (product.mrp && Number(product.mrp) > 0) {
+    return { rate: Number(product.mrp), discountPct: null, source: "mrp" };
+  }
+
+  // No MRP known — fall back to cost plus margin so the rate isn't zero.
   const cost = Number(product.last_purchase_rate ?? product.purchase_rate ?? 0);
   const margin = Number(product.default_margin_pct ?? orgDefaultMarginPct ?? 15);
-  const rate = cost > 0 ? +(cost * (1 + margin / 100)).toFixed(2) : 0;
-  return { rate, discountPct: 0, source: `margin ${margin}%` };
+  if (cost > 0) {
+    return { rate: +(cost * (1 + margin / 100)).toFixed(2), discountPct: null, source: `margin ${margin}%` };
+  }
+  return { rate: 0, discountPct: null, source: "none" };
 }
 
 /** Split GST by supplier vs buyer state code. */

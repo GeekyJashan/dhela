@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
   head: () => ({ meta: [{ title: "Suppliers — Ledgerly" }] }),
@@ -31,6 +31,17 @@ function Suppliers() {
       return data;
     },
   });
+
+  // Live payables from the ledger view (purchases − payments + opening).
+  const { data: balanceRows } = useQuery({
+    queryKey: ["party_balances", "supplier"],
+    queryFn: async () => {
+      const { data } = await supabase.from("party_balances")
+        .select("party_id, balance").eq("party_type", "supplier");
+      return data ?? [];
+    },
+  });
+  const balances = new Map(balanceRows?.map(b => [b.party_id, Number(b.balance ?? 0)]));
 
   const submit = async () => {
     try {
@@ -71,6 +82,7 @@ function Suppliers() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Name</TableHead><TableHead>GSTIN</TableHead><TableHead>Contact</TableHead><TableHead>Address</TableHead>
+              <TableHead className="text-right">Payable</TableHead><TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {data?.map(s => (
@@ -79,9 +91,15 @@ function Suppliers() {
                   <TableCell>{s.gstin}</TableCell>
                   <TableCell>{s.contact}</TableCell>
                   <TableCell className="text-muted-foreground">{s.address}</TableCell>
+                  <TableCell className="text-right tabular-nums">₹ {(balances.get(s.id) ?? 0).toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right">
+                    <Link to="/statement" search={{ party: "supplier", id: s.id }}>
+                      <Button size="sm" variant="ghost" title="Account statement"><FileText className="h-3.5 w-3.5" /></Button>
+                    </Link>
+                  </TableCell>
                 </TableRow>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No suppliers yet.</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No suppliers yet.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

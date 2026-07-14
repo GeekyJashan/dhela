@@ -1,14 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { saveSalesInvoice } from "@/lib/sales.functions";
 import { getCurrentOrg } from "@/lib/org.functions";
 import {
   suggestPrice, splitGst, computeLine, computeInvoiceTotals,
-  amountInWords,
+  amountInWords, stockGroupDiscount,
   type SalesLineDraft, type PriceOverride, type ProductForPricing,
+  type StockGroup, type RetailerCategory,
 } from "@/lib/pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,17 +23,21 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
   head: () => ({ meta: [{ title: "New sales invoice — Ledgerly" }] }),
+  validateSearch: (s: Record<string, unknown>): { orderId?: string } =>
+    typeof s.orderId === "string" ? { orderId: s.orderId } : {},
   component: NewSalesInvoice,
 });
 
 type Product = ProductForPricing & {
   name: string; sku: string | null; hsn: string | null;
   unit: string | null; current_stock: number | null;
+  stock_group_id: string | null;
 };
 
 type Retailer = {
   id: string; name: string; state_code: string | null;
   default_discount_pct: number | null; gstin: string | null;
+  category: RetailerCategory | null;
 };
 
 type RowDraft = SalesLineDraft & { key: string };
@@ -46,6 +51,7 @@ const blankRow = (): RowDraft => ({
 
 function NewSalesInvoice() {
   const navigate = useNavigate();
+  const { orderId } = Route.useSearch();
   const save = useServerFn(saveSalesInvoice);
   const getOrg = useServerFn(getCurrentOrg);
 
@@ -74,7 +80,7 @@ function NewSalesInvoice() {
     queryKey: ["retailers"],
     queryFn: async () => {
       const { data, error } = await supabase.from("retailers")
-        .select("id, name, state_code, default_discount_pct, gstin").order("name");
+        .select("id, name, state_code, default_discount_pct, gstin, category").order("name");
       if (error) throw error;
       return data as Retailer[];
     },
@@ -84,7 +90,7 @@ function NewSalesInvoice() {
     queryKey: ["products", "for-sale"],
     queryFn: async () => {
       const { data, error } = await supabase.from("products")
-        .select("id, name, sku, hsn, gst_rate, mrp, unit, selling_rate, purchase_rate, last_purchase_rate, default_margin_pct, current_stock")
+        .select("id, name, sku, hsn, gst_rate, mrp, unit, selling_rate, purchase_rate, last_purchase_rate, default_margin_pct, current_stock, stock_group_id")
         .order("name");
       if (error) throw error;
       return data as Product[];
@@ -101,29 +107,98 @@ function NewSalesInvoice() {
     },
   });
 
+  const { data: stockGroups } = useQuery({
+    queryKey: ["stock_groups", "for-sale"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("stock_groups")
+        .select("id, name, hsn_code, discount_a, discount_b, discount_c");
+      if (error) throw error;
+      return data as StockGroup[];
+    },
+  });
+
+  const { data: order } = useQuery({
+    queryKey: ["order-prefill", orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("orders")
+        .select("id, retailer_id, order_number, status, order_lines(product_id, quantity, fulfilled_quantity)")
+        .eq("id", orderId!).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const retailer = retailers?.find(r => r.id === retailerId) ?? null;
   const { isInterstate } = splitGst(orgState, retailer?.state_code);
 
   const computed = useMemo(() => rows.map(r => ({ ...r, ...computeLine(r, isInterstate) })), [rows, isInterstate]);
   const totals = useMemo(() => computeInvoiceTotals(computed), [computed]);
 
-  const pickProduct = (rowKey: string, productId: string) => {
-    const p = products?.find(x => x.id === productId);
-    if (!p) return;
-    const s = suggestPrice(p, retailerId || null, overrides ?? [], orgMargin);
-    setRows(rs => rs.map(r => r.key === rowKey ? {
-      ...r,
+  // Rate + discount for a product: override rate chain, then discount from
+  // override → stock group × retailer category → retailer default.
+  const priceLine = (p: Product, ret: Retailer | null) => {
+    const s = suggestPrice(p, ret?.id ?? null, overrides ?? [], orgMargin);
+    const group = stockGroups?.find(g => g.id === p.stock_group_id) ?? null;
+    const discount = s.discountPct
+      ?? stockGroupDiscount(group, ret?.category)
+      ?? Number(ret?.default_discount_pct ?? 0);
+    return {
       product_id: p.id,
       description: p.name,
       hsn: p.hsn,
       unit: p.unit,
       mrp: p.mrp ? Number(p.mrp) : null,
       rate: s.rate,
-      discount_pct: s.discountPct || Number(retailer?.default_discount_pct ?? 0),
+      discount_pct: discount,
       gst_rate: Number(p.gst_rate ?? 0),
       cost_price: Number(p.last_purchase_rate ?? p.purchase_rate ?? 0),
-    } : r));
+    };
   };
+
+  const pickProduct = (rowKey: string, productId: string) => {
+    const p = products?.find(x => x.id === productId);
+    if (!p) return;
+    setRows(rs => rs.map(r => r.key === rowKey ? { ...r, ...priceLine(p, retailer) } : r));
+  };
+
+  // Re-resolve rates/discounts on the rows when the retailer changes —
+  // category discounts and dealer overrides differ per retailer.
+  const prevRetailerRef = useRef("");
+  useEffect(() => {
+    if (retailerId === prevRetailerRef.current) return;
+    if (!retailer) return;
+    prevRetailerRef.current = retailerId;
+    setRows(rs => rs.map(r => {
+      const p = products?.find(x => x.id === r.product_id);
+      return p ? { ...r, ...priceLine(p, retailer) } : r;
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retailerId, retailer, products, overrides, stockGroups, orgMargin]);
+
+  // Prefill from an order (?orderId=): lock in the retailer and load its
+  // pending lines with qty capped at available stock.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (prefilledRef.current) return;
+    if (!orderId || !order || !products || !retailers || !stockGroups || !overrides) return;
+    prefilledRef.current = true;
+    prevRetailerRef.current = order.retailer_id;
+    setRetailerId(order.retailer_id);
+    const ret = retailers.find(r => r.id === order.retailer_id) ?? null;
+    const prefillRows: RowDraft[] = [];
+    for (const ol of order.order_lines ?? []) {
+      const p = products.find(x => x.id === ol.product_id);
+      if (!p) continue;
+      const pending = Number(ol.quantity) - Number(ol.fulfilled_quantity ?? 0);
+      if (pending <= 0) continue;
+      const qty = Math.max(0, Math.min(pending, Number(p.current_stock ?? 0)));
+      prefillRows.push({ ...blankRow(), ...priceLine(p, ret), quantity: qty });
+    }
+    if (prefillRows.length) setRows(prefillRows);
+    setNotes(n => n || `Against order ${order.order_number}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, order, products, retailers, stockGroups, overrides]);
 
   const updateRow = (key: string, patch: Partial<RowDraft>) =>
     setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
@@ -137,6 +212,7 @@ function NewSalesInvoice() {
     setSaving(true);
     try {
       const payload = {
+        order_id: orderId ?? null,
         retailer_id: retailerId,
         invoice_date: invoiceDate,
         due_date: dueDate || null,
@@ -165,6 +241,7 @@ function NewSalesInvoice() {
         <div>
           <h1 className="font-display text-4xl">New sales invoice</h1>
           <p className="text-muted-foreground mt-1">
+            {order ? `Against order ${order.order_number} · ` : ""}
             {isInterstate ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
             {orgState ? ` · From state ${orgState}` : " · Set your organization state code in settings"}
           </p>
@@ -215,7 +292,6 @@ function NewSalesInvoice() {
                 <TableHead>HSN</TableHead>
                 <TableHead>Batch</TableHead>
                 <TableHead className="w-20">Qty</TableHead>
-                <TableHead className="w-24">Rate</TableHead>
                 <TableHead className="w-20">Disc%</TableHead>
                 <TableHead className="w-20">GST%</TableHead>
                 <TableHead className="text-right">Taxable</TableHead>
@@ -243,7 +319,6 @@ function NewSalesInvoice() {
                   <TableCell><Input value={r.hsn ?? ""} onChange={e => updateRow(r.key, { hsn: e.target.value })} /></TableCell>
                   <TableCell><Input value={r.batch ?? ""} onChange={e => updateRow(r.key, { batch: e.target.value })} /></TableCell>
                   <TableCell><Input type="number" value={r.quantity} onChange={e => updateRow(r.key, { quantity: Number(e.target.value) })} /></TableCell>
-                  <TableCell><Input type="number" value={r.rate} onChange={e => updateRow(r.key, { rate: Number(e.target.value) })} /></TableCell>
                   <TableCell><Input type="number" value={r.discount_pct} onChange={e => updateRow(r.key, { discount_pct: Number(e.target.value) })} /></TableCell>
                   <TableCell><Input type="number" value={r.gst_rate} onChange={e => updateRow(r.key, { gst_rate: Number(e.target.value) })} /></TableCell>
                   <TableCell className="text-right tabular-nums">{r.taxable_value.toFixed(2)}</TableCell>

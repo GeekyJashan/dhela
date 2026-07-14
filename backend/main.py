@@ -23,6 +23,12 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # backend/.env — holds GOOGLE_API_KEY locally
+except ImportError:
+    pass
+
 # ---------- logging ----------
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -406,6 +412,270 @@ def _guess_supplier(text: str) -> Optional[str]:
     return None
 
 
+# ---------- line-item extraction (heuristic, free) ----------
+# Maps table-header cells to InvoiceLine fields. Order matters: specific
+# keywords ("taxable") must match before generic ones ("value"/"total").
+_COLUMN_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("hsn", ("hsn", "sac")),
+    ("batch", ("batch", "b.no", "btno")),
+    ("expiry_date", ("exp",)),
+    ("mfg_date", ("mfg",)),
+    ("free_quantity", ("free", "scheme", "fr qty")),
+    ("quantity", ("qty", "quantity", "nos", "pcs")),
+    ("unit", ("unit", "uom", "pack", "pkg")),
+    ("mrp", ("mrp",)),
+    ("discount_pct", ("disc", "dis%", "d%")),
+    ("gst_rate", ("gst", "igst", "cgst", "sgst", "tax %", "tax%")),
+    ("taxable_value", ("taxable",)),
+    ("tax_amount", ("tax amt", "tax amount", "taxamt")),
+    ("rate", ("rate", "price", "ptr", "p.rate")),
+    ("line_total", ("amount", "amt", "total", "value", "net")),
+    ("raw_description", ("description", "particular", "item", "product", "goods", "name")),
+]
+
+_NUMERIC_FIELDS = {
+    "quantity", "free_quantity", "rate", "mrp", "discount_pct", "gst_rate",
+    "taxable_value", "tax_amount", "line_total",
+}
+_TOTALS_ROW_RE = re.compile(r"^\s*(sub\s*-?\s*total|grand\s*total|total|round\s*off|cgst|sgst|igst|freight|less|add)\b", re.I)
+
+
+def _classify_header_cell(cell: str) -> Optional[str]:
+    low = " ".join(cell.lower().split())
+    if not low:
+        return None
+    for field, keywords in _COLUMN_KEYWORDS:
+        if any(k in low for k in keywords):
+            return field
+    return None
+
+
+def _find_header_row(grid: list[list[str]]) -> tuple[int, dict[int, str]]:
+    """Return (row index, {column index: field}) for the line-items header, or (-1, {})."""
+    for i, row in enumerate(grid[:15]):
+        colmap: dict[int, str] = {}
+        seen: set[str] = set()
+        for j, cell in enumerate(row):
+            field = _classify_header_cell(cell or "")
+            if field and field not in seen:
+                colmap[j] = field
+                seen.add(field)
+        # A real items header names at least a description plus two value columns.
+        if "raw_description" in seen and len(seen & (_NUMERIC_FIELDS | {"hsn"})) >= 2:
+            return i, colmap
+    return -1, {}
+
+
+def _row_to_line(fields: dict[str, str], line_no: int) -> Optional[InvoiceLine]:
+    desc = " ".join((fields.get("raw_description") or "").split())
+    if not desc or len(desc) < 2 or _TOTALS_ROW_RE.match(desc):
+        return None
+    values: dict[str, Any] = {"raw_description": desc, "line_no": line_no}
+    found = 0
+    for field, raw in fields.items():
+        if field == "raw_description" or raw is None:
+            continue
+        raw = raw.strip()
+        if not raw:
+            continue
+        if field in _NUMERIC_FIELDS:
+            num = _to_number(raw.replace("%", "").replace("₹", ""))
+            if num is not None:
+                values[field] = num
+                found += 1
+        elif field in ("expiry_date", "mfg_date"):
+            values[field] = _normalise_date(raw) or raw
+            found += 1
+        else:
+            values[field] = raw
+            found += 1
+    if found == 0:
+        return None
+    # Heuristic parse — confidence grows with how many columns resolved.
+    values["confidence"] = min(85.0, 45.0 + found * 8.0)
+    return InvoiceLine(**values)
+
+
+def _grid_to_lines(grid: list[list[str]]) -> list[InvoiceLine]:
+    header_idx, colmap = _find_header_row(grid)
+    if header_idx < 0:
+        return []
+    lines: list[InvoiceLine] = []
+    for row in grid[header_idx + 1:]:
+        cells = [(c or "").strip() for c in row]
+        joined = " ".join(c for c in cells if c)
+        if not joined:
+            continue
+        if _TOTALS_ROW_RE.match(joined):
+            break
+        fields = {field: cells[j] for j, field in colmap.items() if j < len(cells)}
+        line = _row_to_line(fields, len(lines) + 1)
+        if line:
+            lines.append(line)
+        elif lines and fields.get("raw_description") and not any(
+            (fields.get(f) or "").strip() for f in _NUMERIC_FIELDS if f in fields
+        ):
+            # Description wrapped onto a continuation row.
+            lines[-1].raw_description += " " + " ".join(fields["raw_description"].split())
+    return lines
+
+
+def _lines_from_pdf_tables(raw: bytes) -> list[InvoiceLine]:
+    if pdfplumber is None:
+        return []
+    lines: list[InvoiceLine] = []
+    try:
+        with pdfplumber.open(io.BytesIO(raw)) as pdf:
+            for page in pdf.pages[:5]:
+                for table in page.extract_tables():
+                    parsed = _grid_to_lines([[c or "" for c in r] for r in table])
+                    if parsed:
+                        for l in parsed:
+                            l.line_no = len(lines) + l.line_no if lines else l.line_no
+                        lines.extend(parsed)
+    except Exception as e:
+        log.warning("ocr-lines: pdf table extraction failed: %s", e)
+    return lines
+
+
+_TEXT_COL_SPLIT_RE = re.compile(r"\s{2,}")
+
+
+def _lines_from_layout_text(text: str) -> list[InvoiceLine]:
+    """Fallback for column-aligned text (pdfplumber layout mode): split rows on 2+ spaces."""
+    grid = [_TEXT_COL_SPLIT_RE.split(l.strip()) for l in text.splitlines() if l.strip()]
+    return _grid_to_lines(grid)
+
+
+def _line_fields_found(lines: list[InvoiceLine]) -> int:
+    fields = ("quantity", "rate", "gst_rate", "line_total", "hsn", "mrp", "taxable_value")
+    return sum(sum(getattr(l, f) is not None for f in fields) for l in lines)
+
+
+def _lines_from_image(img: "Image.Image") -> list[InvoiceLine]:
+    """Try tesseract in table-friendly psm 6 first, then default segmentation,
+    and keep whichever parse resolves more columns. Default psm often drops
+    sparse table columns (e.g. a lone Qty column) entirely."""
+    best: list[InvoiceLine] = []
+    for config in ("--psm 6", ""):
+        parsed = _lines_from_image_once(img, config)
+        if _line_fields_found(parsed) > _line_fields_found(best):
+            best = parsed
+    return best
+
+
+def _lines_from_image_once(img: "Image.Image", config: str) -> list[InvoiceLine]:
+    """Positional parsing: locate the header row via tesseract word boxes, derive
+    column x-spans from the header words, then bucket each data word into the
+    column it overlaps most."""
+    if pytesseract is None:
+        return []
+    try:
+        data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT, config=config)
+    except Exception as e:
+        log.warning("ocr-lines: image_to_data failed: %s", e)
+        return []
+
+    # Group words into visual rows by y-position. Tesseract's own line ids are
+    # useless here: widely-spaced table columns get segmented into separate
+    # blocks, so the same visual row spans several (block, par, line) keys.
+    words: list[tuple[float, int, int, str]] = []  # (y_centre, left, right, text)
+    heights: list[int] = []
+    for i in range(len(data["text"])):
+        word = (data["text"][i] or "").strip()
+        if not word:
+            continue
+        top, height = data["top"][i], data["height"][i]
+        words.append((top + height / 2, data["left"][i], data["left"][i] + data["width"][i], word))
+        heights.append(height)
+    if not words:
+        return []
+    heights.sort()
+    row_tol = max(8.0, heights[len(heights) // 2] * 0.7)
+
+    words.sort(key=lambda w: w[0])
+    clusters: list[list[tuple[float, int, int, str]]] = []
+    for w in words:
+        if clusters and w[0] - clusters[-1][-1][0] <= row_tol:
+            clusters[-1].append(w)
+        else:
+            clusters.append([w])
+    ordered = [sorted((left, right, text) for _, left, right, text in c) for c in clusters]
+
+    def merge_cells(words: list[tuple[int, int, str]], gap: int) -> list[tuple[int, int, str]]:
+        cells: list[tuple[int, int, str]] = []
+        for left, right, word in words:
+            if cells and left - cells[-1][1] <= gap:
+                pl, pr, pt = cells[-1]
+                cells[-1] = (pl, max(pr, right), f"{pt} {word}")
+            else:
+                cells.append((left, right, word))
+        return cells
+
+    # Word gap tolerance scales with image width (~1.2% ≈ one space at 200dpi).
+    gap = max(15, img.width // 80)
+
+    header_cols: list[tuple[int, int, str]] = []  # (left, right, field)
+    header_row_idx = -1
+    for idx, words in enumerate(ordered):
+        cells = merge_cells(words, gap)
+        fields = [(l, r, _classify_header_cell(t)) for l, r, t in cells]
+        named = [f for _, _, f in fields if f]
+        if "raw_description" in named and len(set(named) & (_NUMERIC_FIELDS | {"hsn"})) >= 2:
+            seen: set[str] = set()
+            for l, r, f in fields:
+                if f and f not in seen:
+                    header_cols.append((l, r, f))
+                    seen.add(f)
+            header_row_idx = idx
+            break
+    if header_row_idx < 0:
+        return []
+
+    def column_for(left: int, right: int) -> Optional[str]:
+        best, best_overlap = None, 0
+        for cl, cr, field in header_cols:
+            overlap = min(right, cr) - max(left, cl)
+            if overlap > best_overlap:
+                best, best_overlap = field, overlap
+        if best:
+            return best
+        # No overlap — snap to the nearest column centre.
+        centre = (left + right) / 2
+        return min(header_cols, key=lambda c: abs((c[0] + c[1]) / 2 - centre))[2]
+
+    lines: list[InvoiceLine] = []
+    for words in ordered[header_row_idx + 1:]:
+        cells = merge_cells(words, gap)
+        joined = " ".join(t for _, _, t in cells)
+        if _TOTALS_ROW_RE.match(joined):
+            break
+        fields: dict[str, str] = {}
+        for left, right, text in cells:
+            field = column_for(left, right)
+            if field:
+                fields[field] = f"{fields[field]} {text}" if field in fields else text
+        line = _row_to_line(fields, len(lines) + 1)
+        if line:
+            lines.append(line)
+    return lines
+
+
+def _lines_from_scanned_pdf(raw: bytes) -> list[InvoiceLine]:
+    if convert_from_bytes is None:
+        return []
+    lines: list[InvoiceLine] = []
+    try:
+        for img in convert_from_bytes(raw, dpi=250, first_page=1, last_page=3):
+            parsed = _lines_from_image(img)
+            for l in parsed:
+                l.line_no = len(lines) + (l.line_no or 1)
+            lines.extend(parsed)
+    except Exception as e:
+        log.warning("ocr-lines: scanned pdf failed: %s", e)
+    return lines
+
+
 def _ocr_pdf_bytes(raw: bytes) -> str:
     text_parts: list[str] = []
     if pdfplumber is not None:
@@ -494,9 +764,48 @@ def _parse_header_from_text(text: str) -> InvoiceExtraction:
         tax_total=tax_total,
         grand_total=grand_total,
         overall_confidence=conf,
-        notes="Extracted via OCR (header only). Line items must be entered manually.",
         lines=[],
     )
+
+
+def _extract_lines(raw: bytes, is_pdf: bool, pdf_has_text: bool) -> list[InvoiceLine]:
+    """Try strategies from most to least structured."""
+    if is_pdf:
+        lines = _lines_from_pdf_tables(raw)
+        if lines:
+            return lines
+        if pdf_has_text and pdfplumber is not None:
+            # No ruled table — retry on column-aligned layout text.
+            try:
+                with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                    layout_text = "\n".join(
+                        (p.extract_text(layout=True) or "") for p in pdf.pages[:5]
+                    )
+                lines = _lines_from_layout_text(layout_text)
+                if lines:
+                    return lines
+            except Exception as e:
+                log.warning("ocr-lines: layout text failed: %s", e)
+        if not pdf_has_text:
+            return _lines_from_scanned_pdf(raw)
+        return []
+    if Image is None:
+        return []
+    try:
+        img = Image.open(io.BytesIO(raw))
+    except Exception:
+        return []
+    return _lines_from_image(img)
+
+
+def _pdf_has_text(raw: bytes) -> bool:
+    if pdfplumber is None:
+        return False
+    try:
+        with pdfplumber.open(io.BytesIO(raw)) as pdf:
+            return any((p.extract_text() or "").strip() for p in pdf.pages[:5])
+    except Exception:
+        return False
 
 
 @app.post("/extract-ocr", response_model=InvoiceExtraction)
@@ -508,23 +817,36 @@ async def extract_ocr(
     if not raw:
         raise HTTPException(400, "Empty file")
     mime = (mime_type or file.content_type or "").lower()
+    is_pdf = "pdf" in mime or (file.filename or "").lower().endswith(".pdf")
     log.info("ocr: file=%s bytes=%d mime=%s", file.filename, len(raw), mime)
 
     t0 = time.time()
-    if "pdf" in mime or (file.filename or "").lower().endswith(".pdf"):
-        text = _ocr_pdf_bytes(raw)
-    else:
-        text = _ocr_image_bytes(raw)
+    text = _ocr_pdf_bytes(raw) if is_pdf else _ocr_image_bytes(raw)
     log.info("ocr: text extracted chars=%d in %.1fms", len(text), (time.time() - t0) * 1000)
 
     if not text.strip():
         raise HTTPException(422, "OCR could not read any text from the file. Try the AI engine.")
 
     result = _parse_header_from_text(text)
+
+    t1 = time.time()
+    result.lines = _extract_lines(raw, is_pdf, pdf_has_text=is_pdf and _pdf_has_text(raw))
+    log.info("ocr: lines parsed count=%d in %.1fms", len(result.lines), (time.time() - t1) * 1000)
+
+    if result.lines:
+        result.notes = (
+            f"Extracted via OCR: header + {len(result.lines)} line item(s) parsed "
+            "heuristically. Verify quantities and amounts before approving."
+        )
+    else:
+        result.notes = (
+            "Extracted via OCR (header only — no line-item table detected). "
+            "Enter line items manually or retry with the AI engine."
+        )
     log.info(
-        "ocr: parsed supplier=%s inv=%s date=%s total=%s conf=%s",
+        "ocr: parsed supplier=%s inv=%s date=%s total=%s lines=%d conf=%s",
         result.supplier_name, result.invoice_number, result.invoice_date,
-        result.grand_total, result.overall_confidence,
+        result.grand_total, len(result.lines), result.overall_confidence,
     )
     return result
 

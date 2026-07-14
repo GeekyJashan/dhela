@@ -16,6 +16,7 @@ const RetailerInput = z.object({
   state_code: z.string().nullish(),
   pincode: z.string().nullish(),
   price_tier: z.string().nullish(),
+  category: z.enum(["A", "B", "C"]).default("C"),
   default_discount_pct: z.number().nullish(),
   credit_limit: z.number().nullish(),
   notes: z.string().nullish(),

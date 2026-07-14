@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -19,6 +19,9 @@ const NAV = [
   { to: "/invoices", label: "Purchases", icon: Files },
   { to: "/upload", label: "Upload invoice", icon: FileUp },
   { to: "/sales", label: "Sales", icon: Receipt },
+  { to: "/orders", label: "Orders", icon: ClipboardList },
+  { to: "/returns", label: "Returns", icon: Undo2 },
+  { to: "/payments", label: "Payments", icon: IndianRupee },
   { to: "/retailers", label: "Retailers", icon: Store },
   { to: "/products", label: "Products", icon: Package },
   { to: "/pricing", label: "Pricing", icon: Tag },
@@ -39,7 +42,7 @@ function AuthedLayout() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col">
+      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col print:hidden">
         <Link to="/dashboard" className="flex items-center gap-2 px-5 py-5 text-lg font-semibold border-b border-sidebar-border">
           <Sparkles className="h-5 w-5 text-accent" /> Ledgerly
         </Link>

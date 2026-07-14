@@ -218,9 +218,9 @@ function Upload() {
             <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ocr" ? "border-primary bg-primary/5" : ""}`}>
               <RadioGroupItem value="ocr" id="ocr" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> OCR (cheap)</div>
+                <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> OCR (free)</div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Header only — supplier, GSTIN, invoice #, date, totals. Enter line items manually. Near-zero cost.
+                  Header + line items parsed heuristically. Works best on clean, digital invoices — always review before approving. Zero cost.
                 </p>
               </div>
             </label>

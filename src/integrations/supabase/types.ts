@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_log: {
@@ -51,6 +76,155 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_note_lines: {
+        Row: {
+          created_at: string
+          credit_note_id: string
+          description: string
+          discount_pct: number
+          gst_rate: number
+          hsn: string | null
+          id: string
+          line_total: number
+          org_id: string
+          product_id: string | null
+          quantity: number
+          rate: number
+          tax_amount: number
+          taxable_value: number
+        }
+        Insert: {
+          created_at?: string
+          credit_note_id: string
+          description: string
+          discount_pct?: number
+          gst_rate?: number
+          hsn?: string | null
+          id?: string
+          line_total?: number
+          org_id: string
+          product_id?: string | null
+          quantity: number
+          rate?: number
+          tax_amount?: number
+          taxable_value?: number
+        }
+        Update: {
+          created_at?: string
+          credit_note_id?: string
+          description?: string
+          discount_pct?: number
+          gst_rate?: number
+          hsn?: string | null
+          id?: string
+          line_total?: number
+          org_id?: string
+          product_id?: string | null
+          quantity?: number
+          rate?: number
+          tax_amount?: number
+          taxable_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_lines_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_date: string
+          credit_note_number: string
+          grand_total: number
+          id: string
+          notes: string | null
+          org_id: string
+          reason: string
+          restock: boolean
+          retailer_id: string
+          sales_invoice_id: string | null
+          subtotal: number
+          tax_total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string
+          credit_note_number: string
+          grand_total?: number
+          id?: string
+          notes?: string | null
+          org_id: string
+          reason?: string
+          restock?: boolean
+          retailer_id: string
+          sales_invoice_id?: string | null
+          subtotal?: number
+          tax_total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string
+          credit_note_number?: string
+          grand_total?: number
+          id?: string
+          notes?: string | null
+          org_id?: string
+          reason?: string
+          restock?: boolean
+          retailer_id?: string
+          sales_invoice_id?: string | null
+          subtotal?: number
+          tax_total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -304,6 +478,112 @@ export type Database = {
           },
         ]
       }
+      order_lines: {
+        Row: {
+          created_at: string
+          fulfilled_quantity: number
+          id: string
+          order_id: string
+          org_id: string
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          fulfilled_quantity?: number
+          id?: string
+          order_id: string
+          org_id: string
+          product_id: string
+          quantity: number
+        }
+        Update: {
+          created_at?: string
+          fulfilled_quantity?: number
+          id?: string
+          order_id?: string
+          org_id?: string
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string
+          org_id: string
+          retailer_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number: string
+          org_id: string
+          retailer_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string
+          org_id?: string
+          retailer_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: string | null
@@ -342,6 +622,138 @@ export type Database = {
           state_code?: string | null
         }
         Relationships: []
+      }
+      payment_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          org_id: string
+          payment_id: string
+          purchase_invoice_id: string | null
+          sales_invoice_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          org_id: string
+          payment_id: string
+          purchase_invoice_id?: string | null
+          sales_invoice_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          org_id?: string
+          payment_id?: string
+          purchase_invoice_id?: string | null
+          sales_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          discount_amount: number
+          id: string
+          mode: Database["public"]["Enums"]["payment_mode"]
+          notes: string | null
+          org_id: string
+          party_type: string
+          payment_date: string
+          reference: string | null
+          retailer_id: string | null
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          discount_amount?: number
+          id?: string
+          mode?: Database["public"]["Enums"]["payment_mode"]
+          notes?: string | null
+          org_id: string
+          party_type: string
+          payment_date?: string
+          reference?: string | null
+          retailer_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          discount_amount?: number
+          id?: string
+          mode?: Database["public"]["Enums"]["payment_mode"]
+          notes?: string | null
+          org_id?: string
+          party_type?: string
+          payment_date?: string
+          reference?: string | null
+          retailer_id?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_price_overrides: {
         Row: {
@@ -426,6 +838,7 @@ export type Database = {
           purchase_rate: number | null
           selling_rate: number | null
           sku: string | null
+          stock_group_id: string | null
           unit: string | null
         }
         Insert: {
@@ -446,6 +859,7 @@ export type Database = {
           purchase_rate?: number | null
           selling_rate?: number | null
           sku?: string | null
+          stock_group_id?: string | null
           unit?: string | null
         }
         Update: {
@@ -466,6 +880,7 @@ export type Database = {
           purchase_rate?: number | null
           selling_rate?: number | null
           sku?: string | null
+          stock_group_id?: string | null
           unit?: string | null
         }
         Relationships: [
@@ -476,11 +891,19 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "products_stock_group_id_fkey"
+            columns: ["stock_group_id"]
+            isOneToOne: false
+            referencedRelation: "stock_groups"
+            referencedColumns: ["id"]
+          },
         ]
       }
       retailers: {
         Row: {
           address: string | null
+          category: string
           city: string | null
           created_at: string
           created_by: string | null
@@ -491,6 +914,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          opening_balance: number
           org_id: string
           outstanding_balance: number | null
           phone: string | null
@@ -501,6 +925,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: string
           city?: string | null
           created_at?: string
           created_by?: string | null
@@ -511,6 +936,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          opening_balance?: number
           org_id: string
           outstanding_balance?: number | null
           phone?: string | null
@@ -521,6 +947,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: string
           city?: string | null
           created_at?: string
           created_by?: string | null
@@ -531,6 +958,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          opening_balance?: number
           org_id?: string
           outstanding_balance?: number | null
           phone?: string | null
@@ -673,6 +1101,7 @@ export type Database = {
           invoice_number: string
           is_interstate: boolean | null
           notes: string | null
+          order_id: string | null
           org_id: string
           payment_status: Database["public"]["Enums"]["payment_status"]
           place_of_supply: string | null
@@ -700,6 +1129,7 @@ export type Database = {
           invoice_number: string
           is_interstate?: boolean | null
           notes?: string | null
+          order_id?: string | null
           org_id: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
           place_of_supply?: string | null
@@ -727,6 +1157,7 @@ export type Database = {
           invoice_number?: string
           is_interstate?: boolean | null
           notes?: string | null
+          order_id?: string | null
           org_id?: string
           payment_status?: Database["public"]["Enums"]["payment_status"]
           place_of_supply?: string | null
@@ -741,6 +1172,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_invoices_org_id_fkey"
             columns: ["org_id"]
@@ -757,6 +1195,50 @@ export type Database = {
           },
         ]
       }
+      stock_groups: {
+        Row: {
+          created_at: string
+          discount_a: number
+          discount_b: number
+          discount_c: number
+          hsn_code: string | null
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_a?: number
+          discount_b?: number
+          discount_c?: number
+          hsn_code?: string | null
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_a?: number
+          discount_b?: number
+          discount_c?: number
+          hsn_code?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_groups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -766,6 +1248,7 @@ export type Database = {
           gstin: string | null
           id: string
           name: string
+          opening_balance: number
           org_id: string
         }
         Insert: {
@@ -776,6 +1259,7 @@ export type Database = {
           gstin?: string | null
           id?: string
           name: string
+          opening_balance?: number
           org_id: string
         }
         Update: {
@@ -786,6 +1270,7 @@ export type Database = {
           gstin?: string | null
           id?: string
           name?: string
+          opening_balance?: number
           org_id?: string
         }
         Relationships: [
@@ -800,7 +1285,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      party_balances: {
+        Row: {
+          balance: number | null
+          name: string | null
+          org_id: string | null
+          party_id: string | null
+          party_type: string | null
+        }
+        Relationships: []
+      }
+      party_ledger: {
+        Row: {
+          created_at: string | null
+          credit: number | null
+          debit: number | null
+          kind: string | null
+          org_id: string | null
+          party_id: string | null
+          party_type: string | null
+          ref: string | null
+          source_id: string | null
+          tx_date: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_org_role: {
@@ -808,6 +1317,8 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string }; Returns: boolean }
+      next_credit_note_number: { Args: { _org: string }; Returns: string }
+      next_order_number: { Args: { _org: string }; Returns: string }
       next_sales_invoice_number: { Args: { _org: string }; Returns: string }
     }
     Enums: {
@@ -820,6 +1331,8 @@ export type Database = {
         | "rejected"
         | "failed"
         | "queued"
+      order_status: "pending" | "partial" | "fulfilled" | "cancelled"
+      payment_mode: "cash" | "upi" | "bank" | "cheque" | "other"
       payment_status: "unpaid" | "partial" | "paid"
       sales_invoice_status: "draft" | "issued" | "paid" | "cancelled"
     }
@@ -947,6 +1460,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "operator", "accountant"],
@@ -959,6 +1475,8 @@ export const Constants = {
         "failed",
         "queued",
       ],
+      order_status: ["pending", "partial", "fulfilled", "cancelled"],
+      payment_mode: ["cash", "upi", "bank", "cheque", "other"],
       payment_status: ["unpaid", "partial", "paid"],
       sales_invoice_status: ["draft", "issued", "paid", "cancelled"],
     },

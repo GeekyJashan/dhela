@@ -40,6 +40,22 @@ export const suggestHsn = createServerFn({ method: "POST" })
       const json = await resp.json();
       const parsed = SuggestionSchema.parse(json);
       log.info("suggestHsn:ok", { hsn: parsed.hsn, gst: parsed.gst_rate });
+
+      // Grow the searchable HSN reference from AI classifications — the seed
+      // list is a small curated set, so codes the AI finds get added here.
+      if (parsed.hsn && parsed.gst_rate != null) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { error: upsertErr } = await supabaseAdmin.from("hsn_codes").upsert(
+          {
+            code: parsed.hsn,
+            description: parsed.description ?? data.name,
+            gst_rate: parsed.gst_rate,
+            category: null,
+          },
+          { onConflict: "code", ignoreDuplicates: true },
+        );
+        if (upsertErr) log.error("suggestHsn:upsert_failed", { err: upsertErr.message });
+      }
       return parsed;
     } catch (e) {
       log.error("suggestHsn:fail", { err: (e as Error).message });

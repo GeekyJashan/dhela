@@ -32,6 +32,7 @@ const LineInput = z.object({
 
 const InvoiceInput = z.object({
   id: z.string().uuid().optional(),
+  order_id: z.string().uuid().nullable().optional(),
   retailer_id: z.string().uuid(),
   invoice_date: z.string(),
   due_date: z.string().nullable().optional(),
@@ -120,6 +121,39 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
           .select("current_stock").eq("id", l.product_id).single();
         const newStock = Number(p?.current_stock ?? 0) - (l.quantity + (l.free_quantity ?? 0));
         await supabase.from("products").update({ current_stock: newStock }).eq("id", l.product_id);
+      }
+    }
+
+    // If issued against an order, record fulfilled quantities and roll up order status.
+    if (data.status === "issued" && data.order_id) {
+      const { data: orderLines, error: olErr } = await supabase.from("order_lines")
+        .select("id, product_id, quantity, fulfilled_quantity")
+        .eq("order_id", data.order_id);
+      if (olErr) {
+        log.error("save:order_lines_fetch_failed", { err: olErr.message });
+      } else if (orderLines?.length) {
+        const invoicedByProduct = new Map<string, number>();
+        for (const l of lines) {
+          if (!l.product_id) continue;
+          invoicedByProduct.set(l.product_id, (invoicedByProduct.get(l.product_id) ?? 0) + l.quantity);
+        }
+        for (const ol of orderLines) {
+          const invoiced = invoicedByProduct.get(ol.product_id) ?? 0;
+          const already = Number(ol.fulfilled_quantity ?? 0);
+          const add = Math.min(invoiced, Number(ol.quantity) - already);
+          if (add <= 0) continue;
+          const { error: fulErr } = await supabase.from("order_lines")
+            .update({ fulfilled_quantity: already + add }).eq("id", ol.id);
+          if (fulErr) log.error("save:fulfill_failed", { line: ol.id, err: fulErr.message });
+          else ol.fulfilled_quantity = already + add;
+        }
+        const allDone = orderLines.every(ol => Number(ol.fulfilled_quantity ?? 0) >= Number(ol.quantity));
+        const anyDone = orderLines.some(ol => Number(ol.fulfilled_quantity ?? 0) > 0);
+        const orderStatus = allDone ? "fulfilled" : anyDone ? "partial" : "pending";
+        const { error: osErr } = await supabase.from("orders")
+          .update({ status: orderStatus }).eq("id", data.order_id);
+        if (osErr) log.error("save:order_status_failed", { err: osErr.message });
+        log.info("save:order_updated", { orderId: data.order_id, orderStatus });
       }
     }
 

@@ -11,10 +11,25 @@ node_modules
 dist
 dist-ssr
 .output
+.vercel
 .vinxi
 .tanstack/**
 .nitro
 *.local
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python backend
+backend/venv/
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Supabase CLI scratch
+supabase/.temp/
 
 # Wrangler / Cloudflare
 .wrangler/

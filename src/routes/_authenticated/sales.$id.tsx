@@ -5,7 +5,7 @@ import { amountInWords } from "@/lib/pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/sales/$id")({
   head: () => ({ meta: [{ title: "Sales invoice — Ledgerly" }] }),
@@ -39,7 +39,14 @@ function SalesInvoiceView() {
         <Link to="/sales" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to sales
         </Link>
-        <Button onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" /> Print / Save PDF</Button>
+        <div className="flex gap-2">
+          {(inv.status === "issued" || inv.status === "paid") && (
+            <Link to="/returns" search={{ invoiceId: id }}>
+              <Button variant="outline"><Undo2 className="h-4 w-4 mr-2" /> Return items</Button>
+            </Link>
+          )}
+          <Button onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" /> Print / Save PDF</Button>
+        </div>
       </div>
 
       <Card className="print:shadow-none print:border-0">

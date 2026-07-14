@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurrentOrg } from "@/lib/org.functions";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/products")({
 
 const empty = {
   name: "", sku: "", hsn: "", gst_rate: "", mrp: "", unit: "",
-  default_margin_pct: "", current_stock: "",
+  current_stock: "",
 };
 
 function Products() {
@@ -73,11 +73,61 @@ function Products() {
     queryKey: ["products"],
     queryFn: async () => {
       const { data, error } = await supabase.from("products")
-        .select("*").order("name");
+        .select("*, stock_group:stock_groups(id, name, hsn_code, discount_a, discount_b, discount_c)").order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  type GroupInfo = {
+    id: string; name: string; hsn_code: string | null;
+    discount_a: number; discount_b: number; discount_c: number;
+  };
+
+  // Group catalog rows by stock group (ungrouped products last).
+  const grouped = (() => {
+    if (!data) return [];
+    const map = new Map<string, { group: GroupInfo | null; rows: typeof data }>();
+    for (const p of data) {
+      const g = p.stock_group as GroupInfo | null;
+      const key = g?.id ?? "__none__";
+      if (!map.has(key)) map.set(key, { group: g, rows: [] });
+      map.get(key)!.rows.push(p);
+    }
+    return [...map.entries()]
+      .sort(([ka, a], [kb, b]) =>
+        ka === "__none__" ? 1 : kb === "__none__" ? -1
+          : (a.group?.name ?? "").localeCompare(b.group?.name ?? ""))
+      .map(([key, g]) => ({ key, ...g }));
+  })();
+
+  // Per-group discount drafts for the A/B/C retailer categories.
+  const [gDrafts, setGDrafts] = useState<Record<string, { a: string; b: string; c: string }>>({});
+  const gDraftFor = (g: GroupInfo) => gDrafts[g.id] ?? {
+    a: String(Number(g.discount_a ?? 0)),
+    b: String(Number(g.discount_b ?? 0)),
+    c: String(Number(g.discount_c ?? 0)),
+  };
+  const gDirty = (g: GroupInfo) => {
+    const d = gDrafts[g.id];
+    if (!d) return false;
+    return Number(d.a) !== Number(g.discount_a ?? 0)
+      || Number(d.b) !== Number(g.discount_b ?? 0)
+      || Number(d.c) !== Number(g.discount_c ?? 0);
+  };
+  const saveGroupDiscounts = async (g: GroupInfo) => {
+    const d = gDraftFor(g);
+    const { error } = await supabase.from("stock_groups").update({
+      discount_a: Number(d.a) || 0,
+      discount_b: Number(d.b) || 0,
+      discount_c: Number(d.c) || 0,
+    }).eq("id", g.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${g.name} discounts saved`);
+    setGDrafts(({ [g.id]: _gone, ...rest }) => rest);
+    qc.invalidateQueries({ queryKey: ["products"] });
+    qc.invalidateQueries({ queryKey: ["stock_groups"] });
+  };
 
   const { data: hsnResults } = useQuery({
     queryKey: ["hsn_search", hsnQuery],
@@ -122,7 +172,6 @@ function Products() {
         gst_rate: form.gst_rate ? Number(form.gst_rate) : null,
         mrp: form.mrp ? Number(form.mrp) : null,
         unit: form.unit || null,
-        default_margin_pct: form.default_margin_pct ? Number(form.default_margin_pct) : null,
         current_stock: form.current_stock ? Number(form.current_stock) : 0,
       });
       if (error) throw error;
@@ -145,17 +194,30 @@ function Products() {
             <DialogHeader><DialogTitle>Add product</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Input placeholder="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label className="text-xs text-muted-foreground">Product name *</label>
+                <Input placeholder="e.g. Maggi Masala Noodles 70g" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
-              <Input placeholder="SKU" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
-              <Input placeholder="Unit (PCS/KG/BOX)" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
+              <div>
+                <label className="text-xs text-muted-foreground">SKU / item code</label>
+                <Input placeholder="Optional internal code" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Unit</label>
+                <Input placeholder="PCS / KG / BOX" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
+              </div>
 
               <div className="col-span-2 space-y-2">
                 <div className="flex gap-2">
-                  <Input placeholder="HSN code" value={form.hsn}
-                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
-                  <Input placeholder="GST %" value={form.gst_rate}
-                    onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
+                  <div className="flex-1">
+                    <label className="text-xs text-muted-foreground">HSN code</label>
+                    <Input placeholder="Auto-fills from name" value={form.hsn}
+                      onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
+                  </div>
+                  <div className="w-28">
+                    <label className="text-xs text-muted-foreground">GST %</label>
+                    <Input placeholder="e.g. 18" value={form.gst_rate}
+                      onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
+                  </div>
                 </div>
                 <div className="text-xs flex items-center gap-1.5 min-h-[18px]">
                   {aiLoading ? (
@@ -187,38 +249,78 @@ function Products() {
                 </div>
               </div>
 
-              <Input placeholder="MRP (₹)" value={form.mrp} onChange={e => setForm({ ...form, mrp: e.target.value })} />
-              <Input placeholder="Default margin %" value={form.default_margin_pct} onChange={e => setForm({ ...form, default_margin_pct: e.target.value })} />
-              <div className="col-span-2"><Input placeholder="Opening stock" value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} /></div>
+              <div>
+                <label className="text-xs text-muted-foreground">MRP (₹)</label>
+                <Input placeholder="Printed retail price" value={form.mrp} onChange={e => setForm({ ...form, mrp: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Opening stock</label>
+                <Input placeholder="Quantity on hand" value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
+              </div>
             </div>
             <DialogFooter><Button onClick={submit} disabled={!form.name}>Save</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
       <Card>
-        <CardHeader><CardTitle>Catalog ({data?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Catalog ({data?.length ?? 0})</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Grouped by HSN heading (first 4 digits). Set each group's discount for
+            category A / B / C retailers — sales invoices apply them automatically.
+          </p>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
               <TableHead>Name</TableHead><TableHead>SKU</TableHead><TableHead>HSN</TableHead>
               <TableHead>GST%</TableHead><TableHead>MRP</TableHead>
-              <TableHead>Last cost</TableHead><TableHead>Margin%</TableHead>
+              <TableHead>Last cost</TableHead>
               <TableHead className="text-right">Stock</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {data?.map(p => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>{p.sku}</TableCell>
-                  <TableCell className="font-mono text-xs">{p.hsn}</TableCell>
-                  <TableCell>{p.gst_rate}</TableCell>
-                  <TableCell>{p.mrp ? `₹ ${Number(p.mrp).toLocaleString("en-IN")}` : "—"}</TableCell>
-                  <TableCell>{p.last_purchase_rate ? `₹ ${Number(p.last_purchase_rate).toFixed(2)}` : "—"}</TableCell>
-                  <TableCell>{p.default_margin_pct ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{Number(p.current_stock ?? 0)}</TableCell>
-                </TableRow>
+              {grouped.map(g => (
+                <Fragment key={g.key}>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableCell colSpan={7} className="py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{g.group?.name ?? "Ungrouped"}</span>
+                        {g.group?.hsn_code && <span className="font-mono text-xs text-muted-foreground">HSN {g.group.hsn_code}</span>}
+                        <span className="text-xs text-muted-foreground">({g.rows.length})</span>
+                        {g.group && (
+                          <div className="ml-auto flex items-center gap-1.5">
+                            {(["a", "b", "c"] as const).map(t => (
+                              <label key={t} className="flex items-center gap-1 text-xs text-muted-foreground">
+                                {t.toUpperCase()}
+                                <Input type="number" className="h-7 w-16 text-right"
+                                  value={gDraftFor(g.group!)[t]}
+                                  onChange={e => setGDrafts(d => ({ ...d, [g.group!.id]: { ...gDraftFor(g.group!), [t]: e.target.value } }))} />
+                                %
+                              </label>
+                            ))}
+                            <Button size="sm" className="h-7" variant={gDirty(g.group) ? "default" : "ghost"}
+                              disabled={!gDirty(g.group)} onClick={() => saveGroupDiscounts(g.group!)}>
+                              Save
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {g.rows.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell>{p.sku}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.hsn}</TableCell>
+                      <TableCell>{p.gst_rate}</TableCell>
+                      <TableCell>{p.mrp ? `₹ ${Number(p.mrp).toLocaleString("en-IN")}` : "—"}</TableCell>
+                      <TableCell>{p.last_purchase_rate ? `₹ ${Number(p.last_purchase_rate).toFixed(2)}` : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(p.current_stock ?? 0)}</TableCell>
+                    </TableRow>
+                  ))}
+                </Fragment>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No products yet.</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No products yet.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

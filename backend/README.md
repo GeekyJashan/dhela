@@ -2,7 +2,10 @@
 
 Two engines, one service:
 - `POST /extract` — full extraction via Google Gemini 2.5 Flash (higher cost, higher accuracy).
-- `POST /extract-ocr` — header-only via Tesseract + pdfplumber + regex (~free).
+- `POST /extract-ocr` — free: header fields + heuristic line-item table parsing.
+  Strategies, most to least structured: pdfplumber ruled tables → column-aligned
+  layout text → tesseract word positions (psm 6, then default). Works best on
+  clean digital invoices; messy scans still favour the AI engine.
 - `POST /suggest-hsn` — Gemini HSN classifier for a product name.
 - `GET /health`.
 
@@ -25,10 +28,10 @@ Get a key at https://aistudio.google.com/apikey (free tier available).
 
 ## Background queue (bulk uploads)
 
-Bulk uploads create `invoices` rows with `status='queued'`. Two workers pick them up:
+Bulk uploads create `invoices` rows with `status='queued'`. Workers pick them up:
 
-1. The client fires a one-shot POST to `/api/public/hooks/process-invoice-queue` right after enqueue, so users see immediate progress while the tab is open.
-2. A `pg_cron` job hits the same endpoint every minute — this is what makes the flow tab-close-safe. Set it up once:
+1. The client fires a one-shot POST to `/api/public/hooks/process-invoice-queue` right after enqueue, and nudges it again every 3s while the upload page polls — on localhost this is all you need.
+2. (Optional, deployed only) A `pg_cron` job can hit the same endpoint every minute to make the flow tab-close-safe. Supabase can't reach `localhost`, so set this up only once the app has a public URL:
 
 ```sql
 create extension if not exists pg_cron;
@@ -39,15 +42,13 @@ select cron.schedule(
   '* * * * *',
   $$
   select net.http_post(
-    url := 'https://project--c95c083c-3887-434b-a85f-e8bcbe9139e6.lovable.app/api/public/hooks/process-invoice-queue',
+    url := 'https://<your-deployed-app>/api/public/hooks/process-invoice-queue',
     headers := '{"Content-Type":"application/json"}'::jsonb,
     body := '{"limit": 5}'::jsonb
   );
   $$
 );
 ```
-
-Swap the URL to `project--...-dev.lovable.app` for the preview build.
 
 
 ## Endpoints
@@ -65,7 +66,7 @@ Any container host works (Render / Fly.io / Railway / Cloud Run).
 2. New Web Service → Runtime: Python.
 3. Build: `pip install -r requirements.txt`
    Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Env vars: `GOOGLE_API_KEY`, optionally `ALLOWED_ORIGINS=https://your-app.lovable.app`.
+4. Env vars: `GOOGLE_API_KEY`, optionally `ALLOWED_ORIGINS=https://your-app-domain`.
 
 **Fly.io**:
 ```bash
@@ -76,6 +77,6 @@ fly deploy
 
 ## Wire the frontend
 
-Set `EXTRACTION_API_URL` in the Lovable Cloud project secrets to the
-deployed URL, e.g. `https://invoice-extractor.onrender.com`. The
-TanStack server function `extractInvoice` will POST invoice files there.
+Set `EXTRACTION_API_URL` in the repo-root `.env` (defaults to
+`http://localhost:8000`). The TanStack server function `extractInvoice`
+POSTs invoice files there.
