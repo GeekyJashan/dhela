@@ -369,11 +369,30 @@ _DATE_PATTERNS = [
 ]
 
 _GSTIN_RE = re.compile(r"\b(\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9])\b")
-_INV_NO_RE = re.compile(r"(?:invoice|bill|inv)[\s\-#:no.]*([A-Z0-9][A-Z0-9/\-]{2,20})", re.I)
-_TOTAL_RE = re.compile(r"(?:grand\s*total|total\s*amount|net\s*amount|amount\s*payable|invoice\s*total)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+# Labelled form first ("Invoice No.: X"); loose form only as a fallback.
+# The gap class must not contain letters — "INV" + "O(ICE)" once turned
+# "TAX INVOICE/BILL OF SUPPLY" into invoice number "ICE/BILL".
+_INV_NO_LABELLED_RE = re.compile(r"(?:invoice|bill|inv)\s*(?:no|num(?:ber)?|#)\s*[.:\-#]*\s*([A-Z0-9][A-Z0-9/\-]{2,24})", re.I)
+_INV_NO_LOOSE_RE = re.compile(r"(?:invoice|bill|inv)[\s\-#:.]*([A-Z0-9][A-Z0-9/\-]{2,24})", re.I)
+_TOTAL_RE = re.compile(r"(?:grand\s*total|total\s*amount|net\s*amount|amount\s*payable|amount\s*due|invoice\s*total|invoice\s*value|bill\s*amount|total\s*payable)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
 _TAX_RE = re.compile(r"(?:total\s*tax|tax\s*amount|cgst\s*\+\s*sgst|igst)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
-_SUBTOTAL_RE = re.compile(r"(?:sub\s*total|taxable\s*value|taxable\s*amount)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
-_DATE_LINE_RE = re.compile(r"(?:invoice\s*date|bill\s*date|dated)[^\d]{0,10}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", re.I)
+_SUBTOTAL_RE = re.compile(r"(?:sub\s*total|taxable\s*value|taxable\s*amount|item\s*total)[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+_DATE_LINE_RE = re.compile(r"(?:invoice\s*date|bill\s*date|dated|date)[^\d]{0,10}(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", re.I)
+_DATE_TEXT_RE = re.compile(r"(?:invoice\s*date|date\s*of\s*issue|bill\s*date|dated|date)\s*[:\-]?\s*([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,9}\.?,?\s+\d{4})", re.I)
+# Bare "Total" is only trusted when no labelled total matched, and never a
+# quantity line ("Total Qty: 24").
+_TOTAL_BARE_RE = re.compile(r"\btotal\b(?!\s*(?:qty|quantity|items?|nos))[^\d]{0,10}([\d,]+\.\d{2}|[\d,]+)", re.I)
+_SUPPLIER_LABEL_RE = re.compile(r"^(?:seller\s*name|sold\s*by|supplier|billed\s*by|from)\s*[:\-]\s*", re.I)
+
+
+def _find_invoice_number(text: str) -> Optional[str]:
+    """Prefer an explicitly labelled invoice number; always require a digit."""
+    for pattern in (_INV_NO_LABELLED_RE, _INV_NO_LOOSE_RE):
+        for m in pattern.finditer(text):
+            candidate = m.group(1).strip(" .:#")
+            if re.search(r"\d", candidate):
+                return candidate
+    return None
 
 
 def _to_number(s: Optional[str]) -> Optional[float]:
@@ -389,26 +408,34 @@ def _normalise_date(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
     from datetime import datetime
-    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y", "%Y-%m-%d", "%Y/%m/%d"):
+    cleaned = raw.strip().replace(".", "").replace(",", "")
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y", "%Y-%m-%d", "%Y/%m/%d",
+                "%B %d %Y", "%b %d %Y", "%d %B %Y", "%d %b %Y"):
         try:
-            return datetime.strptime(raw.strip(), fmt).strftime("%Y-%m-%d")
+            return datetime.strptime(cleaned, fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
     return None
 
 
 def _guess_supplier(text: str) -> Optional[str]:
-    # First non-empty line that isn't obviously a heading like "TAX INVOICE"
+    # First non-empty line that isn't obviously a heading like "TAX INVOICE",
+    # a label line, or an address fragment.
     for line in text.splitlines():
         s = line.strip()
         if not s:
             continue
         low = s.lower()
-        if any(k in low for k in ("tax invoice", "invoice", "gstin", "bill of")):
+        if any(k in low for k in ("tax invoice", "invoice", "gstin", "bill of", "bill to", "ship to", "fssai", "amount due")):
+            continue
+        if low.startswith(("date", "due", "vat", "pay", "order", "phone", "email", "www", "plot no")):
+            continue
+        if s[0].isdigit():  # addresses, GST/registration codes
             continue
         if len(s) < 3 or len(s) > 80:
             continue
-        return s
+        # Drop a "Seller Name:" / "Sold by:" style label prefix.
+        return _SUPPLIER_LABEL_RE.sub("", s).strip() or None
     return None
 
 
@@ -422,14 +449,18 @@ _COLUMN_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("mfg_date", ("mfg",)),
     ("free_quantity", ("free", "scheme", "fr qty")),
     ("quantity", ("qty", "quantity", "nos", "pcs")),
-    ("unit", ("unit", "uom", "pack", "pkg")),
+    # mrp before unit: "Unit MRP/RSP" style headers are MRP columns.
     ("mrp", ("mrp",)),
+    ("unit", ("unit", "uom", "pack", "pkg")),
     ("discount_pct", ("disc", "dis%", "d%")),
+    ("tax_amount", ("tax amt", "tax amount", "taxamt", "gst amt")),
     ("gst_rate", ("gst", "igst", "cgst", "sgst", "tax %", "tax%")),
     ("taxable_value", ("taxable",)),
-    ("tax_amount", ("tax amt", "tax amount", "taxamt")),
     ("rate", ("rate", "price", "ptr", "p.rate")),
-    ("line_total", ("amount", "amt", "total", "value", "net")),
+    # Within a field, earlier keywords are more specific — a later column
+    # matching a more specific keyword steals the field (so "Total Amt."
+    # beats a "Cess Amt." that only matched "amt").
+    ("line_total", ("total", "amount", "net", "amt", "value")),
     ("raw_description", ("description", "particular", "item", "product", "goods", "name")),
 ]
 
@@ -440,30 +471,41 @@ _NUMERIC_FIELDS = {
 _TOTALS_ROW_RE = re.compile(r"^\s*(sub\s*-?\s*total|grand\s*total|total|round\s*off|cgst|sgst|igst|freight|less|add)\b", re.I)
 
 
-def _classify_header_cell(cell: str) -> Optional[str]:
+def _classify_header_cell(cell: str) -> Optional[tuple[str, int]]:
+    """Field plus keyword rank (lower = more specific match)."""
     low = " ".join(cell.lower().split())
     if not low:
         return None
+    if "cess" in low:  # cess columns have no field and shadow "amt"/"total"
+        return None
     for field, keywords in _COLUMN_KEYWORDS:
-        if any(k in low for k in keywords):
-            return field
+        for rank, k in enumerate(keywords):
+            if k in low:
+                return field, rank
     return None
 
 
-def _find_header_row(grid: list[list[str]]) -> tuple[int, dict[int, str]]:
-    """Return (row index, {column index: field}) for the line-items header, or (-1, {})."""
+def _find_header_row(grid: list[list[str]]) -> tuple[int, dict[int, str], bool]:
+    """Line-items header: (row index, {column index: field}, gst column is a
+    half-rate CGST/SGST column). (-1, {}, False) when not found."""
     for i, row in enumerate(grid[:15]):
-        colmap: dict[int, str] = {}
-        seen: set[str] = set()
+        best: dict[str, tuple[int, int]] = {}  # field -> (col, rank)
+        gst_is_half = False
         for j, cell in enumerate(row):
-            field = _classify_header_cell(cell or "")
-            if field and field not in seen:
-                colmap[j] = field
-                seen.add(field)
+            hit = _classify_header_cell(cell or "")
+            if not hit:
+                continue
+            field, rank = hit
+            if field not in best or rank < best[field][1]:
+                best[field] = (j, rank)
+                if field == "gst_rate":
+                    low = (cell or "").lower()
+                    gst_is_half = ("cgst" in low or "sgst" in low or "s/ut" in low) and "igst" not in low
+        seen = set(best)
         # A real items header names at least a description plus two value columns.
         if "raw_description" in seen and len(seen & (_NUMERIC_FIELDS | {"hsn"})) >= 2:
-            return i, colmap
-    return -1, {}
+            return i, {col: field for field, (col, _rank) in best.items()}, gst_is_half
+    return -1, {}, False
 
 
 def _row_to_line(fields: dict[str, str], line_no: int) -> Optional[InvoiceLine]:
@@ -497,7 +539,7 @@ def _row_to_line(fields: dict[str, str], line_no: int) -> Optional[InvoiceLine]:
 
 
 def _grid_to_lines(grid: list[list[str]]) -> list[InvoiceLine]:
-    header_idx, colmap = _find_header_row(grid)
+    header_idx, colmap, gst_is_half = _find_header_row(grid)
     if header_idx < 0:
         return []
     lines: list[InvoiceLine] = []
@@ -511,6 +553,9 @@ def _grid_to_lines(grid: list[list[str]]) -> list[InvoiceLine]:
         fields = {field: cells[j] for j, field in colmap.items() if j < len(cells)}
         line = _row_to_line(fields, len(lines) + 1)
         if line:
+            # CGST/SGST columns hold half the GST rate each.
+            if gst_is_half and line.gst_rate:
+                line.gst_rate = round(line.gst_rate * 2, 2)
             lines.append(line)
         elif lines and fields.get("raw_description") and not any(
             (fields.get(f) or "").strip() for f in _NUMERIC_FIELDS if f in fields
@@ -687,7 +732,9 @@ def _ocr_pdf_bytes(raw: bytes) -> str:
                         text_parts.append(t)
         except Exception as e:
             log.warning("ocr: pdfplumber failed: %s", e)
-    joined = "\n".join(text_parts).strip()
+    # Some PDFs map dash glyphs to NUL in their text layer ("CIRAKDL7\x000006"
+    # for CIRAKDL7-0006); a hyphen is the least-wrong replacement.
+    joined = "\n".join(text_parts).strip().replace("\x00", "-")
     if joined:
         return joined
     # Fallback: rasterise + tesseract
@@ -718,22 +765,23 @@ def _parse_header_from_text(text: str) -> InvoiceExtraction:
     if m:
         supplier_gstin = m.group(1)
 
-    inv_no = None
-    m = _INV_NO_RE.search(text)
-    if m:
-        inv_no = m.group(1).strip(" .:#")
+    inv_no = _find_invoice_number(text)
 
     inv_date = None
     m = _DATE_LINE_RE.search(text)
     if m:
         inv_date = _normalise_date(m.group(1))
     if not inv_date:
+        m = _DATE_TEXT_RE.search(text)
+        if m:
+            inv_date = _normalise_date(m.group(1))
+    if not inv_date:
         m = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b", text)
         if m:
             inv_date = _normalise_date(m.group(1))
 
     grand_total = None
-    m = _TOTAL_RE.search(text)
+    m = _TOTAL_RE.search(text) or _TOTAL_BARE_RE.search(text)
     if m:
         grand_total = _to_number(m.group(1))
 
