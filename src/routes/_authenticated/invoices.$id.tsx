@@ -3,14 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { approveInvoice, extractInvoice } from "@/lib/invoices.functions";
+import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
-import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft } from "lucide-react";
+import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
   head: () => ({ meta: [{ title: "Review invoice — Ledgerly" }] }),
@@ -23,6 +24,8 @@ function InvoiceReview() {
   const qc = useQueryClient();
   const approve = useServerFn(approveInvoice);
   const extract = useServerFn(extractInvoice);
+  const linkProduct = useServerFn(setLineProduct);
+  const createProduct = useServerFn(createProductFromLine);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const { data: inv } = useQuery({
@@ -45,6 +48,14 @@ function InvoiceReview() {
     enabled: !!inv,
   });
 
+  const { data: products } = useQuery({
+    queryKey: ["products_min_match"],
+    queryFn: async () => {
+      const { data } = await supabase.from("products").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
   useEffect(() => {
     if (!inv?.storage_path) return;
     supabase.storage.from("invoices").createSignedUrl(inv.storage_path, 600).then(({ data }) => {
@@ -55,10 +66,29 @@ function InvoiceReview() {
   if (!inv) return <div className="p-8">Loading…</div>;
 
   const doApprove = async () => {
+    const unlinked = (lines ?? []).filter(l => !l.matched_product_id).length;
+    if (unlinked > 0 && !confirm(
+      `${unlinked} line${unlinked === 1 ? " is" : "s are"} not linked to a product — ` +
+      `stock and purchase cost won't update for ${unlinked === 1 ? "it" : "them"}. Approve anyway?`,
+    )) return;
     await approve({ data: { invoiceId: id } });
     toast.success("Approved and posted to inventory");
     qc.invalidateQueries();
     navigate({ to: "/invoices" });
+  };
+
+  const pickProduct = async (lineId: string, value: string) => {
+    try {
+      if (value === "__create__") {
+        const p = await createProduct({ data: { lineId } });
+        toast.success(`Product "${p.name}" created and linked`);
+        qc.invalidateQueries({ queryKey: ["products_min_match"] });
+        qc.invalidateQueries({ queryKey: ["products"] });
+      } else {
+        await linkProduct({ data: { lineId, productId: value === "__none__" ? null : value } });
+      }
+      qc.invalidateQueries({ queryKey: ["invoice-lines", id] });
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   const reprocess = async () => {
@@ -136,6 +166,9 @@ function InvoiceReview() {
                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="min-w-[200px]">
+                      <span className="inline-flex items-center gap-1"><Link2 className="h-3 w-3" /> Product</span>
+                    </TableHead>
                     <TableHead>HSN</TableHead>
                     <TableHead>Qty</TableHead>
                     <TableHead>Free</TableHead>
@@ -151,6 +184,22 @@ function InvoiceReview() {
                     <TableRow key={l.id} className={l.needs_review ? "bg-warning/10" : ""}>
                       <TableCell className="text-xs">{l.line_no}</TableCell>
                       <TableCell className="max-w-[220px] truncate" title={l.raw_description ?? ""}>{l.raw_description}</TableCell>
+                      <TableCell>
+                        <Select value={l.matched_product_id ?? "__none__"}
+                          onValueChange={v => pickProduct(l.id, v)}
+                          disabled={inv.status === "approved"}>
+                          <SelectTrigger className={`h-8 text-xs ${!l.matched_product_id ? "border-amber-400 text-amber-700" : ""}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Not linked —</SelectItem>
+                            <SelectItem value="__create__">
+                              <span className="inline-flex items-center gap-1"><Plus className="h-3 w-3" /> Create new product from this line</span>
+                            </SelectItem>
+                            {products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell className="text-xs">{l.hsn}</TableCell>
                       <TableCell className="tabular-nums">{l.quantity}</TableCell>
                       <TableCell className="tabular-nums">{l.free_quantity || "—"}</TableCell>

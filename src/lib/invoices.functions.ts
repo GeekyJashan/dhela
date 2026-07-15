@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
+import { matchLineToProduct, type MatchableProduct } from "./product-match";
 
 const log = createLogger("invoices.functions");
 
@@ -89,8 +90,14 @@ async function runExtraction(
     }
     const parsed = ExtractionSchema.parse(await resp.json());
 
+    // Auto-link lines to catalog products by name similarity + HSN.
+    const { data: products } = await supabase
+      .from("products").select("id, name, hsn").eq("org_id", inv.org_id);
+    const catalog = (products ?? []) as MatchableProduct[];
+
     await supabase.from("invoice_lines").delete().eq("invoice_id", inv.id);
     const linesToInsert = parsed.lines.map((l, i) => ({
+      matched_product_id: matchLineToProduct(l.raw_description, l.hsn, catalog)?.productId ?? null,
       invoice_id: inv.id,
       org_id: inv.org_id,
       line_no: l.line_no ?? i + 1,
@@ -240,6 +247,11 @@ export const approveInvoice = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     log.info("approve:start", { invoiceId: data.invoiceId, userId });
 
+    // Guard against double-posting stock on a repeated approve call.
+    const { data: current } = await supabase.from("invoices")
+      .select("status").eq("id", data.invoiceId).single();
+    if (current?.status === "approved") return { ok: true };
+
     const { data: lines } = await supabase.from("invoice_lines")
       .select("matched_product_id, quantity, free_quantity, rate")
       .eq("invoice_id", data.invoiceId);
@@ -260,4 +272,58 @@ export const approveInvoice = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     log.info("approve:done", { invoiceId: data.invoiceId });
     return { ok: true };
+  });
+
+export const setLineProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      lineId: z.string().uuid(),
+      productId: z.string().uuid().nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("invoice_lines")
+      .update({ matched_product_id: data.productId })
+      .eq("id", data.lineId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const createProductFromLine = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ lineId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: line, error: lineErr } = await supabase.from("invoice_lines")
+      .select("org_id, raw_description, hsn, gst_rate, mrp, unit, rate")
+      .eq("id", data.lineId).single();
+    if (lineErr || !line) throw new Error(lineErr?.message ?? "Line not found");
+
+    const name = (line.raw_description ?? "").trim();
+    if (!name) throw new Error("Line has no description to name the product");
+
+    // Stock stays 0 here — Approve & post adds this invoice's quantity.
+    const { data: product, error: prodErr } = await supabase.from("products")
+      .insert({
+        org_id: line.org_id,
+        name,
+        hsn: line.hsn ?? null,
+        gst_rate: line.gst_rate ?? null,
+        mrp: line.mrp ?? null,
+        unit: line.unit ?? null,
+        purchase_rate: line.rate ?? null,
+        current_stock: 0,
+      })
+      .select("id, name")
+      .single();
+    if (prodErr) throw new Error(prodErr.message);
+
+    const { error: linkErr } = await supabase.from("invoice_lines")
+      .update({ matched_product_id: product.id })
+      .eq("id", data.lineId);
+    if (linkErr) throw new Error(linkErr.message);
+
+    log.info("createProductFromLine:done", { lineId: data.lineId, productId: product.id });
+    return product;
   });
