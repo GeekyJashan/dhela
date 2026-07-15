@@ -192,7 +192,7 @@ function Products() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New product</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>Add product</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
+            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">Product name *</label>
                 <Input placeholder="e.g. Maggi Masala Noodles 70g" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
@@ -257,8 +257,8 @@ function Products() {
                 <label className="text-xs text-muted-foreground">Opening stock</label>
                 <Input placeholder="Quantity on hand" value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
               </div>
-            </div>
-            <DialogFooter><Button onClick={submit} disabled={!form.name}>Save</Button></DialogFooter>
+              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>Save</Button></DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -294,7 +294,8 @@ function Products() {
                                 {t.toUpperCase()}
                                 <Input type="number" className="h-7 w-16 text-right"
                                   value={gDraftFor(g.group!)[t]}
-                                  onChange={e => setGDrafts(d => ({ ...d, [g.group!.id]: { ...gDraftFor(g.group!), [t]: e.target.value } }))} />
+                                  onChange={e => setGDrafts(d => ({ ...d, [g.group!.id]: { ...gDraftFor(g.group!), [t]: e.target.value } }))}
+                                  onKeyDown={e => { if (e.key === "Enter" && gDirty(g.group!)) saveGroupDiscounts(g.group!); }} />
                                 %
                               </label>
                             ))}

@@ -97,12 +97,12 @@ function StockGroupsCard() {
               const d = draftFor(g);
               return (
                 <TableRow key={g.id}>
-                  <TableCell><Input value={d.name} onChange={e => patch(g, { name: e.target.value })} /></TableCell>
+                  <TableCell><Input value={d.name} onChange={e => patch(g, { name: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && isDirty(g)) saveGroup(g); }} /></TableCell>
                   <TableCell className="font-mono text-xs">{g.hsn_code ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{g.products?.[0]?.count ?? 0}</TableCell>
-                  <TableCell><Input type="number" value={d.a} onChange={e => patch(g, { a: e.target.value })} /></TableCell>
-                  <TableCell><Input type="number" value={d.b} onChange={e => patch(g, { b: e.target.value })} /></TableCell>
-                  <TableCell><Input type="number" value={d.c} onChange={e => patch(g, { c: e.target.value })} /></TableCell>
+                  <TableCell><Input type="number" value={d.a} onChange={e => patch(g, { a: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && isDirty(g)) saveGroup(g); }} /></TableCell>
+                  <TableCell><Input type="number" value={d.b} onChange={e => patch(g, { b: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && isDirty(g)) saveGroup(g); }} /></TableCell>
+                  <TableCell><Input type="number" value={d.c} onChange={e => patch(g, { c: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && isDirty(g)) saveGroup(g); }} /></TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant={isDirty(g) ? "default" : "ghost"} disabled={!isDirty(g)} onClick={() => saveGroup(g)}>Save</Button>
                   </TableCell>
@@ -189,7 +189,7 @@ function PricingPage() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2"/>New override</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New price override</DialogTitle></DialogHeader>
-            <div className="space-y-3">
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.product_id && form.selling_rate) submit(); }}>
               <div>
                 <label className="text-xs text-muted-foreground">Product *</label>
                 <Select value={form.product_id} onValueChange={(v) => setForm({ ...form, product_id: v })}>
@@ -217,8 +217,8 @@ function PricingPage() {
                   <Input type="number" value={form.discount_pct} onChange={e => setForm({ ...form, discount_pct: Number(e.target.value) })} />
                 </div>
               </div>
-            </div>
-            <DialogFooter><Button onClick={submit} disabled={!form.product_id || !form.selling_rate}>Save</Button></DialogFooter>
+              <DialogFooter><Button type="submit" disabled={!form.product_id || !form.selling_rate}>Save</Button></DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

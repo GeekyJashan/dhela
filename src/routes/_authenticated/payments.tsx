@@ -197,7 +197,7 @@ function PaymentsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Record payment</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (!saving) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Direction</Label>
@@ -270,10 +270,10 @@ function PaymentsPage() {
               The amount is settled against the party's oldest unpaid invoices automatically;
               anything left over stays as an advance.
             </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={submit} disabled={saving}>Save payment</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="submit" disabled={saving}>Save payment</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

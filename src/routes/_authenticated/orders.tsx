@@ -191,7 +191,7 @@ function OrdersPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editing ? `Edit ${editing.order_number}` : "New order"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (!saving) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Retailer *</Label>
@@ -211,7 +211,7 @@ function OrdersPage() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label>Products *</Label>
-                <Button size="sm" variant="outline" onClick={() => setLines(ls => [...ls, blankLine()])}>
+                <Button type="button" size="sm" variant="outline" onClick={() => setLines(ls => [...ls, blankLine()])}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add line
                 </Button>
               </div>
@@ -235,7 +235,7 @@ function OrdersPage() {
                       <Input className="w-24" type="number" min="0" placeholder="Qty" title="Quantity" value={l.quantity}
                         onChange={e => patchLine(l.key, { quantity: e.target.value })} />
                       <span className="text-xs text-muted-foreground w-10">{p?.unit ?? ""}</span>
-                      <Button size="sm" variant="ghost" onClick={() => setLines(ls => ls.length > 1 ? ls.filter(x => x.key !== l.key) : ls)}>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setLines(ls => ls.length > 1 ? ls.filter(x => x.key !== l.key) : ls)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -248,10 +248,10 @@ function OrdersPage() {
               <Label>Notes</Label>
               <Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Delivery instructions, references…" />
             </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={submit} disabled={saving}>{editing ? "Save changes" : "Create order"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="submit" disabled={saving}>{editing ? "Save changes" : "Create order"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

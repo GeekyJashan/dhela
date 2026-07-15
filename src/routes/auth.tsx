@@ -76,16 +76,20 @@ function AuthPage() {
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
                 <TabsTrigger value="signup">Create account</TabsTrigger>
               </TabsList>
-              <TabsContent value="signin" className="space-y-4 mt-4">
-                <div className="space-y-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                <Button className="w-full" onClick={signIn} disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+              <TabsContent value="signin" className="mt-4">
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signIn(); }}>
+                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+                </form>
               </TabsContent>
-              <TabsContent value="signup" className="space-y-4 mt-4">
-                <div className="space-y-2"><Label>Workspace name</Label><Input placeholder="Acme Distributors" value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Work email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                <Button className="w-full" onClick={signUp} disabled={loading}>{loading ? "Creating…" : "Create workspace"}</Button>
+              <TabsContent value="signup" className="mt-4">
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signUp(); }}>
+                  <div className="space-y-2"><Label>Workspace name</Label><Input placeholder="Acme Distributors" value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Work email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating…" : "Create workspace"}</Button>
+                </form>
               </TabsContent>
             </Tabs>
           </CardContent>

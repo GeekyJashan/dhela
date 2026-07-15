@@ -66,13 +66,13 @@ function Suppliers() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New supplier</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add supplier</DialogTitle></DialogHeader>
-            <div className="space-y-3">
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
               <Input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               <Input placeholder="GSTIN" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} />
               <Input placeholder="Contact" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
               <Input placeholder="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-            </div>
-            <DialogFooter><Button onClick={submit} disabled={!form.name}>Save</Button></DialogFooter>
+              <DialogFooter><Button type="submit" disabled={!form.name}>Save</Button></DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

@@ -209,7 +209,7 @@ function ReturnsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader><DialogTitle>Record a return</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (!saving && selectedLines.length) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Who is returning? *</Label>
@@ -305,15 +305,15 @@ function ReturnsPage() {
               <Label>Notes</Label>
               <Textarea rows={2} placeholder="Optional remarks" value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
-          </div>
-          <DialogFooter className="items-center gap-3">
-            <span className="text-sm text-muted-foreground mr-auto">
-              Credit to retailer: <span className="font-semibold text-foreground">{inr(totalCredit)}</span>
-            </span>
-            <Button onClick={submit} disabled={saving || !selectedLines.length}>
-              <Undo2 className="h-4 w-4 mr-2" /> Create credit note
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="items-center gap-3">
+              <span className="text-sm text-muted-foreground mr-auto">
+                Credit to retailer: <span className="font-semibold text-foreground">{inr(totalCredit)}</span>
+              </span>
+              <Button type="submit" disabled={saving || !selectedLines.length}>
+                <Undo2 className="h-4 w-4 mr-2" /> Create credit note
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
