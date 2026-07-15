@@ -1,8 +1,11 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { LANGUAGES, setLanguage } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -29,6 +32,7 @@ const NAV = [
 ] as const;
 
 function AuthedLayout() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -57,14 +61,22 @@ function AuthedLayout() {
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition ${
                   active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
                 }`}>
-                <Icon className="h-4 w-4" /> {label}
+                <Icon className="h-4 w-4" /> {t(label)}
               </Link>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          <Select value={i18n.language} onValueChange={setLanguage}>
+            <SelectTrigger className="w-full h-9 bg-transparent border-sidebar-border text-sidebar-foreground/80">
+              <span className="inline-flex items-center gap-2"><Globe className="h-4 w-4" /><SelectValue /></span>
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGES.map(l => <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button variant="ghost" className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={signOut}>
-            <LogOut className="h-4 w-4 mr-2" /> Sign out
+            <LogOut className="h-4 w-4 mr-2" /> {t("Sign out")}
           </Button>
         </div>
       </aside>

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Receipt, Ban } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({ meta: [{ title: "Orders — Ledgerly" }] }),
@@ -45,6 +46,7 @@ const STATUS_STYLE: Record<Order["status"], string> = {
 };
 
 function OrdersPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const save = useServerFn(upsertOrder);
@@ -138,8 +140,8 @@ function OrdersPage() {
     const validLines = lines
       .filter(l => l.product_id && Number(l.quantity) > 0)
       .map(l => ({ product_id: l.product_id, quantity: Number(l.quantity) }));
-    if (!retailerId) { toast.error("Pick a retailer"); return; }
-    if (!validLines.length) { toast.error("Add at least one product"); return; }
+    if (!retailerId) { toast.error(t("Pick a retailer")); return; }
+    if (!validLines.length) { toast.error(t("Add at least one product")); return; }
     setSaving(true);
     try {
       const res = await save({ data: {
@@ -149,7 +151,7 @@ function OrdersPage() {
         notes: notes || null,
         lines: validLines,
       }});
-      toast.success(`Order ${res.order_number} ${editing ? "updated" : "created"}`);
+      toast.success(editing ? t("Order {{n}} updated", { n: res.order_number }) : t("Order {{n}} created", { n: res.order_number }));
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["orders"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -157,7 +159,7 @@ function OrdersPage() {
   };
 
   const del = async (o: Order) => {
-    if (!confirm(`Delete order ${o.order_number}? Issued invoices remain.`)) return;
+    if (!confirm(t("Delete order {{n}}? Issued invoices remain.", { n: o.order_number }))) return;
     try {
       await remove({ data: { id: o.id } });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -165,7 +167,7 @@ function OrdersPage() {
   };
 
   const cancel = async (o: Order) => {
-    if (!confirm(`Cancel order ${o.order_number}?`)) return;
+    if (!confirm(t("Cancel order {{n}}?", { n: o.order_number }))) return;
     try {
       await setStatus({ data: { id: o.id, status: "cancelled" } });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -182,37 +184,37 @@ function OrdersPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Orders</h1>
-          <p className="text-muted-foreground mt-1">Retailer orders — turn them into invoices when you're ready to bill.</p>
+          <h1 className="font-display text-4xl">{t("Orders")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Retailer orders — turn them into invoices when you're ready to bill.")}</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New order</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New order")}</Button>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{editing ? `Edit ${editing.order_number}` : "New order"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("Edit {{n}}", { n: editing.order_number }) : t("New order")}</DialogTitle></DialogHeader>
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (!saving) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Retailer *</Label>
+                <Label>{t("Retailer *")}</Label>
                 <Select value={retailerId} onValueChange={setRetailerId}>
-                  <SelectTrigger><SelectValue placeholder="Choose retailer" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("Choose retailer")} /></SelectTrigger>
                   <SelectContent>
                     {retailers?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Order date</Label>
+                <Label>{t("Order date")}</Label>
                 <Input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label>Products *</Label>
+                <Label>{t("Products *")}</Label>
                 <Button type="button" size="sm" variant="outline" onClick={() => setLines(ls => [...ls, blankLine()])}>
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add line
+                  <Plus className="h-3.5 w-3.5 mr-1" /> {t("Add line")}
                 </Button>
               </div>
               <div className="space-y-2 max-h-72 overflow-auto pr-1">
@@ -222,17 +224,17 @@ function OrdersPage() {
                     <div key={l.key} className="flex gap-2 items-center">
                       <div className="flex-1">
                         <Select value={l.product_id} onValueChange={v => patchLine(l.key, { product_id: v })}>
-                          <SelectTrigger><SelectValue placeholder="Pick product" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder={t("Pick product")} /></SelectTrigger>
                           <SelectContent>
                             {products?.map(pr => (
                               <SelectItem key={pr.id} value={pr.id}>
-                                {pr.name}{pr.current_stock != null ? ` · stock ${Number(pr.current_stock)}` : ""}
+                                {pr.name}{pr.current_stock != null ? ` · ${t("stock")} ${Number(pr.current_stock)}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <Input className="w-24" type="number" min="0" placeholder="Qty" title="Quantity" value={l.quantity}
+                      <Input className="w-24" type="number" min="0" placeholder={t("Qty")} title={t("Quantity")} value={l.quantity}
                         onChange={e => patchLine(l.key, { quantity: e.target.value })} />
                       <span className="text-xs text-muted-foreground w-10">{p?.unit ?? ""}</span>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setLines(ls => ls.length > 1 ? ls.filter(x => x.key !== l.key) : ls)}>
@@ -245,27 +247,27 @@ function OrdersPage() {
             </div>
 
             <div>
-              <Label>Notes</Label>
-              <Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Delivery instructions, references…" />
+              <Label>{t("Notes")}</Label>
+              <Textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Delivery instructions, references…")} />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={saving}>{editing ? "Save changes" : "Create order"}</Button>
+              <Button type="submit" disabled={saving}>{editing ? t("Save changes") : t("Create order")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
       <Card>
-        <CardHeader><CardTitle>Orders ({orders?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Orders ({{n}})", { n: orders?.length ?? 0 })}</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Order #</TableHead>
-              <TableHead>Retailer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead className="text-right">Fulfilled</TableHead>
+              <TableHead>{t("Order #")}</TableHead>
+              <TableHead>{t("Retailer")}</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
+              <TableHead>{t("Items")}</TableHead>
+              <TableHead className="text-right">{t("Fulfilled")}</TableHead>
               <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -279,22 +281,22 @@ function OrdersPage() {
                     <TableCell>{o.order_date}</TableCell>
                     <TableCell>
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLE[o.status]}`}>
-                        {o.status}
+                        {t(o.status)}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {o.order_lines.length} product{o.order_lines.length === 1 ? "" : "s"}
+                      {t("{{n}} products", { n: o.order_lines.length })}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{done} / {total}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       {openOrder && (
                         <Button size="sm" variant="outline" className="mr-1"
                           onClick={() => navigate({ to: "/sales/new", search: { orderId: o.id } })}>
-                          <Receipt className="h-3.5 w-3.5 mr-1" /> Invoice
+                          <Receipt className="h-3.5 w-3.5 mr-1" /> {t("Invoice")}
                         </Button>
                       )}
                       {openOrder && (
-                        <Button size="sm" variant="ghost" title="Cancel order" onClick={() => cancel(o)}>
+                        <Button size="sm" variant="ghost" title={t("Cancel order")} onClick={() => cancel(o)}>
                           <Ban className="h-3.5 w-3.5" />
                         </Button>
                       )}
@@ -306,7 +308,7 @@ function OrdersPage() {
               })}
               {!orders?.length && (
                 <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  No orders yet. Add one when a retailer places an order.
+                  {t("No orders yet. Add one when a retailer places an order.")}
                 </TableCell></TableRow>
               )}
             </TableBody>
@@ -316,18 +318,18 @@ function OrdersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending stock summary</CardTitle>
+          <CardTitle>{t("Pending stock summary")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Quantity still to deliver across open orders, against stock on hand.
+            {t("Quantity still to deliver across open orders, against stock on hand.")}
           </p>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead className="text-right">Pending qty</TableHead>
-              <TableHead className="text-right">In stock</TableHead>
-              <TableHead className="text-right">Shortfall</TableHead>
+              <TableHead>{t("Product")}</TableHead>
+              <TableHead className="text-right">{t("Pending qty")}</TableHead>
+              <TableHead className="text-right">{t("In stock")}</TableHead>
+              <TableHead className="text-right">{t("Shortfall")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {pendingSummary.map(p => (
@@ -342,7 +344,7 @@ function OrdersPage() {
               ))}
               {!pendingSummary.length && (
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  Nothing pending — all open orders are covered.
+                  {t("Nothing pending — all open orders are covered.")}
                 </TableCell></TableRow>
               )}
             </TableBody>

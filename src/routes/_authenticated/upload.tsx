@@ -12,6 +12,7 @@ import { FileUp, Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Cloc
 import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices } from "@/lib/invoices.functions";
 import { createLogger } from "@/lib/logger";
+import { useTranslation } from "react-i18next";
 
 const log = createLogger("upload");
 
@@ -45,6 +46,7 @@ const MAX_FILES = 100;
 const MAX_MB = 20;
 
 function Upload() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const getOrg = useServerFn(getCurrentOrg);
   const enqueue = useServerFn(enqueueInvoices);
@@ -58,7 +60,7 @@ function Upload() {
     const next: Row[] = [];
     for (const f of Array.from(files)) {
       if (f.size > MAX_MB * 1024 * 1024) {
-        toast.error(`${f.name} exceeds ${MAX_MB}MB`);
+        toast.error(t("{{name}} exceeds {{mb}}MB", { name: f.name, mb: MAX_MB }));
         continue;
       }
       next.push({ key: `${f.name}-${f.size}-${crypto.randomUUID()}`, file: f, status: "pending" });
@@ -66,7 +68,7 @@ function Upload() {
     setRows((prev) => {
       const total = prev.length + next.length;
       if (total > MAX_FILES) {
-        toast.error(`Max ${MAX_FILES} files per batch`);
+        toast.error(t("Max {{n}} files per batch", { n: MAX_FILES }));
         return [...prev, ...next].slice(0, MAX_FILES);
       }
       return [...prev, ...next];
@@ -116,7 +118,7 @@ function Upload() {
       await Promise.all(workers);
 
       if (!uploaded.length) {
-        toast.error("All uploads failed");
+        toast.error(t("All uploads failed"));
         return;
       }
 
@@ -136,7 +138,7 @@ function Upload() {
         body: JSON.stringify({ limit: Math.min(10, uploaded.length) }),
       }).catch(() => { /* pg_cron will pick it up */ });
 
-      toast.success(`${uploaded.length} invoice(s) queued`);
+      toast.success(t("{{n}} invoice(s) queued", { n: uploaded.length }));
     } catch (e) {
       log.error("batch:failed", { err: e });
       toast.error((e as Error).message);
@@ -192,16 +194,16 @@ function Upload() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <h1 className="font-display text-4xl mb-2">Upload invoices</h1>
+      <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
-        Drop one or many. We&apos;ll process up to {MAX_FILES} at a time in the background.
+        {t("Drop one or many. We'll process up to {{n}} at a time in the background.", { n: MAX_FILES })}
       </p>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Extraction engine</CardTitle>
+          <CardTitle>{t("Extraction engine")}</CardTitle>
           <CardDescription>
-            Choose per batch. AI is more accurate on messy scans; OCR is much cheaper and only pulls header fields.
+            {t("Choose per batch. AI is more accurate on messy scans; OCR is free but heuristic.")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -211,16 +213,16 @@ function Upload() {
               <div>
                 <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI (Gemini 2.5 Flash)</div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.
+                  {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.")}
                 </p>
               </div>
             </label>
             <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ocr" ? "border-primary bg-primary/5" : ""}`}>
               <RadioGroupItem value="ocr" id="ocr" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> OCR (free)</div>
+                <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> {t("OCR (free)")}</div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Header + line items parsed heuristically. Works best on clean, digital invoices — always review before approving. Zero cost.
+                  {t("Header + line items parsed heuristically. Works best on clean, digital invoices — always review before approving. Zero cost.")}
                 </p>
               </div>
             </label>
@@ -230,16 +232,16 @@ function Upload() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Files</CardTitle>
-          <CardDescription>PDF, JPG, PNG. Up to {MAX_MB}MB each, {MAX_FILES} per batch.</CardDescription>
+          <CardTitle>{t("Files")}</CardTitle>
+          <CardDescription>{t("PDF, JPG, PNG. Up to {{mb}}MB each, {{n}} per batch.", { mb: MAX_MB, n: MAX_FILES })}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <label className="block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer hover:bg-muted/40 transition"
             onDragOver={(e) => { e.preventDefault(); }}
             onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}>
             <FileUp className="h-9 w-9 mx-auto text-muted-foreground" />
-            <p className="mt-3 font-medium">Drop files here or click to select</p>
-            <p className="text-xs text-muted-foreground mt-1">Multiple files supported</p>
+            <p className="mt-3 font-medium">{t("Drop files here or click to select")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("Multiple files supported")}</p>
             <Input type="file" accept="application/pdf,image/*" multiple className="hidden"
               onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
           </label>
@@ -259,7 +261,7 @@ function Upload() {
                   </div>
                   {r.invoiceId && (r.status === "review" || r.status === "approved") && (
                     <Link to="/invoices/$id" params={{ id: r.invoiceId }} className="text-xs text-primary hover:underline">
-                      Review
+                      {t("Review")}
                     </Link>
                   )}
                   {r.status !== "processing" && r.status !== "uploading" && (
@@ -274,17 +276,17 @@ function Upload() {
 
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {rows.length > 0 && `${doneCount} / ${rows.length} done · ${pendingCount} to start`}
+              {rows.length > 0 && t("{{done}} / {{total}} done · {{pending}} to start", { done: doneCount, total: rows.length, pending: pendingCount })}
             </div>
             <div className="flex gap-2">
               {doneCount > 0 && (
                 <Button variant="outline" onClick={() => navigate({ to: "/invoices" })}>
-                  Go to invoices
+                  {t("Go to invoices")}
                 </Button>
               )}
               <Button size="lg" onClick={startBatch} disabled={!pendingCount || busy}>
                 {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {busy ? "Uploading…" : `Upload & extract${pendingCount ? ` (${pendingCount})` : ""}`}
+                {busy ? t("Uploading…") : `${t("Upload & extract")}${pendingCount ? ` (${pendingCount})` : ""}`}
               </Button>
             </div>
           </div>
@@ -307,19 +309,20 @@ function StatusIcon({ status }: { status: RowStatus }) {
 }
 
 function StatusText({ row }: { row: Row }) {
+  const { t } = useTranslation();
   switch (row.status) {
-    case "pending": return <span>Ready</span>;
-    case "uploading": return <span>Uploading…</span>;
-    case "queued": return <span>Queued</span>;
-    case "processing": return <span>Extracting…</span>;
+    case "pending": return <span>{t("Ready")}</span>;
+    case "uploading": return <span>{t("Uploading…")}</span>;
+    case "queued": return <span>{t("Queued")}</span>;
+    case "processing": return <span>{t("Extracting…")}</span>;
     case "review":
     case "approved":
       return (
         <span>
-          {row.supplier ?? "Extracted"}
+          {row.supplier ?? t("Extracted")}
           {row.total ? ` · ₹ ${Number(row.total).toLocaleString("en-IN")}` : ""}
         </span>
       );
-    case "failed": return <span className="text-destructive">{row.error ?? "Failed"}</span>;
+    case "failed": return <span className="text-destructive">{row.error ?? t("Failed")}</span>;
   }
 }

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus, Save, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
@@ -50,6 +51,7 @@ const blankRow = (): RowDraft => ({
 });
 
 function NewSalesInvoice() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { orderId } = Route.useSearch();
   const save = useServerFn(saveSalesInvoice);
@@ -207,8 +209,8 @@ function NewSalesInvoice() {
   const addRow = () => setRows(rs => [...rs, blankRow()]);
 
   const submit = async (status: "draft" | "issued") => {
-    if (!retailerId) { toast.error("Pick a retailer"); return; }
-    if (!computed.length || computed.every(r => !r.description)) { toast.error("Add at least one line"); return; }
+    if (!retailerId) { toast.error(t("Pick a retailer")); return; }
+    if (!computed.length || computed.every(r => !r.description)) { toast.error(t("Add at least one line")); return; }
     setSaving(true);
     try {
       const payload = {
@@ -229,7 +231,7 @@ function NewSalesInvoice() {
           }),
       };
       const res = await save({ data: payload });
-      toast.success(`Invoice ${res.invoice_number} ${status === "issued" ? "issued" : "saved as draft"}`);
+      toast.success(status === "issued" ? t("Invoice {{n}} issued", { n: res.invoice_number }) : t("Invoice {{n}} saved as draft", { n: res.invoice_number }));
       navigate({ to: "/sales/$id", params: { id: res.id! } });
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
@@ -239,26 +241,26 @@ function NewSalesInvoice() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">New sales invoice</h1>
+          <h1 className="font-display text-4xl">{t("New sales invoice")}</h1>
           <p className="text-muted-foreground mt-1">
-            {order ? `Against order ${order.order_number} · ` : ""}
-            {isInterstate ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
-            {orgState ? ` · From state ${orgState}` : " · Set your organization state code in settings"}
+            {order ? `${t("Against order")} ${order.order_number} · ` : ""}
+            {isInterstate ? t("Inter-state (IGST)") : t("Intra-state (CGST + SGST)")}
+            {orgState ? ` · ${t("From state")} ${orgState}` : ` · ${t("Set your organization state code in settings")}`}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>Save draft</Button>
-          <Button onClick={() => submit("issued")} disabled={saving}><Send className="h-4 w-4 mr-2"/>Issue invoice</Button>
+          <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>{t("Save draft")}</Button>
+          <Button onClick={() => submit("issued")} disabled={saving}><Send className="h-4 w-4 mr-2"/>{t("Issue invoice")}</Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Bill to</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Bill to")}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="md:col-span-2">
-            <Label>Retailer *</Label>
+            <Label>{t("Retailer *")}</Label>
             <Select value={retailerId} onValueChange={setRetailerId}>
-              <SelectTrigger><SelectValue placeholder="Choose retailer" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("Choose retailer")} /></SelectTrigger>
               <SelectContent>
                 {retailers?.map(r => (
                   <SelectItem key={r.id} value={r.id}>
@@ -269,11 +271,11 @@ function NewSalesInvoice() {
             </Select>
           </div>
           <div>
-            <Label>Invoice date</Label>
+            <Label>{t("Invoice date")}</Label>
             <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
           </div>
           <div>
-            <Label>Due date</Label>
+            <Label>{t("Due date")}</Label>
             <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
           </div>
         </CardContent>
@@ -281,23 +283,23 @@ function NewSalesInvoice() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Line items</CardTitle>
-          <Button size="sm" variant="outline" onClick={addRow}><Plus className="h-4 w-4 mr-2"/>Add row</Button>
+          <CardTitle>{t("Line items")}</CardTitle>
+          <Button size="sm" variant="outline" onClick={addRow}><Plus className="h-4 w-4 mr-2"/>{t("Add row")}</Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[240px]">Product</TableHead>
-                <TableHead>HSN</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead className="w-20">Qty</TableHead>
-                <TableHead className="w-20">Disc%</TableHead>
-                <TableHead className="w-20">GST%</TableHead>
-                <TableHead className="text-right">Taxable</TableHead>
-                <TableHead className="text-right">Tax</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right text-success">Profit</TableHead>
+                <TableHead className="min-w-[240px]">{t("Product")}</TableHead>
+                <TableHead>{t("HSN")}</TableHead>
+                <TableHead>{t("Batch")}</TableHead>
+                <TableHead className="w-20">{t("Qty")}</TableHead>
+                <TableHead className="w-20">{t("Disc%")}</TableHead>
+                <TableHead className="w-20">{t("GST%")}</TableHead>
+                <TableHead className="text-right">{t("Taxable")}</TableHead>
+                <TableHead className="text-right">{t("Tax")}</TableHead>
+                <TableHead className="text-right">{t("Total")}</TableHead>
+                <TableHead className="text-right text-success">{t("Profit")}</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -306,11 +308,11 @@ function NewSalesInvoice() {
                 <TableRow key={r.key}>
                   <TableCell>
                     <Select value={r.product_id ?? ""} onValueChange={(v) => pickProduct(r.key, v)}>
-                      <SelectTrigger><SelectValue placeholder={r.description || "Pick product"} /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={r.description || t("Pick product")} /></SelectTrigger>
                       <SelectContent>
                         {products?.map(p => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.name}{p.current_stock != null ? ` · stock ${p.current_stock}` : ""}
+                            {p.name}{p.current_stock != null ? ` · ${t("stock")} ${p.current_stock}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -337,32 +339,32 @@ function NewSalesInvoice() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("Notes")}</CardTitle></CardHeader>
           <CardContent>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Terms, transport, remarks…" rows={5} />
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("Terms, transport, remarks…")} rows={5} />
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("Totals")}</CardTitle></CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <Line label="Subtotal" v={totals.subtotal} />
-            <Line label="Discount" v={-totals.discount_total} />
+            <Line label={t("Subtotal")} v={totals.subtotal} />
+            <Line label={t("Discount")} v={-totals.discount_total} />
             {isInterstate
               ? <Line label="IGST" v={totals.igst_total} />
               : <><Line label="CGST" v={totals.cgst_total} /><Line label="SGST" v={totals.sgst_total} /></>
             }
-            <Line label="Round off" v={totals.round_off} />
+            <Line label={t("Round off")} v={totals.round_off} />
             <div className="border-t pt-2 mt-2 flex justify-between text-lg font-semibold">
-              <span>Grand total</span>
+              <span>{t("Grand total")}</span>
               <span className="tabular-nums">₹ {totals.grand_total.toLocaleString("en-IN")}</span>
             </div>
             <div className="text-xs text-muted-foreground italic pt-1">{amountInWords(totals.grand_total)}</div>
             <div className="border-t pt-2 mt-2 flex justify-between">
-              <span className="text-muted-foreground">Cost</span>
+              <span className="text-muted-foreground">{t("Cost")}</span>
               <span className="tabular-nums">₹ {totals.total_cost.toLocaleString("en-IN")}</span>
             </div>
             <div className="flex justify-between font-medium text-success">
-              <span>Profit</span>
+              <span>{t("Profit")}</span>
               <span className="tabular-nums">₹ {totals.total_profit.toLocaleString("en-IN")}</span>
             </div>
           </CardContent>

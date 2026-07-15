@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Search, Sparkles, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 
 export const Route = createFileRoute("/_authenticated/products")({
@@ -25,6 +26,7 @@ const empty = {
 };
 
 function Products() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const getOrg = useServerFn(getCurrentOrg);
   const aiSuggestHsn = useServerFn(suggestHsn);
@@ -42,7 +44,7 @@ function Products() {
     if (hsnTouchedRef.current) return;
     const name = form.name.trim();
     if (name.length < 3) { setAiHint(null); return; }
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setAiLoading(true);
       setAiHint(null);
       try {
@@ -56,15 +58,15 @@ function Products() {
           }));
           setAiHint(`AI: ${s.hsn}${s.gst_rate != null ? ` · GST ${s.gst_rate}%` : ""}${s.description ? ` · ${s.description}` : ""}`);
         } else {
-          setAiHint("AI couldn't classify — search manually below");
+          setAiHint(t("AI couldn't classify — search manually below"));
         }
       } catch (e) {
-        setAiHint(`AI failed: ${(e as Error).message}`);
+        setAiHint(t("AI failed: {{msg}}", { msg: (e as Error).message }));
       } finally {
         setAiLoading(false);
       }
     }, 1500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [form.name, open, aiSuggestHsn]);
 
 
@@ -123,7 +125,7 @@ function Products() {
       discount_c: Number(d.c) || 0,
     }).eq("id", g.id);
     if (error) { toast.error(error.message); return; }
-    toast.success(`${g.name} discounts saved`);
+    toast.success(t("{{name}} discounts saved", { name: g.name }));
     setGDrafts(({ [g.id]: _gone, ...rest }) => rest);
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["stock_groups"] });
@@ -175,7 +177,7 @@ function Products() {
         current_stock: form.current_stock ? Number(form.current_stock) : 0,
       });
       if (error) throw error;
-      toast.success("Product added");
+      toast.success(t("Product added"));
       handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -185,53 +187,53 @@ function Products() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Products</h1>
-          <p className="text-muted-foreground mt-1">Your catalog. Used for AI matching, pricing, and sales.</p>
+          <h1 className="font-display text-4xl">{t("Products")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Your catalog. Used for AI matching, pricing, and sales.")}</p>
         </div>
         <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New product</Button></DialogTrigger>
+          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New product")}</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
-            <DialogHeader><DialogTitle>Add product</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Add product")}</DialogTitle></DialogHeader>
             <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground">Product name *</label>
-                <Input placeholder="e.g. Maggi Masala Noodles 70g" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Product name *")}</label>
+                <Input placeholder={t("e.g. Maggi Masala Noodles 70g")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">SKU / item code</label>
-                <Input placeholder="Optional internal code" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("SKU / item code")}</label>
+                <Input placeholder={t("Optional internal code")} value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Unit</label>
-                <Input placeholder="PCS / KG / BOX" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Unit")}</label>
+                <Input placeholder={t("PCS / KG / BOX")} value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
               </div>
 
               <div className="col-span-2 space-y-2">
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-xs text-muted-foreground">HSN code</label>
-                    <Input placeholder="Auto-fills from name" value={form.hsn}
+                    <label className="text-xs text-muted-foreground">{t("HSN code")}</label>
+                    <Input placeholder={t("Auto-fills from name")} value={form.hsn}
                       onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
                   </div>
                   <div className="w-28">
-                    <label className="text-xs text-muted-foreground">GST %</label>
-                    <Input placeholder="e.g. 18" value={form.gst_rate}
+                    <label className="text-xs text-muted-foreground">{t("GST %")}</label>
+                    <Input placeholder={t("e.g. 18")} value={form.gst_rate}
                       onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
                   </div>
                 </div>
                 <div className="text-xs flex items-center gap-1.5 min-h-[18px]">
                   {aiLoading ? (
-                    <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">AI classifying HSN…</span></>
+                    <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("AI classifying HSN…")}</span></>
                   ) : aiHint ? (
                     <><Sparkles className="h-3 w-3 text-primary" /><span className="text-muted-foreground">{aiHint}</span></>
                   ) : (
-                    <span className="text-muted-foreground/70">HSN auto-fills from product name. Edit or search to override.</span>
+                    <span className="text-muted-foreground/70">{t("HSN auto-fills from product name. Edit or search to override.")}</span>
                   )}
                 </div>
 
                 <div className="relative">
                   <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
-                  <Input className="pl-8" placeholder="Search HSN by name or code (e.g. paracetamol, 3004, cement)" value={hsnQuery} onChange={e => setHsnQuery(e.target.value)} />
+                  <Input className="pl-8" placeholder={t("Search HSN by name or code (e.g. paracetamol, 3004, cement)")} value={hsnQuery} onChange={e => setHsnQuery(e.target.value)} />
                   {hsnQuery.length >= 2 && hsnResults && hsnResults.length > 0 && (
                     <div className="absolute z-10 mt-1 w-full border rounded-md bg-popover shadow-lg max-h-60 overflow-auto">
                       {hsnResults.map(h => (
@@ -250,33 +252,32 @@ function Products() {
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground">MRP (₹)</label>
-                <Input placeholder="Printed retail price" value={form.mrp} onChange={e => setForm({ ...form, mrp: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("MRP (₹)")}</label>
+                <Input placeholder={t("Printed retail price")} value={form.mrp} onChange={e => setForm({ ...form, mrp: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Opening stock</label>
-                <Input placeholder="Quantity on hand" value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Opening stock")}</label>
+                <Input placeholder={t("Quantity on hand")} value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
               </div>
-              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>Save</Button></DialogFooter>
+              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Catalog ({data?.length ?? 0})</CardTitle>
+          <CardTitle>{t("Catalog ({{n}})", { n: data?.length ?? 0 })}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Grouped by HSN heading (first 4 digits). Set each group's discount for
-            category A / B / C retailers — sales invoices apply them automatically.
+            {t("Grouped by HSN heading (first 4 digits). Set each group's discount for category A / B / C retailers — sales invoices apply them automatically.")}
           </p>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Name</TableHead><TableHead>SKU</TableHead><TableHead>HSN</TableHead>
-              <TableHead>GST%</TableHead><TableHead>MRP</TableHead>
-              <TableHead>Last cost</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
+              <TableHead>{t("Name")}</TableHead><TableHead>{t("SKU")}</TableHead><TableHead>{t("HSN")}</TableHead>
+              <TableHead>{t("GST%")}</TableHead><TableHead>{t("MRP")}</TableHead>
+              <TableHead>{t("Last cost")}</TableHead>
+              <TableHead className="text-right">{t("Stock")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {grouped.map(g => (
@@ -284,8 +285,8 @@ function Products() {
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableCell colSpan={7} className="py-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{g.group?.name ?? "Ungrouped"}</span>
-                        {g.group?.hsn_code && <span className="font-mono text-xs text-muted-foreground">HSN {g.group.hsn_code}</span>}
+                        <span className="font-semibold">{g.group?.name ?? t("Ungrouped")}</span>
+                        {g.group?.hsn_code && <span className="font-mono text-xs text-muted-foreground">{t("HSN")} {g.group.hsn_code}</span>}
                         <span className="text-xs text-muted-foreground">({g.rows.length})</span>
                         {g.group && (
                           <div className="ml-auto flex items-center gap-1.5">
@@ -301,7 +302,7 @@ function Products() {
                             ))}
                             <Button size="sm" className="h-7" variant={gDirty(g.group) ? "default" : "ghost"}
                               disabled={!gDirty(g.group)} onClick={() => saveGroupDiscounts(g.group!)}>
-                              Save
+                              {t("Save")}
                             </Button>
                           </div>
                         )}
@@ -321,7 +322,7 @@ function Products() {
                   ))}
                 </Fragment>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No products yet.</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{t("No products yet.")}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

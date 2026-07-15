@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, FileText, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/payments")({
   head: () => ({ meta: [{ title: "Payments — Ledgerly" }] }),
@@ -44,6 +45,7 @@ const emptyForm = {
 };
 
 function PaymentsPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const record = useServerFn(recordPayment);
   const remove = useServerFn(deletePayment);
@@ -124,8 +126,8 @@ function PaymentsPage() {
   };
 
   const submit = async () => {
-    if (!form.party_id) { toast.error(`Pick a ${form.party_type}`); return; }
-    if (!Number(form.amount)) { toast.error("Enter an amount"); return; }
+    if (!form.party_id) { toast.error(form.party_type === "retailer" ? t("Pick a retailer") : t("Pick a supplier")); return; }
+    if (!Number(form.amount)) { toast.error(t("Enter an amount")); return; }
     setSaving(true);
     try {
       const res = await record({ data: {
@@ -140,8 +142,8 @@ function PaymentsPage() {
         notes: form.notes || null,
       }});
       toast.success(res.unallocated > 0
-        ? `Payment recorded — ${inr(res.unallocated)} kept as advance`
-        : "Payment recorded");
+        ? t("Payment recorded — {{amt}} kept as advance", { amt: inr(res.unallocated) })
+        : t("Payment recorded"));
       setOpen(false);
       setForm(emptyForm);
       invalidate();
@@ -150,7 +152,7 @@ function PaymentsPage() {
   };
 
   const del = async (p: PaymentRow) => {
-    if (!confirm(`Delete this ${inr(p.amount)} payment? Invoice dues will be restored.`)) return;
+    if (!confirm(t("Delete this {{amt}} payment? Invoice dues will be restored.", { amt: inr(p.amount) }))) return;
     try {
       await remove({ data: { id: p.id } });
       invalidate();
@@ -161,11 +163,11 @@ function PaymentsPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Payments</h1>
-          <p className="text-muted-foreground mt-1">Money in from retailers, money out to suppliers.</p>
+          <h1 className="font-display text-4xl">{t("Payments")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Money in from retailers, money out to suppliers.")}</p>
         </div>
         <Button onClick={() => { setForm(emptyForm); setOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" /> Record payment
+          <Plus className="h-4 w-4 mr-2" /> {t("Record payment")}
         </Button>
       </div>
 
@@ -176,7 +178,7 @@ function PaymentsPage() {
               <ArrowDownLeft className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">To receive from retailers</div>
+              <div className="text-sm text-muted-foreground">{t("To receive from retailers")}</div>
               <div className="text-2xl font-semibold tabular-nums">{inr(receivable)}</div>
             </div>
           </CardContent>
@@ -187,7 +189,7 @@ function PaymentsPage() {
               <ArrowUpRight className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">To pay suppliers</div>
+              <div className="text-sm text-muted-foreground">{t("To pay suppliers")}</div>
               <div className="text-2xl font-semibold tabular-nums">{inr(payable)}</div>
             </div>
           </CardContent>
@@ -196,24 +198,24 @@ function PaymentsPage() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Record payment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("Record payment")}</DialogTitle></DialogHeader>
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (!saving) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Direction</Label>
+                <Label>{t("Direction")}</Label>
                 <Select value={form.party_type}
                   onValueChange={v => setForm({ ...form, party_type: v as "retailer" | "supplier", party_id: "" })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="retailer">Received from retailer</SelectItem>
-                    <SelectItem value="supplier">Paid to supplier</SelectItem>
+                    <SelectItem value="retailer">{t("Received from retailer")}</SelectItem>
+                    <SelectItem value="supplier">{t("Paid to supplier")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>{form.party_type === "retailer" ? "Retailer *" : "Supplier *"}</Label>
+                <Label>{form.party_type === "retailer" ? t("Retailer *") : t("Supplier *")}</Label>
                 <Select value={form.party_id} onValueChange={v => setForm({ ...form, party_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Choose party" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("Choose party")} /></SelectTrigger>
                   <SelectContent>
                     {partyOptions?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
@@ -222,56 +224,55 @@ function PaymentsPage() {
             </div>
             {partyBalance && (
               <p className="text-xs text-muted-foreground">
-                Current balance: <span className="font-medium">{inr(Number(partyBalance.balance ?? 0))}</span>
-                {form.party_type === "retailer" ? " receivable" : " payable"}
+                {t("Current balance:")} <span className="font-medium">{inr(Number(partyBalance.balance ?? 0))}</span>
+                {form.party_type === "retailer" ? ` ${t("receivable")}` : ` ${t("payable")}`}
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Amount (₹) *</Label>
-                <Input type="number" placeholder="e.g. 5000" value={form.amount}
+                <Label>{t("Amount (₹) *")}</Label>
+                <Input type="number" placeholder={t("e.g. 5000")} value={form.amount}
                   onChange={e => setForm({ ...form, amount: e.target.value })} />
               </div>
               <div>
-                <Label>Settlement discount (₹)</Label>
-                <Input type="number" placeholder="Waived amount, if any" value={form.discount_amount}
+                <Label>{t("Settlement discount (₹)")}</Label>
+                <Input type="number" placeholder={t("Waived amount, if any")} value={form.discount_amount}
                   onChange={e => setForm({ ...form, discount_amount: e.target.value })} />
               </div>
               <div>
-                <Label>Date</Label>
+                <Label>{t("Date")}</Label>
                 <Input type="date" value={form.payment_date}
                   onChange={e => setForm({ ...form, payment_date: e.target.value })} />
               </div>
               <div>
-                <Label>Mode</Label>
+                <Label>{t("Mode")}</Label>
                 <Select value={form.mode} onValueChange={v => setForm({ ...form, mode: v as typeof form.mode })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="bank">Bank transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="cash">{t("Cash")}</SelectItem>
+                    <SelectItem value="upi">{t("UPI")}</SelectItem>
+                    <SelectItem value="bank">{t("Bank transfer")}</SelectItem>
+                    <SelectItem value="cheque">{t("Cheque")}</SelectItem>
+                    <SelectItem value="other">{t("Other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label>Reference</Label>
-              <Input placeholder="UTR / cheque no. / UPI ref" value={form.reference}
+              <Label>{t("Reference")}</Label>
+              <Input placeholder={t("UTR / cheque no. / UPI ref")} value={form.reference}
                 onChange={e => setForm({ ...form, reference: e.target.value })} />
             </div>
             <div>
-              <Label>Notes</Label>
-              <Textarea rows={2} placeholder="Optional remarks" value={form.notes}
+              <Label>{t("Notes")}</Label>
+              <Textarea rows={2} placeholder={t("Optional remarks")} value={form.notes}
                 onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
             <p className="text-xs text-muted-foreground">
-              The amount is settled against the party's oldest unpaid invoices automatically;
-              anything left over stays as an advance.
+              {t("The amount is settled against the party's oldest unpaid invoices automatically; anything left over stays as an advance.")}
             </p>
             <DialogFooter>
-              <Button type="submit" disabled={saving}>Save payment</Button>
+              <Button type="submit" disabled={saving}>{t("Save payment")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -279,17 +280,17 @@ function PaymentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Receivables ageing</CardTitle>
-          <p className="text-sm text-muted-foreground">Unpaid invoice amounts by how long they've been outstanding.</p>
+          <CardTitle>{t("Receivables ageing")}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t("Unpaid invoice amounts by how long they've been outstanding.")}</p>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Retailer</TableHead>
-              <TableHead className="text-right">0–30 days</TableHead>
-              <TableHead className="text-right">31–60 days</TableHead>
-              <TableHead className="text-right">60+ days</TableHead>
-              <TableHead className="text-right">Total due</TableHead>
+              <TableHead>{t("Retailer")}</TableHead>
+              <TableHead className="text-right">{t("0–30 days")}</TableHead>
+              <TableHead className="text-right">{t("31–60 days")}</TableHead>
+              <TableHead className="text-right">{t("60+ days")}</TableHead>
+              <TableHead className="text-right">{t("Total due")}</TableHead>
               <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -302,14 +303,14 @@ function PaymentsPage() {
                   <TableCell className="text-right tabular-nums font-semibold">{inr(r.total)}</TableCell>
                   <TableCell className="text-right">
                     <Link to="/statement" search={{ party: "retailer", id: r.id }}>
-                      <Button size="sm" variant="ghost" title="View statement"><FileText className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" title={t("View statement")}><FileText className="h-3.5 w-3.5" /></Button>
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
               {!ageing?.length && (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No outstanding invoices — everything is collected.
+                  {t("No outstanding invoices — everything is collected.")}
                 </TableCell></TableRow>
               )}
             </TableBody>
@@ -318,17 +319,17 @@ function PaymentsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Payment history ({payments?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Payment history ({{n}})", { n: payments?.length ?? 0 })}</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Party</TableHead>
-              <TableHead>Direction</TableHead>
-              <TableHead>Mode</TableHead>
-              <TableHead>Reference</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right">Discount</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Party")}</TableHead>
+              <TableHead>{t("Direction")}</TableHead>
+              <TableHead>{t("Mode")}</TableHead>
+              <TableHead>{t("Reference")}</TableHead>
+              <TableHead className="text-right">{t("Amount")}</TableHead>
+              <TableHead className="text-right">{t("Discount")}</TableHead>
               <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -338,10 +339,10 @@ function PaymentsPage() {
                   <TableCell className="font-medium">{p.retailer?.name ?? p.supplier?.name ?? "—"}</TableCell>
                   <TableCell>
                     <span className={`text-xs font-medium ${p.party_type === "retailer" ? "text-green-700" : "text-red-700"}`}>
-                      {p.party_type === "retailer" ? "Received" : "Paid out"}
+                      {p.party_type === "retailer" ? t("Received") : t("Paid out")}
                     </span>
                   </TableCell>
-                  <TableCell className="capitalize">{p.mode}</TableCell>
+                  <TableCell className="capitalize">{t(p.mode)}</TableCell>
                   <TableCell className="text-muted-foreground">{p.reference ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{inr(p.amount)}</TableCell>
                   <TableCell className="text-right tabular-nums">{Number(p.discount_amount) ? inr(p.discount_amount) : "—"}</TableCell>
@@ -352,7 +353,7 @@ function PaymentsPage() {
               ))}
               {!payments?.length && (
                 <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                  No payments recorded yet.
+                  {t("No payments recorded yet.")}
                 </TableCell></TableRow>
               )}
             </TableBody>

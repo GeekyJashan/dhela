@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
   head: () => ({ meta: [{ title: "Invoices — Ledgerly" }] }),
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/invoices/")({
 });
 
 function InvoicesList() {
+  const { t } = useTranslation();
   const { data } = useQuery({
     queryKey: ["invoices", "all"],
     queryFn: async () => {
@@ -27,19 +29,19 @@ function InvoicesList() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-4xl">Invoices</h1>
-        <Link to="/upload"><Button><FileUp className="h-4 w-4 mr-2" /> Upload</Button></Link>
+        <h1 className="font-display text-4xl">{t("Purchases")}</h1>
+        <Link to="/upload"><Button><FileUp className="h-4 w-4 mr-2" /> {t("Upload")}</Button></Link>
       </div>
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Confidence</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t("Supplier")}</TableHead>
+              <TableHead>{t("Invoice #")}</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead className="text-right">{t("Total")}</TableHead>
+              <TableHead>{t("Confidence")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -47,7 +49,7 @@ function InvoicesList() {
               <TableRow key={inv.id} className="cursor-pointer">
                 <TableCell>
                   <Link to="/invoices/$id" params={{ id: inv.id }} className="font-medium hover:underline">
-                    {inv.supplier_name ?? "Unknown"}
+                    {inv.supplier_name ?? t("Unknown")}
                   </Link>
                 </TableCell>
                 <TableCell>{inv.invoice_number ?? "—"}</TableCell>
@@ -58,7 +60,7 @@ function InvoicesList() {
               </TableRow>
             ))}
             {!data?.length && (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No invoices yet.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("No invoices yet.")}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

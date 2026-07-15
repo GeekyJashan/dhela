@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/retailers")({
   head: () => ({ meta: [{ title: "Retailers — Ledgerly" }] }),
@@ -34,6 +35,7 @@ const empty = {
 };
 
 function RetailersPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const save = useServerFn(upsertRetailer);
   const remove = useServerFn(deleteRetailer);
@@ -92,14 +94,14 @@ function RetailersPage() {
         credit_limit: Number(form.credit_limit) || 0,
         notes: form.notes || null,
       }});
-      toast.success(editing ? "Retailer updated" : "Retailer added");
+      toast.success(editing ? t("Retailer updated") : t("Retailer added"));
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["retailers"] });
     } catch (e) { toast.error((e as Error).message); }
   };
 
   const del = async (id: string) => {
-    if (!confirm("Delete retailer? Their past invoices remain.")) return;
+    if (!confirm(t("Delete retailer? Their past invoices remain."))) return;
     try {
       await remove({ data: { id } });
       qc.invalidateQueries({ queryKey: ["retailers"] });
@@ -110,87 +112,87 @@ function RetailersPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Retailers</h1>
-          <p className="text-muted-foreground mt-1">Your customer master. Used to bill and calculate GST split.</p>
+          <h1 className="font-display text-4xl">{t("Retailers")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Your customer master. Used to bill and calculate GST split.")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New retailer</Button>
+            <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New retailer")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
-            <DialogHeader><DialogTitle>{editing ? "Edit retailer" : "Add retailer"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? t("Edit retailer") : t("Add retailer")}</DialogTitle></DialogHeader>
             <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground">Business name *</label>
-                <Input placeholder="e.g. Sharma General Store" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Business name *")}</label>
+                <Input placeholder={t("e.g. Sharma General Store")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">GSTIN</label>
-                <Input placeholder="15-character GST number" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <label className="text-xs text-muted-foreground">{t("GSTIN")}</label>
+                <Input placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">State code</label>
-                <Input placeholder="e.g. 27 for Maharashtra" value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("State code")}</label>
+                <Input placeholder={t("e.g. 27 for Maharashtra")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Phone</label>
-                <Input placeholder="Mobile / landline" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Phone")}</label>
+                <Input placeholder={t("Mobile / landline")} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Email</label>
+                <label className="text-xs text-muted-foreground">{t("Email")}</label>
                 <Input placeholder="billing@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground">Address</label>
-                <Textarea placeholder="Street, area, landmark" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Address")}</label>
+                <Textarea placeholder={t("Street, area, landmark")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">City</label>
-                <Input placeholder="City / town" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("City")}</label>
+                <Input placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Pincode</label>
-                <Input placeholder="6-digit PIN" value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Pincode")}</label>
+                <Input placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Retailer category (discount tier)</label>
+                <label className="text-xs text-muted-foreground">{t("Retailer category (discount tier)")}</label>
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as "A" | "B" | "C" })}>
                   <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="A">Category A — best discounts</SelectItem>
-                    <SelectItem value="B">Category B</SelectItem>
-                    <SelectItem value="C">Category C — standard</SelectItem>
+                    <SelectItem value="A">{t("Category A — best discounts")}</SelectItem>
+                    <SelectItem value="B">{t("Category B")}</SelectItem>
+                    <SelectItem value="C">{t("Category C — standard")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Default discount % (fallback)</label>
-                <Input type="number" placeholder="Used when no group discount" value={form.default_discount_pct} onChange={e => setForm({ ...form, default_discount_pct: Number(e.target.value) })} />
+                <label className="text-xs text-muted-foreground">{t("Default discount % (fallback)")}</label>
+                <Input type="number" placeholder={t("Used when no group discount")} value={form.default_discount_pct} onChange={e => setForm({ ...form, default_discount_pct: Number(e.target.value) })} />
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground">Credit limit (₹)</label>
-                <Input type="number" placeholder="0 = no limit" value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: Number(e.target.value) })} />
+                <label className="text-xs text-muted-foreground">{t("Credit limit (₹)")}</label>
+                <Input type="number" placeholder={t("0 = no limit")} value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: Number(e.target.value) })} />
               </div>
               <div className="col-span-2">
-                <label className="text-xs text-muted-foreground">Notes</label>
-                <Textarea placeholder="Anything worth remembering" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+                <label className="text-xs text-muted-foreground">{t("Notes")}</label>
+                <Textarea placeholder={t("Anything worth remembering")} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
-              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>Save</Button></DialogFooter>
+              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Customers ({data?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Customers ({{n}})", { n: data?.length ?? 0 })}</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Name</TableHead><TableHead>GSTIN</TableHead>
-              <TableHead>City/State</TableHead><TableHead>Category</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead className="text-right">Credit</TableHead>
-              <TableHead className="text-right">Outstanding</TableHead>
+              <TableHead>{t("Name")}</TableHead><TableHead>{t("GSTIN")}</TableHead>
+              <TableHead>{t("City/State")}</TableHead><TableHead>{t("Category")}</TableHead>
+              <TableHead>{t("Phone")}</TableHead>
+              <TableHead className="text-right">{t("Credit")}</TableHead>
+              <TableHead className="text-right">{t("Outstanding")}</TableHead>
               <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -205,14 +207,14 @@ function RetailersPage() {
                   <TableCell className="text-right tabular-nums">₹ {(balances.get(r.id) ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     <Link to="/statement" search={{ party: "retailer", id: r.id }}>
-                      <Button size="sm" variant="ghost" title="Account statement"><FileText className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" title={t("Account statement")}><FileText className="h-3.5 w-3.5" /></Button>
                     </Link>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                     <Button size="sm" variant="ghost" onClick={() => del(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">No retailers yet.</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">{t("No retailers yet.")}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — Ledgerly" }] }),
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +48,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Account created");
+    toast.success(t("Account created"));
     navigate({ to: "/dashboard" });
   };
 
@@ -67,28 +69,28 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl font-display">Welcome back</CardTitle>
-            <CardDescription>Sign in or create your distributor workspace.</CardDescription>
+            <CardTitle className="text-2xl font-display">{t("Welcome back")}</CardTitle>
+            <CardDescription>{t("Sign in or create your distributor workspace.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin">
               <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="signup">Create account</TabsTrigger>
+                <TabsTrigger value="signin">{t("Sign in")}</TabsTrigger>
+                <TabsTrigger value="signup">{t("Create account")}</TabsTrigger>
               </TabsList>
               <TabsContent value="signin" className="mt-4">
                 <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signIn(); }}>
-                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                  <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+                  <div className="space-y-2"><Label>{t("Email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>{t("Password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <Button type="submit" className="w-full" disabled={loading}>{loading ? t("Signing in…") : t("Sign in")}</Button>
                 </form>
               </TabsContent>
               <TabsContent value="signup" className="mt-4">
                 <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signUp(); }}>
-                  <div className="space-y-2"><Label>Workspace name</Label><Input placeholder="Acme Distributors" value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>Work email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                  <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating…" : "Create workspace"}</Button>
+                  <div className="space-y-2"><Label>{t("Workspace name")}</Label><Input placeholder={t("Acme Distributors")} value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>{t("Work email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>{t("Password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <Button type="submit" className="w-full" disabled={loading}>{loading ? t("Creating…") : t("Create workspace")}</Button>
                 </form>
               </TabsContent>
             </Tabs>

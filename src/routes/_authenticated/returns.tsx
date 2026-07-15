@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, Undo2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/returns")({
   head: () => ({ meta: [{ title: "Returns — Ledgerly" }] }),
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/returns")({
 type Reason = "damaged" | "expired" | "wrong_item" | "rate_adjustment" | "other";
 
 const REASONS: { value: Reason; label: string; restock: boolean }[] = [
-  { value: "damaged", label: "Damaged goods", restock: false },
+  { value: "damaged", label: "Damaged goods", restock: false },  // labels translated at render
   { value: "expired", label: "Expired stock", restock: false },
   { value: "wrong_item", label: "Wrong item delivered", restock: true },
   { value: "rate_adjustment", label: "Rate adjustment", restock: false },
@@ -48,6 +49,7 @@ type InvoiceLine = {
 const inr = (n: number) => `₹ ${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 function ReturnsPage() {
+  const { t } = useTranslation();
   const { invoiceId: prefillInvoiceId } = Route.useSearch();
   const qc = useQueryClient();
   const create = useServerFn(createCreditNote);
@@ -148,9 +150,9 @@ function ReturnsPage() {
   const totalCredit = selectedLines.reduce((s, x) => s + lineCredit(x.line, x.qty), 0);
 
   const submit = async () => {
-    if (!retailerId) { toast.error("Pick the retailer"); return; }
-    if (!invoiceId) { toast.error("Pick the invoice being returned against"); return; }
-    if (!selectedLines.length) { toast.error("Enter a return quantity on at least one item"); return; }
+    if (!retailerId) { toast.error(t("Pick the retailer")); return; }
+    if (!invoiceId) { toast.error(t("Pick the invoice being returned against")); return; }
+    if (!selectedLines.length) { toast.error(t("Enter a return quantity on at least one item")); return; }
     setSaving(true);
     try {
       const res = await create({ data: {
@@ -170,7 +172,7 @@ function ReturnsPage() {
           gst_rate: Number(line.gst_rate || 0),
         })),
       }});
-      toast.success(`Credit note ${res.credit_note_number} created — ${inr(res.grand_total)} credited`);
+      toast.success(t("Credit note {{n}} created — {{amt}} credited", { n: res.credit_note_number, amt: inr(res.grand_total) }));
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["credit_notes"] });
       qc.invalidateQueries({ queryKey: ["party_balances"] });
@@ -181,7 +183,7 @@ function ReturnsPage() {
   };
 
   const del = async (n: NoteRow) => {
-    if (!confirm(`Delete ${n.credit_note_number}? Stock and dues will be restored.`)) return;
+    if (!confirm(t("Delete {{n}}? Stock and dues will be restored.", { n: n.credit_note_number }))) return;
     try {
       await remove({ data: { id: n.id } });
       qc.invalidateQueries({ queryKey: ["credit_notes"] });
@@ -191,39 +193,38 @@ function ReturnsPage() {
     } catch (e) { toast.error((e as Error).message); }
   };
 
-  const reasonLabel = (r: Reason) => REASONS.find(x => x.value === r)?.label ?? r;
+  const reasonLabel = (r: Reason) => t(REASONS.find(x => x.value === r)?.label ?? r);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Returns</h1>
+          <h1 className="font-display text-4xl">{t("Returns")}</h1>
           <p className="text-muted-foreground mt-1">
-            Goods coming back from retailers. Each return creates a credit note that
-            reduces what they owe — and puts sellable goods back in stock.
+            {t("Goods coming back from retailers. Each return creates a credit note that reduces what they owe — and puts sellable goods back in stock.")}
           </p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> New return</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New return")}</Button>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader><DialogTitle>Record a return</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("Record a return")}</DialogTitle></DialogHeader>
           <form className="space-y-4" onSubmit={e => { e.preventDefault(); if (!saving && selectedLines.length) submit(); }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Who is returning? *</Label>
+                <Label>{t("Who is returning?")} *</Label>
                 <Select value={retailerId} onValueChange={v => { setRetailerId(v); setInvoiceId(""); setReturnQty({}); }}>
-                  <SelectTrigger><SelectValue placeholder="Choose retailer" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("Choose retailer")} /></SelectTrigger>
                   <SelectContent>
                     {retailers?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Against which invoice? *</Label>
+                <Label>{t("Against which invoice?")} *</Label>
                 <Select value={invoiceId} onValueChange={v => { setInvoiceId(v); setReturnQty({}); }} disabled={!retailerId}>
-                  <SelectTrigger><SelectValue placeholder={retailerId ? "Choose invoice" : "Pick retailer first"} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={retailerId ? t("Choose invoice") : t("Pick retailer first")} /></SelectTrigger>
                   <SelectContent>
                     {invoices?.map(i => (
                       <SelectItem key={i.id} value={i.id}>
@@ -237,17 +238,17 @@ function ReturnsPage() {
 
             {invoiceId && (
               <div>
-                <Label>What came back?</Label>
+                <Label>{t("What came back?")}</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Enter the returned quantity next to each item — prices and GST come from the invoice itself.
+                  {t("Enter the returned quantity next to each item — prices and GST come from the invoice itself.")}
                 </p>
                 <div className="border rounded-md max-h-64 overflow-auto">
                   <Table>
                     <TableHeader><TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-right">Sold</TableHead>
-                      <TableHead className="w-28">Returned</TableHead>
-                      <TableHead className="text-right">Credit</TableHead>
+                      <TableHead>{t("Item")}</TableHead>
+                      <TableHead className="text-right">{t("Sold")}</TableHead>
+                      <TableHead className="w-28">{t("Returned")}</TableHead>
+                      <TableHead className="text-right">{t("Credit")}</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {invoiceLines?.map(l => {
@@ -275,42 +276,42 @@ function ReturnsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Why is it coming back?</Label>
+                <Label>{t("Why is it coming back?")}</Label>
                 <Select value={reason} onValueChange={v => pickReason(v as Reason)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {REASONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                    {REASONS.map(r => <SelectItem key={r.value} value={r.value}>{t(r.label)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Return date</Label>
+                <Label>{t("Return date")}</Label>
                 <Input type="date" value={creditDate} onChange={e => setCreditDate(e.target.value)} />
               </div>
             </div>
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
-                <div className="text-sm font-medium">Put goods back into stock?</div>
+                <div className="text-sm font-medium">{t("Put goods back into stock?")}</div>
                 <div className="text-xs text-muted-foreground">
                   {restock
-                    ? "Yes — items will be added back and can be sold again."
-                    : "No — damaged or expired goods won't count as sellable stock."}
+                    ? t("Yes — items will be added back and can be sold again.")
+                    : t("No — damaged or expired goods won't count as sellable stock.")}
                 </div>
               </div>
               <Switch checked={restock} onCheckedChange={setRestock} />
             </div>
 
             <div>
-              <Label>Notes</Label>
-              <Textarea rows={2} placeholder="Optional remarks" value={notes} onChange={e => setNotes(e.target.value)} />
+              <Label>{t("Notes")}</Label>
+              <Textarea rows={2} placeholder={t("Optional remarks")} value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
             <DialogFooter className="items-center gap-3">
               <span className="text-sm text-muted-foreground mr-auto">
-                Credit to retailer: <span className="font-semibold text-foreground">{inr(totalCredit)}</span>
+                {t("Credit to retailer:")} <span className="font-semibold text-foreground">{inr(totalCredit)}</span>
               </span>
               <Button type="submit" disabled={saving || !selectedLines.length}>
-                <Undo2 className="h-4 w-4 mr-2" /> Create credit note
+                <Undo2 className="h-4 w-4 mr-2" /> {t("Create credit note")}
               </Button>
             </DialogFooter>
           </form>
@@ -318,17 +319,17 @@ function ReturnsPage() {
       </Dialog>
 
       <Card>
-        <CardHeader><CardTitle>Credit notes ({notesList?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Credit notes ({{n}})", { n: notesList?.length ?? 0 })}</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Credit note</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Retailer</TableHead>
-              <TableHead>Against</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Restocked</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>{t("Credit note")}</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Retailer")}</TableHead>
+              <TableHead>{t("Against")}</TableHead>
+              <TableHead>{t("Reason")}</TableHead>
+              <TableHead>{t("Restocked")}</TableHead>
+              <TableHead className="text-right">{t("Amount")}</TableHead>
               <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -339,7 +340,7 @@ function ReturnsPage() {
                   <TableCell>{n.retailer?.name ?? "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{n.invoice?.invoice_number ?? "—"}</TableCell>
                   <TableCell>{reasonLabel(n.reason)}</TableCell>
-                  <TableCell>{n.restock ? "Yes" : "No"}</TableCell>
+                  <TableCell>{n.restock ? t("Yes") : t("No")}</TableCell>
                   <TableCell className="text-right tabular-nums">{inr(Number(n.grand_total))}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="ghost" onClick={() => del(n)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -348,7 +349,7 @@ function ReturnsPage() {
               ))}
               {!notesList?.length && (
                 <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                  No returns yet. When a retailer sends goods back, record it here.
+                  {t("No returns yet. When a retailer sends goods back, record it here.")}
                 </TableCell></TableRow>
               )}
             </TableBody>

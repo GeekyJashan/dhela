@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
   head: () => ({ meta: [{ title: "Suppliers — Ledgerly" }] }),
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/suppliers")({
 });
 
 function Suppliers() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const getOrg = useServerFn(getCurrentOrg);
   const [open, setOpen] = useState(false);
@@ -48,7 +50,7 @@ function Suppliers() {
       const { orgId } = await getOrg();
       const { error } = await supabase.from("suppliers").insert({ org_id: orgId, ...form });
       if (error) throw error;
-      toast.success("Supplier added");
+      toast.success(t("Supplier added"));
       setOpen(false);
       setForm({ name: "", gstin: "", contact: "", address: "" });
       qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -59,30 +61,30 @@ function Suppliers() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Suppliers</h1>
-          <p className="text-muted-foreground mt-1">Manufacturers and distributors you buy from.</p>
+          <h1 className="font-display text-4xl">{t("Suppliers")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Manufacturers and distributors you buy from.")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New supplier</Button></DialogTrigger>
+          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New supplier")}</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add supplier</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Add supplier")}</DialogTitle></DialogHeader>
             <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
-              <Input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+              <Input placeholder={t("Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               <Input placeholder="GSTIN" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} />
-              <Input placeholder="Contact" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
-              <Input placeholder="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-              <DialogFooter><Button type="submit" disabled={!form.name}>Save</Button></DialogFooter>
+              <Input placeholder={t("Contact")} value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
+              <Input placeholder={t("Address")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+              <DialogFooter><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
       <Card>
-        <CardHeader><CardTitle>Suppliers ({data?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("Suppliers ({{n}})", { n: data?.length ?? 0 })}</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Name</TableHead><TableHead>GSTIN</TableHead><TableHead>Contact</TableHead><TableHead>Address</TableHead>
-              <TableHead className="text-right">Payable</TableHead><TableHead></TableHead>
+              <TableHead>{t("Name")}</TableHead><TableHead>{t("GSTIN")}</TableHead><TableHead>{t("Contact")}</TableHead><TableHead>{t("Address")}</TableHead>
+              <TableHead className="text-right">{t("Payable")}</TableHead><TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {data?.map(s => (
@@ -94,12 +96,12 @@ function Suppliers() {
                   <TableCell className="text-right tabular-nums">₹ {(balances.get(s.id) ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right">
                     <Link to="/statement" search={{ party: "supplier", id: s.id }}>
-                      <Button size="sm" variant="ghost" title="Account statement"><FileText className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" title={t("Account statement")}><FileText className="h-3.5 w-3.5" /></Button>
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No suppliers yet.</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t("No suppliers yet.")}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

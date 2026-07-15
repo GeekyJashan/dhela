@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Printer, MessageCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/statement")({
   head: () => ({ meta: [{ title: "Account statement — Ledgerly" }] }),
@@ -33,6 +34,7 @@ const firstOfMonth = () => {
 const today = () => new Date().toISOString().slice(0, 10);
 
 function StatementPage() {
+  const { t } = useTranslation();
   const { party, id } = Route.useSearch();
   const [from, setFrom] = useState(firstOfMonth);
   const [to, setTo] = useState(today);
@@ -87,20 +89,20 @@ function StatementPage() {
   const totalDebit = inRange.reduce((s, r) => s + Number(r.debit), 0);
   const totalCredit = inRange.reduce((s, r) => s + Number(r.credit), 0);
 
-  const owesLabel = party === "retailer" ? "receivable" : "payable";
+  const owesLabel = party === "retailer" ? t("receivable") : t("payable");
   const particulars = (r: LedgerRow) => {
-    if (r.kind === "invoice") return party === "retailer" ? `Invoice ${r.ref}` : `Purchase ${r.ref}`;
-    if (r.kind === "credit_note") return `Credit note ${r.ref} (return)`;
-    return party === "retailer" ? `Payment received (${r.ref})` : `Payment made (${r.ref})`;
+    if (r.kind === "invoice") return party === "retailer" ? t("Invoice {{n}}", { n: r.ref }) : t("Purchase {{n}}", { n: r.ref });
+    if (r.kind === "credit_note") return t("Credit note {{n}} (return)", { n: r.ref });
+    return party === "retailer" ? t("Payment received ({{n}})", { n: r.ref }) : t("Payment made ({{n}})", { n: r.ref });
   };
 
   const waText = encodeURIComponent(
-    `Account statement — ${partyInfo?.name ?? ""}\n` +
-    `Period: ${from} to ${to}\n` +
-    `Opening balance: ₹${inr(openingForRange)}\n` +
-    `Total ${party === "retailer" ? "billed" : "purchased"}: ₹${inr(totalDebit)}\n` +
-    `Total ${party === "retailer" ? "paid" : "settled"}: ₹${inr(totalCredit)}\n` +
-    `Closing balance: ₹${inr(closing)} ${owesLabel}`,
+    `${t("Account statement")} — ${partyInfo?.name ?? ""}\n` +
+    `${t("Period")}: ${from} ${t("to")} ${to}\n` +
+    `${t("Opening balance")}: ₹${inr(openingForRange)}\n` +
+    `${party === "retailer" ? t("Total billed") : t("Total purchased")}: ₹${inr(totalDebit)}\n` +
+    `${party === "retailer" ? t("Total paid") : t("Total settled")}: ₹${inr(totalCredit)}\n` +
+    `${t("Closing balance")}: ₹${inr(closing)} ${owesLabel}`,
   );
   const waPhone = (partyInfo?.phone ?? "").replace(/\D/g, "");
   const waHref = waPhone
@@ -108,33 +110,33 @@ function StatementPage() {
     : `https://wa.me/?text=${waText}`;
 
   if (!id) {
-    return <div className="p-8 text-muted-foreground">No party selected. Open a statement from the Retailers, Suppliers, or Payments page.</div>;
+    return <div className="p-8 text-muted-foreground">{t("No party selected. Open a statement from the Retailers, Suppliers, or Payments page.")}</div>;
   }
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div>
-          <h1 className="font-display text-4xl">Account statement</h1>
+          <h1 className="font-display text-4xl">{t("Account statement")}</h1>
           <p className="text-muted-foreground mt-1">
-            {partyInfo?.name} · {party === "retailer" ? "Customer" : "Supplier"} ledger
+            {partyInfo?.name} · {party === "retailer" ? t("Customer ledger") : t("Supplier ledger")}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" />Print / PDF</Button>
+          <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" />{t("Print / PDF")}</Button>
           <a href={waHref} target="_blank" rel="noreferrer">
-            <Button><MessageCircle className="h-4 w-4 mr-2" />Share on WhatsApp</Button>
+            <Button><MessageCircle className="h-4 w-4 mr-2" />{t("Share on WhatsApp")}</Button>
           </a>
         </div>
       </div>
 
       <div className="flex gap-3 items-end print:hidden">
         <div>
-          <Label>From</Label>
+          <Label>{t("From")}</Label>
           <Input type="date" value={from} onChange={e => setFrom(e.target.value)} />
         </div>
         <div>
-          <Label>To</Label>
+          <Label>{t("To")}</Label>
           <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
         </div>
       </div>
@@ -142,9 +144,9 @@ function StatementPage() {
       <Card className="print:border-0 print:shadow-none">
         <CardHeader>
           <div className="hidden print:block mb-2">
-            <div className="text-2xl font-semibold">Account statement</div>
+            <div className="text-2xl font-semibold">{t("Account statement")}</div>
             <div className="text-sm">{partyInfo?.name}{partyInfo?.gstin ? ` · GSTIN ${partyInfo.gstin}` : ""}</div>
-            <div className="text-sm text-muted-foreground">Period {from} to {to}</div>
+            <div className="text-sm text-muted-foreground">{t("Period")} {from} {t("to")} {to}</div>
           </div>
           <CardTitle className="print:hidden">
             {from} — {to}
@@ -153,16 +155,16 @@ function StatementPage() {
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Particulars</TableHead>
-              <TableHead className="text-right">{party === "retailer" ? "Debit (billed)" : "Purchases"}</TableHead>
-              <TableHead className="text-right">{party === "retailer" ? "Credit (paid)" : "Payments"}</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Particulars")}</TableHead>
+              <TableHead className="text-right">{party === "retailer" ? t("Debit (billed)") : t("Purchases")}</TableHead>
+              <TableHead className="text-right">{party === "retailer" ? t("Credit (paid)") : t("Payments")}</TableHead>
+              <TableHead className="text-right">{t("Balance")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               <TableRow className="bg-muted/40">
                 <TableCell>{from}</TableCell>
-                <TableCell className="font-medium">Opening balance</TableCell>
+                <TableCell className="font-medium">{t("Opening balance")}</TableCell>
                 <TableCell></TableCell>
                 <TableCell></TableCell>
                 <TableCell className="text-right tabular-nums font-medium">₹ {inr(openingForRange)}</TableCell>
@@ -178,12 +180,12 @@ function StatementPage() {
               ))}
               {!rows.length && (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No transactions in this period.
+                  {t("No transactions in this period.")}
                 </TableCell></TableRow>
               )}
               <TableRow className="border-t-2">
                 <TableCell></TableCell>
-                <TableCell className="font-semibold">Closing balance</TableCell>
+                <TableCell className="font-semibold">{t("Closing balance")}</TableCell>
                 <TableCell className="text-right tabular-nums font-medium">₹ {inr(totalDebit)}</TableCell>
                 <TableCell className="text-right tabular-nums font-medium">₹ {inr(totalCredit)}</TableCell>
                 <TableCell className="text-right tabular-nums font-semibold">₹ {inr(closing)}</TableCell>
@@ -191,10 +193,10 @@ function StatementPage() {
             </TableBody>
           </Table>
           <p className="text-xs text-muted-foreground mt-3">
-            Closing balance is {owesLabel}: {party === "retailer"
-              ? "the amount this retailer owes you"
-              : "the amount you owe this supplier"}
-            {closing < 0 ? " (negative = advance)" : ""}.
+            {t("Closing balance is")} {owesLabel}: {party === "retailer"
+              ? t("the amount this retailer owes you")
+              : t("the amount you owe this supplier")}
+            {closing < 0 ? ` ${t("(negative = advance)")}` : ""}.
           </p>
         </CardContent>
       </Card>

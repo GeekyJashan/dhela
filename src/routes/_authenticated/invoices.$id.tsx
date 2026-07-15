@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
 import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
   head: () => ({ meta: [{ title: "Review invoice — Ledgerly" }] }),
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/invoices/$id")({
 });
 
 function InvoiceReview() {
+  const { t } = useTranslation();
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -63,16 +65,15 @@ function InvoiceReview() {
     });
   }, [inv?.storage_path]);
 
-  if (!inv) return <div className="p-8">Loading…</div>;
+  if (!inv) return <div className="p-8">{t("Loading…")}</div>;
 
   const doApprove = async () => {
     const unlinked = (lines ?? []).filter(l => !l.matched_product_id).length;
     if (unlinked > 0 && !confirm(
-      `${unlinked} line${unlinked === 1 ? " is" : "s are"} not linked to a product — ` +
-      `stock and purchase cost won't update for ${unlinked === 1 ? "it" : "them"}. Approve anyway?`,
+      t("{{n}} line(s) are not linked to a product — stock and purchase cost won't update for them. Approve anyway?", { n: unlinked }),
     )) return;
     await approve({ data: { invoiceId: id } });
-    toast.success("Approved and posted to inventory");
+    toast.success(t("Approved and posted to inventory"));
     qc.invalidateQueries();
     navigate({ to: "/invoices" });
   };
@@ -81,7 +82,7 @@ function InvoiceReview() {
     try {
       if (value === "__create__") {
         const p = await createProduct({ data: { lineId } });
-        toast.success(`Product "${p.name}" created and linked`);
+        toast.success(t('Product "{{name}}" created and linked', { name: p.name }));
         qc.invalidateQueries({ queryKey: ["products_min_match"] });
         qc.invalidateQueries({ queryKey: ["products"] });
       } else {
@@ -94,7 +95,7 @@ function InvoiceReview() {
   const reprocess = async () => {
     try {
       await extract({ data: { invoiceId: id } });
-      toast.success("Re-extracted");
+      toast.success(t("Re-extracted"));
       qc.invalidateQueries();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -104,18 +105,18 @@ function InvoiceReview() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/invoices" })}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t("Back")}
           </Button>
           <div>
-            <h1 className="font-display text-2xl">{inv.supplier_name ?? "Unknown supplier"}</h1>
-            <p className="text-xs text-muted-foreground">Invoice {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}</p>
+            <h1 className="font-display text-2xl">{inv.supplier_name ?? t("Unknown supplier")}</h1>
+            <p className="text-xs text-muted-foreground">{t("Invoice")} {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}</p>
           </div>
           <StatusBadge status={inv.status} />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={reprocess}><RefreshCw className="h-4 w-4 mr-2" /> Re-extract</Button>
+          <Button variant="outline" onClick={reprocess}><RefreshCw className="h-4 w-4 mr-2" /> {t("Re-extract")}</Button>
           <Button onClick={doApprove} disabled={inv.status === "approved"}>
-            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & post
+            <CheckCircle2 className="h-4 w-4 mr-2" /> {t("Approve & post")}
           </Button>
         </div>
       </div>
@@ -124,14 +125,14 @@ function InvoiceReview() {
         <Card className="border-destructive/40 bg-destructive/5">
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            <div><p className="font-medium">Extraction failed</p><p className="text-sm text-muted-foreground">{inv.error_message}</p></div>
+            <div><p className="font-medium">{t("Extraction failed")}</p><p className="text-sm text-muted-foreground">{inv.error_message}</p></div>
           </CardContent>
         </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4">
         <Card className="min-h-[500px]">
-          <CardHeader><CardTitle className="text-sm">Original invoice</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t("Original invoice")}</CardTitle></CardHeader>
           <CardContent>
             {previewUrl ? (
               inv.mime_type?.startsWith("image/") ? (
@@ -139,44 +140,44 @@ function InvoiceReview() {
               ) : (
                 <iframe src={previewUrl} className="w-full h-[700px] rounded border" title="Invoice" />
               )
-            ) : <div className="text-sm text-muted-foreground">Loading preview…</div>}
+            ) : <div className="text-sm text-muted-foreground">{t("Loading preview…")}</div>}
           </CardContent>
         </Card>
 
         <div className="space-y-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Header</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">{t("Header")}</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 text-sm">
-              <Field label="Supplier" value={inv.supplier_name} />
-              <Field label="GSTIN" value={inv.supplier_gstin} />
-              <Field label="Invoice #" value={inv.invoice_number} />
-              <Field label="Date" value={inv.invoice_date} />
-              <Field label="Subtotal" value={inv.subtotal ? `₹ ${Number(inv.subtotal).toLocaleString("en-IN")}` : null} />
-              <Field label="Tax" value={inv.tax_total ? `₹ ${Number(inv.tax_total).toLocaleString("en-IN")}` : null} />
-              <Field label="Grand total" value={inv.grand_total ? `₹ ${Number(inv.grand_total).toLocaleString("en-IN")}` : null} />
-              <Field label="Confidence" value={inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : null} />
+              <Field label={t("Supplier")} value={inv.supplier_name} />
+              <Field label={t("GSTIN")} value={inv.supplier_gstin} />
+              <Field label={t("Invoice #")} value={inv.invoice_number} />
+              <Field label={t("Date")} value={inv.invoice_date} />
+              <Field label={t("Subtotal")} value={inv.subtotal ? `₹ ${Number(inv.subtotal).toLocaleString("en-IN")}` : null} />
+              <Field label={t("Tax")} value={inv.tax_total ? `₹ ${Number(inv.tax_total).toLocaleString("en-IN")}` : null} />
+              <Field label={t("Grand total")} value={inv.grand_total ? `₹ ${Number(inv.grand_total).toLocaleString("en-IN")}` : null} />
+              <Field label={t("Confidence")} value={inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : null} />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm">Line items ({lines?.length ?? 0})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">{t("Line items ({{n}})", { n: lines?.length ?? 0 })}</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>Description</TableHead>
+                    <TableHead>{t("Description")}</TableHead>
                     <TableHead className="min-w-[200px]">
-                      <span className="inline-flex items-center gap-1"><Link2 className="h-3 w-3" /> Product</span>
+                      <span className="inline-flex items-center gap-1"><Link2 className="h-3 w-3" /> {t("Product")}</span>
                     </TableHead>
-                    <TableHead>HSN</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Free</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>GST%</TableHead>
-                    <TableHead>Batch</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>{t("HSN")}</TableHead>
+                    <TableHead>{t("Qty")}</TableHead>
+                    <TableHead>{t("Free")}</TableHead>
+                    <TableHead>{t("Rate")}</TableHead>
+                    <TableHead>{t("GST%")}</TableHead>
+                    <TableHead>{t("Batch")}</TableHead>
+                    <TableHead>{t("Expiry")}</TableHead>
+                    <TableHead className="text-right">{t("Total")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,9 +193,9 @@ function InvoiceReview() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__none__">— Not linked —</SelectItem>
+                            <SelectItem value="__none__">{t("— Not linked —")}</SelectItem>
                             <SelectItem value="__create__">
-                              <span className="inline-flex items-center gap-1"><Plus className="h-3 w-3" /> Create new product from this line</span>
+                              <span className="inline-flex items-center gap-1"><Plus className="h-3 w-3" /> {t("Create new product from this line")}</span>
                             </SelectItem>
                             {products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                           </SelectContent>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/sales/")({
   head: () => ({ meta: [{ title: "Sales invoices — Ledgerly" }] }),
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/sales/")({
 });
 
 function SalesList() {
+  const { t } = useTranslation();
   const { data } = useQuery({
     queryKey: ["sales_invoices"],
     queryFn: async () => {
@@ -35,22 +37,22 @@ function SalesList() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">Sales invoices</h1>
-          <p className="text-muted-foreground mt-1">Bill retailers, track GST and profit in real time.</p>
+          <h1 className="font-display text-4xl">{t("Sales invoices")}</h1>
+          <p className="text-muted-foreground mt-1">{t("Bill retailers, track GST and profit in real time.")}</p>
         </div>
-        <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> New sales invoice</Button></Link>
+        <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("New sales invoice")}</Button></Link>
       </div>
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Retailer</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Profit</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Payment</TableHead>
+              <TableHead>{t("Invoice #")}</TableHead>
+              <TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Retailer")}</TableHead>
+              <TableHead className="text-right">{t("Total")}</TableHead>
+              <TableHead className="text-right">{t("Profit")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
+              <TableHead>{t("Payment")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,14 +69,14 @@ function SalesList() {
                   <TableCell>{r?.name ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">₹ {Number(i.grand_total ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right tabular-nums text-success">₹ {Number(i.total_profit ?? 0).toLocaleString("en-IN")}</TableCell>
-                  <TableCell><Badge className={statusColor(i.status)} variant="secondary">{i.status}</Badge></TableCell>
-                  <TableCell><Badge variant="outline">{i.payment_status}</Badge></TableCell>
+                  <TableCell><Badge className={statusColor(i.status)} variant="secondary">{t(i.status)}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{t(i.payment_status)}</Badge></TableCell>
                 </TableRow>
               );
             })}
             {!data?.length && (
               <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                No sales invoices yet. Add retailers and products first, then create your first invoice.
+                {t("No sales invoices yet. Add retailers and products first, then create your first invoice.")}
               </TableCell></TableRow>
             )}
           </TableBody>
