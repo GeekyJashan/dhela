@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Search, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Search, Sparkles, Loader2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/products")({
 
 const empty = {
   name: "", sku: "", hsn: "", gst_rate: "", mrp: "", unit: "",
-  current_stock: "",
+  purchase_rate: "", current_stock: "",
 };
 
 function Products() {
@@ -31,6 +31,7 @@ function Products() {
   const getOrg = useServerFn(getCurrentOrg);
   const aiSuggestHsn = useServerFn(suggestHsn);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof empty>(empty);
   const [hsnQuery, setHsnQuery] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -40,7 +41,7 @@ function Products() {
   // Auto-suggest HSN via GenAI when product name changes (debounced).
   // Skips if the user has already typed/picked an HSN.
   useEffect(() => {
-    if (!open) return;
+    if (!open || editingId) return;
     if (hsnTouchedRef.current) return;
     const name = form.name.trim();
     if (name.length < 3) { setAiHint(null); return; }
@@ -67,7 +68,7 @@ function Products() {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [form.name, open, aiSuggestHsn]);
+  }, [form.name, open, editingId, aiSuggestHsn]);
 
 
 
@@ -156,6 +157,7 @@ function Products() {
   const handleDialogOpenChange = (o: boolean) => {
     setOpen(o);
     if (!o) {
+      setEditingId(null);
       setForm(empty);
       setHsnQuery("");
       setAiHint(null);
@@ -163,21 +165,48 @@ function Products() {
     }
   };
 
+  const openEdit = (p: {
+    id: string; name: string; sku: string | null; hsn: string | null;
+    gst_rate: number | null; mrp: number | null; unit: string | null;
+    purchase_rate: number | null; current_stock: number | null;
+  }) => {
+    setEditingId(p.id);
+    setForm({
+      name: p.name,
+      sku: p.sku ?? "",
+      hsn: p.hsn ?? "",
+      gst_rate: p.gst_rate != null ? String(p.gst_rate) : "",
+      mrp: p.mrp != null ? String(p.mrp) : "",
+      unit: p.unit ?? "",
+      purchase_rate: p.purchase_rate != null ? String(p.purchase_rate) : "",
+      current_stock: p.current_stock != null ? String(Number(p.current_stock)) : "",
+    });
+    hsnTouchedRef.current = true; // don't let the AI overwrite an existing HSN
+    setOpen(true);
+  };
+
   const submit = async () => {
     try {
-      const { orgId } = await getOrg();
-      const { error } = await supabase.from("products").insert({
-        org_id: orgId,
+      const payload = {
         name: form.name,
         sku: form.sku || null,
         hsn: form.hsn || null,
         gst_rate: form.gst_rate ? Number(form.gst_rate) : null,
         mrp: form.mrp ? Number(form.mrp) : null,
         unit: form.unit || null,
+        purchase_rate: form.purchase_rate ? Number(form.purchase_rate) : null,
         current_stock: form.current_stock ? Number(form.current_stock) : 0,
-      });
-      if (error) throw error;
-      toast.success(t("Product added"));
+      };
+      if (editingId) {
+        const { error } = await supabase.from("products").update(payload).eq("id", editingId);
+        if (error) throw error;
+        toast.success(t("Product updated"));
+      } else {
+        const { orgId } = await getOrg();
+        const { error } = await supabase.from("products").insert({ org_id: orgId, ...payload });
+        if (error) throw error;
+        toast.success(t("Product added"));
+      }
       handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -193,7 +222,7 @@ function Products() {
         <Dialog open={open} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New product")}</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
-            <DialogHeader><DialogTitle>{t("Add product")}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? t("Edit product") : t("Add product")}</DialogTitle></DialogHeader>
             <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Product name *")}</label>
@@ -256,7 +285,11 @@ function Products() {
                 <Input placeholder={t("Printed retail price")} value={form.mrp} onChange={e => setForm({ ...form, mrp: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">{t("Opening stock")}</label>
+                <label className="text-xs text-muted-foreground">{t("Purchase cost (₹)")}</label>
+                <Input placeholder={t("What you pay the supplier")} value={form.purchase_rate} onChange={e => setForm({ ...form, purchase_rate: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground">{editingId ? t("Current stock") : t("Opening stock")}</label>
                 <Input placeholder={t("Quantity on hand")} value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
               </div>
               <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
@@ -278,24 +311,25 @@ function Products() {
               <TableHead>{t("GST%")}</TableHead><TableHead>{t("MRP")}</TableHead>
               <TableHead>{t("Last cost")}</TableHead>
               <TableHead className="text-right">{t("Stock")}</TableHead>
+              <TableHead></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {grouped.map(g => (
                 <Fragment key={g.key}>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell colSpan={7} className="py-2">
+                    <TableCell colSpan={8} className="py-2">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{g.group?.name ?? t("Ungrouped")}</span>
                         {g.group?.hsn_code && <span className="font-mono text-xs text-muted-foreground">{t("HSN")} {g.group.hsn_code}</span>}
                         <span className="text-xs text-muted-foreground">({g.rows.length})</span>
                         {g.group && (
                           <div className="ml-auto flex items-center gap-1.5">
-                            {(["a", "b", "c"] as const).map(t => (
-                              <label key={t} className="flex items-center gap-1 text-xs text-muted-foreground">
-                                {t.toUpperCase()}
+                            {(["a", "b", "c"] as const).map(tier => (
+                              <label key={tier} className="flex items-center gap-1 text-xs text-muted-foreground">
+                                {tier.toUpperCase()}
                                 <Input type="number" className="h-7 w-16 text-right"
-                                  value={gDraftFor(g.group!)[t]}
-                                  onChange={e => setGDrafts(d => ({ ...d, [g.group!.id]: { ...gDraftFor(g.group!), [t]: e.target.value } }))}
+                                  value={gDraftFor(g.group!)[tier]}
+                                  onChange={e => setGDrafts(d => ({ ...d, [g.group!.id]: { ...gDraftFor(g.group!), [tier]: e.target.value } }))}
                                   onKeyDown={e => { if (e.key === "Enter" && gDirty(g.group!)) saveGroupDiscounts(g.group!); }} />
                                 %
                               </label>
@@ -318,11 +352,16 @@ function Products() {
                       <TableCell>{p.mrp ? `₹ ${Number(p.mrp).toLocaleString("en-IN")}` : "—"}</TableCell>
                       <TableCell>{p.last_purchase_rate ? `₹ ${Number(p.last_purchase_rate).toFixed(2)}` : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{Number(p.current_stock ?? 0)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" title={t("Edit product")} onClick={() => openEdit(p)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </Fragment>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{t("No products yet.")}</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{t("No products yet.")}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

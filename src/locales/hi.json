@@ -389,5 +389,10 @@
   "{{name}} discounts saved": "{{name}} की छूट सहेजी गई",
   "{{name}} exceeds {{mb}}MB": "{{name}} {{mb}}MB से बड़ी है",
   "{{name}} saved": "{{name}} सहेजा गया",
-  "{{done}} / {{total}} done · {{pending}} to start": "{{done}} / {{total}} पूर्ण · {{pending}} बाकी"
+  "{{done}} / {{total}} done · {{pending}} to start": "{{done}} / {{total}} पूर्ण · {{pending}} बाकी",
+  "Edit product": "प्रोडक्ट संपादित करें",
+  "Product updated": "प्रोडक्ट अपडेट हुआ",
+  "Purchase cost (₹)": "खरीद लागत (₹)",
+  "What you pay the supplier": "जो आप सप्लायर को देते हैं",
+  "Current stock": "वर्तमान स्टॉक"
 }

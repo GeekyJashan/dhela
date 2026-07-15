@@ -389,5 +389,10 @@
   "{{name}} discounts saved": "{{name}} ਦੀ ਛੋਟ ਸੰਭਾਲੀ ਗਈ",
   "{{name}} exceeds {{mb}}MB": "{{name}} {{mb}}MB ਤੋਂ ਵੱਡੀ ਹੈ",
   "{{name}} saved": "{{name}} ਸੰਭਾਲਿਆ ਗਿਆ",
-  "{{done}} / {{total}} done · {{pending}} to start": "{{done}} / {{total}} ਪੂਰੇ · {{pending}} ਬਾਕੀ"
+  "{{done}} / {{total}} done · {{pending}} to start": "{{done}} / {{total}} ਪੂਰੇ · {{pending}} ਬਾਕੀ",
+  "Edit product": "ਪ੍ਰੋਡਕਟ ਸੋਧੋ",
+  "Product updated": "ਪ੍ਰੋਡਕਟ ਅੱਪਡੇਟ ਹੋਇਆ",
+  "Purchase cost (₹)": "ਖਰੀਦ ਲਾਗਤ (₹)",
+  "What you pay the supplier": "ਜੋ ਤੁਸੀਂ ਸਪਲਾਇਰ ਨੂੰ ਦਿੰਦੇ ਹੋ",
+  "Current stock": "ਮੌਜੂਦਾ ਸਟਾਕ"
 }
