@@ -447,5 +447,7 @@
   "Invoice details saved": "ਇਨਵੌਇਸ ਵੇਰਵਾ ਸੰਭਾਲਿਆ ਗਿਆ",
   "Purchase deleted": "ਖਰੀਦ ਹਟਾ ਦਿੱਤੀ ਗਈ",
   "Delete this purchase invoice?": "ਇਹ ਖਰੀਦ ਇਨਵੌਇਸ ਹਟਾਓ?",
-  "Delete this approved purchase? The stock it added will be reversed.": "ਇਹ ਮਨਜ਼ੂਰ ਖਰੀਦ ਹਟਾਓ? ਇਸ ਨਾਲ ਜੁੜਿਆ ਸਟਾਕ ਵਾਪਸ ਘਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।"
+  "Delete this approved purchase? The stock it added will be reversed.": "ਇਹ ਮਨਜ਼ੂਰ ਖਰੀਦ ਹਟਾਓ? ਇਸ ਨਾਲ ਜੁੜਿਆ ਸਟਾਕ ਵਾਪਸ ਘਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।",
+  "Record": "ਦਰਜ ਕਰੋ",
+  "Due": "ਬਕਾਇਆ"
 }

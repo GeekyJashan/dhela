@@ -447,5 +447,7 @@
   "Invoice details saved": "इनवॉइस विवरण सहेजा गया",
   "Purchase deleted": "खरीद हटा दी गई",
   "Delete this purchase invoice?": "यह खरीद इनवॉइस हटाएं?",
-  "Delete this approved purchase? The stock it added will be reversed.": "यह स्वीकृत खरीद हटाएं? इससे जुड़ा स्टॉक वापस घटा दिया जाएगा।"
+  "Delete this approved purchase? The stock it added will be reversed.": "यह स्वीकृत खरीद हटाएं? इससे जुड़ा स्टॉक वापस घटा दिया जाएगा।",
+  "Record": "दर्ज करें",
+  "Due": "बकाया"
 }
