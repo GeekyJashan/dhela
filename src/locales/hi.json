@@ -458,5 +458,15 @@
   "Average": "औसत",
   "Poor": "कमज़ोर",
   "Defaulter": "डिफॉल्टर",
-  "Unrated": "बिना रेटिंग"
+  "Unrated": "बिना रेटिंग",
+  "Upload order": "ऑर्डर अपलोड करें",
+  "Upload a photo or PDF of the retailer's order. We'll read the items and match them to your products.": "रिटेलर के ऑर्डर की फोटो या PDF अपलोड करें। हम आइटम पढ़कर आपके प्रोडक्ट से मिलाएंगे।",
+  "Order file *": "ऑर्डर फ़ाइल *",
+  "Reader": "रीडर",
+  "AI (best accuracy)": "AI (सबसे सटीक)",
+  "Reading…": "पढ़ रहे हैं…",
+  "Pick a retailer and a file": "रिटेलर और फ़ाइल चुनें",
+  "No products matched. Add them to your catalog first, or create the order manually.": "कोई प्रोडक्ट मैच नहीं हुआ। पहले उन्हें कैटलॉग में जोड़ें, या ऑर्डर मैन्युअल बनाएं।",
+  "Order {{n}} created — {{m}} product(s) matched{{u}}": "ऑर्डर {{n}} बना — {{m}} प्रोडक्ट मिले{{u}}",
+  ", {{k}} not matched": ", {{k}} मैच नहीं हुए"
 }

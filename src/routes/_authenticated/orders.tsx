@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { upsertOrder, deleteOrder, setOrderStatus } from "@/lib/orders.functions";
+import { upsertOrder, deleteOrder, setOrderStatus, createOrderFromUpload } from "@/lib/orders.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Receipt, Ban } from "lucide-react";
+import { Plus, Pencil, Trash2, Receipt, Ban, FileUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/orders")({
@@ -52,6 +52,10 @@ function OrdersPage() {
   const save = useServerFn(upsertOrder);
   const remove = useServerFn(deleteOrder);
   const setStatus = useServerFn(setOrderStatus);
+  const uploadOrder = useServerFn(createOrderFromUpload);
+
+  const [upl, setUpl] = useState<{ retailerId: string; engine: "ai" | "ocr"; file: File | null } | null>(null);
+  const [uplBusy, setUplBusy] = useState(false);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Order | null>(null);
@@ -158,6 +162,36 @@ function OrdersPage() {
     finally { setSaving(false); }
   };
 
+  const submitUpload = async () => {
+    if (!upl || !upl.retailerId || !upl.file) { toast.error(t("Pick a retailer and a file")); return; }
+    setUplBusy(true);
+    try {
+      const buf = await upl.file.arrayBuffer();
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const b64 = btoa(bin);
+      const res = await uploadOrder({ data: {
+        retailer_id: upl.retailerId,
+        order_date: new Date().toISOString().slice(0, 10),
+        file_base64: b64,
+        mime_type: upl.file.type || "application/octet-stream",
+        engine: upl.engine,
+      }});
+      if (!res.orderId) {
+        toast.error(t("No products matched. Add them to your catalog first, or create the order manually."));
+      } else {
+        toast.success(t("Order {{n}} created — {{m}} product(s) matched{{u}}", {
+          n: res.orderNumber, m: res.matched,
+          u: res.unmatched.length ? t(", {{k}} not matched", { k: res.unmatched.length }) : "",
+        }));
+        setUpl(null);
+        qc.invalidateQueries({ queryKey: ["orders"] });
+      }
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setUplBusy(false); }
+  };
+
   const del = async (o: Order) => {
     if (!confirm(t("Delete order {{n}}? Issued invoices remain.", { n: o.order_number }))) return;
     try {
@@ -187,8 +221,56 @@ function OrdersPage() {
           <h1 className="font-display text-4xl">{t("Orders")}</h1>
           <p className="text-muted-foreground mt-1">{t("Retailer orders — turn them into invoices when you're ready to bill.")}</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New order")}</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setUpl({ retailerId: "", engine: "ai", file: null })}>
+            <FileUp className="h-4 w-4 mr-2" /> {t("Upload order")}
+          </Button>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New order")}</Button>
+        </div>
       </div>
+
+      <Dialog open={!!upl} onOpenChange={o => !o && setUpl(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{t("Upload order")}</DialogTitle></DialogHeader>
+          {upl && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {t("Upload a photo or PDF of the retailer's order. We'll read the items and match them to your products.")}
+              </p>
+              <div>
+                <Label>{t("Retailer *")}</Label>
+                <Select value={upl.retailerId} onValueChange={v => setUpl({ ...upl, retailerId: v })}>
+                  <SelectTrigger><SelectValue placeholder={t("Choose retailer")} /></SelectTrigger>
+                  <SelectContent>
+                    {retailers?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("Order file *")}</Label>
+                <Input type="file" accept="application/pdf,image/*"
+                  onChange={e => setUpl({ ...upl, file: e.target.files?.[0] ?? null })} />
+              </div>
+              <div>
+                <Label>{t("Reader")}</Label>
+                <Select value={upl.engine} onValueChange={v => setUpl({ ...upl, engine: v as "ai" | "ocr" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ai">{t("AI (best accuracy)")}</SelectItem>
+                    <SelectItem value="ocr">{t("OCR (free)")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={submitUpload} disabled={uplBusy || !upl?.retailerId || !upl?.file}>
+              {uplBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {uplBusy ? t("Reading…") : t("Create order")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">

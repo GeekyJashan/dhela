@@ -458,5 +458,15 @@
   "Average": "ਔਸਤ",
   "Poor": "ਕਮਜ਼ੋਰ",
   "Defaulter": "ਡਿਫਾਲਟਰ",
-  "Unrated": "ਬਿਨਾਂ ਰੇਟਿੰਗ"
+  "Unrated": "ਬਿਨਾਂ ਰੇਟਿੰਗ",
+  "Upload order": "ਆਰਡਰ ਅੱਪਲੋਡ ਕਰੋ",
+  "Upload a photo or PDF of the retailer's order. We'll read the items and match them to your products.": "ਰਿਟੇਲਰ ਦੇ ਆਰਡਰ ਦੀ ਫੋਟੋ ਜਾਂ PDF ਅੱਪਲੋਡ ਕਰੋ। ਅਸੀਂ ਆਈਟਮ ਪੜ੍ਹ ਕੇ ਤੁਹਾਡੇ ਪ੍ਰੋਡਕਟ ਨਾਲ ਮਿਲਾਵਾਂਗੇ।",
+  "Order file *": "ਆਰਡਰ ਫਾਈਲ *",
+  "Reader": "ਰੀਡਰ",
+  "AI (best accuracy)": "AI (ਸਭ ਤੋਂ ਸਟੀਕ)",
+  "Reading…": "ਪੜ੍ਹ ਰਹੇ ਹਾਂ…",
+  "Pick a retailer and a file": "ਰਿਟੇਲਰ ਅਤੇ ਫਾਈਲ ਚੁਣੋ",
+  "No products matched. Add them to your catalog first, or create the order manually.": "ਕੋਈ ਪ੍ਰੋਡਕਟ ਮੈਚ ਨਹੀਂ ਹੋਇਆ। ਪਹਿਲਾਂ ਉਨ੍ਹਾਂ ਨੂੰ ਕੈਟਾਲਾਗ ਵਿੱਚ ਜੋੜੋ, ਜਾਂ ਆਰਡਰ ਖੁਦ ਬਣਾਓ।",
+  "Order {{n}} created — {{m}} product(s) matched{{u}}": "ਆਰਡਰ {{n}} ਬਣਿਆ — {{m}} ਪ੍ਰੋਡਕਟ ਮਿਲੇ{{u}}",
+  ", {{k}} not matched": ", {{k}} ਮੈਚ ਨਹੀਂ ਹੋਏ"
 }
