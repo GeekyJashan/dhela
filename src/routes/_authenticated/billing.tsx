@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, MessageCircle, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { whatsappLink, supportPhoneDisplay, FOUNDER_EMAIL } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/billing")({
   head: () => ({ meta: [{ title: "Billing — Ledgerly" }] }),
@@ -28,14 +29,8 @@ function BillingPage() {
     ? Math.min(100, Math.round((billing.aiUsedThisMonth / Math.max(1, billing.aiLimitPerMonth)) * 100))
     : 0;
 
-  const supportPhone = (import.meta.env.VITE_SUPPORT_PHONE ?? "").replace(/\D/g, "");
-  const upgradeHref = (plan: PlanId) => {
-    const message = `Hi! I want to upgrade my Ledgerly workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`;
-    const text = encodeURIComponent(message);
-    return supportPhone
-      ? `https://wa.me/${supportPhone.length === 10 ? "91" + supportPhone : supportPhone}?text=${text}`
-      : `mailto:jsehgal2003@gmail.com?subject=${encodeURIComponent("Ledgerly upgrade")}&body=${text}`;
-  };
+  const upgradeHref = (plan: PlanId) =>
+    whatsappLink(`Hi! I want to upgrade my Ledgerly workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`);
 
   const planOrder: PlanId[] = ["free", "standard", "pro"];
 
@@ -137,9 +132,23 @@ function BillingPage() {
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        {t("Payment is collected via UPI/bank transfer after you reach out — your plan is activated the same day.")}
-      </p>
+      <Card>
+        <CardHeader><CardTitle className="text-base">{t("How to upgrade")}</CardTitle></CardHeader>
+        <CardContent className="text-sm space-y-1.5">
+          <p>1. {t("Tap \"Upgrade now\" on a plan and message us on WhatsApp.")}</p>
+          <p>2. {t("Pay by UPI or bank transfer.")}</p>
+          <p>
+            3. {t("Send the transaction screenshot to WhatsApp")}{" "}
+            <a href={whatsappLink(t("Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade."))}
+              target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+              {supportPhoneDisplay()}
+            </a>{" "}
+            {t("or email")}{" "}
+            <a href={`mailto:${FOUNDER_EMAIL}`} className="font-medium text-primary hover:underline">{FOUNDER_EMAIL}</a>
+            {" — "}{t("your plan is activated the same day.")}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

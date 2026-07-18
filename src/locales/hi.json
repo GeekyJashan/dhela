@@ -435,5 +435,12 @@
   "Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.": "Hi Jashan! मेरे Ledgerly सवाल के बारे में: \"{{q}}\" — जवाब सही नहीं लगा / मुझे एक सुविधा चाहिए।",
   "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे दो तारीखों के बीच किसी प्रोडक्ट पर मुनाफ़ा। हर सवाल में 1 AI एक्सट्रैक्शन लगता है।",
   "Talk to Jashan": "Jashan से बात करें",
-  "Upgrade now": "अभी अपग्रेड करें"
+  "Upgrade now": "अभी अपग्रेड करें",
+  "How to upgrade": "अपग्रेड कैसे करें",
+  "Tap \"Upgrade now\" on a plan and message us on WhatsApp.": "किसी प्लान पर \"अभी अपग्रेड करें\" दबाएं और हमें WhatsApp पर मैसेज करें।",
+  "Pay by UPI or bank transfer.": "UPI या बैंक ट्रांसफर से भुगतान करें।",
+  "Send the transaction screenshot to WhatsApp": "लेनदेन का स्क्रीनशॉट WhatsApp पर भेजें",
+  "or email": "या ईमेल करें",
+  "your plan is activated the same day.": "आपका प्लान उसी दिन सक्रिय हो जाता है।",
+  "Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade.": "Hi Jashan! Ledgerly अपग्रेड के लिए मेरा भुगतान स्क्रीनशॉट यह रहा।"
 }

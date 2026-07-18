@@ -8,14 +8,9 @@ import { useTranslation } from "react-i18next";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-// WhatsApp when VITE_SUPPORT_PHONE is configured; email otherwise — the
-// founder must always be reachable.
-const FOUNDER_EMAIL = "jsehgal2003@gmail.com";
-const founderLink = (text: string) => {
-  const phone = (import.meta.env.VITE_SUPPORT_PHONE ?? "").replace(/\D/g, "");
-  if (phone) return `https://wa.me/${phone.length === 10 ? "91" + phone : phone}?text=${encodeURIComponent(text)}`;
-  return `mailto:${FOUNDER_EMAIL}?subject=${encodeURIComponent("Ledgerly support")}&body=${encodeURIComponent(text)}`;
-};
+import { whatsappLink } from "@/lib/support";
+
+const founderLink = (text: string) => whatsappLink(text);
 
 export function Assistant() {
   const { t } = useTranslation();
