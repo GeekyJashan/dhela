@@ -77,26 +77,34 @@ export const verifyGstin = createServerFn({ method: "POST" })
     };
     if (!checksumOk) return base;
 
-    // Optional live lookup — only if a GST API is configured on the server.
-    const apiUrl = process.env.GST_API_URL;
+    // Live lookup. Default provider is Appyflow (key_secret param). A generic
+    // Bearer provider can be used instead by setting GST_API_URL.
     const apiKey = process.env.GST_API_KEY;
-    if (!apiUrl || !apiKey) return base;
+    if (!apiKey) return base;
+    const genericUrl = process.env.GST_API_URL;
 
     try {
-      const url = apiUrl.includes("{gstin}") ? apiUrl.replace("{gstin}", gstin) : `${apiUrl}${gstin}`;
-      const resp = await fetch(url, {
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "x-api-key": apiKey,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!resp.ok) {
-        log.error("verifyGstin:api_error", { status: resp.status });
-        return base;
+      let json: Record<string, unknown>;
+      if (genericUrl) {
+        const url = genericUrl.includes("{gstin}") ? genericUrl.replace("{gstin}", gstin) : `${genericUrl}${gstin}`;
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
+        });
+        if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return base; }
+        json = await resp.json();
+      } else {
+        // Appyflow: https://appyflow.in/api/verifyGST?gstNo=..&key_secret=..
+        const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return base; }
+        json = await resp.json();
+        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return base; }
       }
-      const json = await resp.json();
-      const d = (json.data ?? json.result ?? json) as Record<string, unknown>;
+
+      // Merge possible response wrappers so field lookup works across shapes.
+      const info = (json.taxpayerInfo ?? {}) as Record<string, unknown>;
+      const wrap = (json.data ?? json.result ?? {}) as Record<string, unknown>;
+      const d = { ...json, ...wrap, ...info } as Record<string, unknown>;
       const legalName = (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null;
       const tradeName = (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null;
       const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
