@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine } from "@/lib/invoices.functions";
+import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, updatePurchaseInvoice, deletePurchaseInvoice } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
-import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus } from "lucide-react";
+import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
@@ -28,7 +28,13 @@ function InvoiceReview() {
   const extract = useServerFn(extractInvoice);
   const linkProduct = useServerFn(setLineProduct);
   const createProduct = useServerFn(createProductFromLine);
+  const updateHeader = useServerFn(updatePurchaseInvoice);
+  const removeInvoice = useServerFn(deletePurchaseInvoice);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [hdr, setHdr] = useState<{
+    supplier_name: string; supplier_gstin: string; invoice_number: string;
+    invoice_date: string; subtotal: string; tax_total: string; grand_total: string;
+  } | null>(null);
 
   const { data: inv } = useQuery({
     queryKey: ["invoice", id],
@@ -65,7 +71,50 @@ function InvoiceReview() {
     });
   }, [inv?.storage_path]);
 
+  useEffect(() => {
+    if (!inv) return;
+    setHdr({
+      supplier_name: inv.supplier_name ?? "",
+      supplier_gstin: inv.supplier_gstin ?? "",
+      invoice_number: inv.invoice_number ?? "",
+      invoice_date: inv.invoice_date ?? "",
+      subtotal: inv.subtotal != null ? String(inv.subtotal) : "",
+      tax_total: inv.tax_total != null ? String(inv.tax_total) : "",
+      grand_total: inv.grand_total != null ? String(inv.grand_total) : "",
+    });
+  }, [inv?.id]);
+
   if (!inv) return <div className="p-8">{t("Loading…")}</div>;
+
+  const saveHeader = async () => {
+    if (!hdr) return;
+    try {
+      await updateHeader({ data: {
+        invoiceId: id,
+        supplier_name: hdr.supplier_name || null,
+        supplier_gstin: hdr.supplier_gstin || null,
+        invoice_number: hdr.invoice_number || null,
+        invoice_date: hdr.invoice_date || null,
+        subtotal: hdr.subtotal ? Number(hdr.subtotal) : null,
+        tax_total: hdr.tax_total ? Number(hdr.tax_total) : null,
+        grand_total: hdr.grand_total ? Number(hdr.grand_total) : null,
+      }});
+      toast.success(t("Invoice details saved"));
+      qc.invalidateQueries({ queryKey: ["invoice", id] });
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const doDelete = async () => {
+    if (!confirm(inv.status === "approved"
+      ? t("Delete this approved purchase? The stock it added will be reversed.")
+      : t("Delete this purchase invoice?"))) return;
+    try {
+      await removeInvoice({ data: { invoiceId: id } });
+      toast.success(t("Purchase deleted"));
+      qc.invalidateQueries();
+      navigate({ to: "/invoices" });
+    } catch (e) { toast.error((e as Error).message); }
+  };
 
   const doApprove = async () => {
     const unlinked = (lines ?? []).filter(l => !l.matched_product_id).length;
@@ -115,6 +164,9 @@ function InvoiceReview() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={reprocess}><RefreshCw className="h-4 w-4 mr-2" /> {t("Re-extract")}</Button>
+          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={doDelete}>
+            <Trash2 className="h-4 w-4 mr-2" /> {t("Delete")}
+          </Button>
           <Button onClick={doApprove} disabled={inv.status === "approved"}>
             <CheckCircle2 className="h-4 w-4 mr-2" /> {t("Approve & post")}
           </Button>
@@ -146,15 +198,18 @@ function InvoiceReview() {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader><CardTitle className="text-sm">{t("Header")}</CardTitle></CardHeader>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle className="text-sm">{t("Header")}</CardTitle>
+              <Button size="sm" variant="outline" onClick={saveHeader}><Save className="h-3.5 w-3.5 mr-1.5" /> {t("Save")}</Button>
+            </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 text-sm">
-              <Field label={t("Supplier")} value={inv.supplier_name} />
-              <Field label={t("GSTIN")} value={inv.supplier_gstin} />
-              <Field label={t("Invoice #")} value={inv.invoice_number} />
-              <Field label={t("Date")} value={inv.invoice_date} />
-              <Field label={t("Subtotal")} value={inv.subtotal ? `₹ ${Number(inv.subtotal).toLocaleString("en-IN")}` : null} />
-              <Field label={t("Tax")} value={inv.tax_total ? `₹ ${Number(inv.tax_total).toLocaleString("en-IN")}` : null} />
-              <Field label={t("Grand total")} value={inv.grand_total ? `₹ ${Number(inv.grand_total).toLocaleString("en-IN")}` : null} />
+              <EditField label={t("Supplier")} value={hdr?.supplier_name ?? ""} onChange={v => setHdr(h => h && { ...h, supplier_name: v })} />
+              <EditField label={t("GSTIN")} value={hdr?.supplier_gstin ?? ""} onChange={v => setHdr(h => h && { ...h, supplier_gstin: v.toUpperCase() })} />
+              <EditField label={t("Invoice #")} value={hdr?.invoice_number ?? ""} onChange={v => setHdr(h => h && { ...h, invoice_number: v })} />
+              <EditField label={t("Date")} type="date" value={hdr?.invoice_date ?? ""} onChange={v => setHdr(h => h && { ...h, invoice_date: v })} />
+              <EditField label={t("Subtotal")} type="number" value={hdr?.subtotal ?? ""} onChange={v => setHdr(h => h && { ...h, subtotal: v })} />
+              <EditField label={t("Tax")} type="number" value={hdr?.tax_total ?? ""} onChange={v => setHdr(h => h && { ...h, tax_total: v })} />
+              <EditField label={t("Grand total")} type="number" value={hdr?.grand_total ?? ""} onChange={v => setHdr(h => h && { ...h, grand_total: v })} />
               <Field label={t("Confidence")} value={inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : null} />
             </CardContent>
           </Card>
@@ -226,6 +281,17 @@ function Field({ label, value }: { label: string; value: string | number | null 
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
       <Input readOnly value={value ?? ""} className="mt-1 bg-muted/30" />
+    </div>
+  );
+}
+
+function EditField({ label, value, onChange, type }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <Input type={type} value={value} onChange={e => onChange(e.target.value)} className="mt-1" />
     </div>
   );
 }

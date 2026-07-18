@@ -442,5 +442,10 @@
   "Send the transaction screenshot to WhatsApp": "लेनदेन का स्क्रीनशॉट WhatsApp पर भेजें",
   "or email": "या ईमेल करें",
   "your plan is activated the same day.": "आपका प्लान उसी दिन सक्रिय हो जाता है।",
-  "Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade.": "Hi Jashan! Ledgerly अपग्रेड के लिए मेरा भुगतान स्क्रीनशॉट यह रहा।"
+  "Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade.": "Hi Jashan! Ledgerly अपग्रेड के लिए मेरा भुगतान स्क्रीनशॉट यह रहा।",
+  "Delete": "हटाएं",
+  "Invoice details saved": "इनवॉइस विवरण सहेजा गया",
+  "Purchase deleted": "खरीद हटा दी गई",
+  "Delete this purchase invoice?": "यह खरीद इनवॉइस हटाएं?",
+  "Delete this approved purchase? The stock it added will be reversed.": "यह स्वीकृत खरीद हटाएं? इससे जुड़ा स्टॉक वापस घटा दिया जाएगा।"
 }

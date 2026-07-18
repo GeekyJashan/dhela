@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { deletePurchaseInvoice } from "@/lib/invoices.functions";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "./dashboard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileUp } from "lucide-react";
+import { FileUp, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
@@ -15,6 +18,13 @@ export const Route = createFileRoute("/_authenticated/invoices/")({
 
 function InvoicesList() {
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const removeInvoice = useServerFn(deletePurchaseInvoice);
+  const del = async (id: string, approved: boolean) => {
+    if (!confirm(approved ? t("Delete this approved purchase? The stock it added will be reversed.") : t("Delete this purchase invoice?"))) return;
+    try { await removeInvoice({ data: { invoiceId: id } }); qc.invalidateQueries({ queryKey: ["invoices"] }); }
+    catch (e) { toast.error((e as Error).message); }
+  };
   const { data } = useQuery({
     queryKey: ["invoices", "all"],
     queryFn: async () => {
@@ -42,6 +52,7 @@ function InvoicesList() {
               <TableHead className="text-right">{t("Total")}</TableHead>
               <TableHead>{t("Confidence")}</TableHead>
               <TableHead>{t("Status")}</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -57,10 +68,13 @@ function InvoicesList() {
                 <TableCell className="text-right tabular-nums">₹ {Number(inv.grand_total ?? 0).toLocaleString("en-IN")}</TableCell>
                 <TableCell>{inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : "—"}</TableCell>
                 <TableCell><StatusBadge status={inv.status} /></TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="ghost" onClick={() => del(inv.id, inv.status === "approved")}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </TableCell>
               </TableRow>
             ))}
             {!data?.length && (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">{t("No invoices yet.")}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">{t("No invoices yet.")}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

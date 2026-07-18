@@ -341,3 +341,77 @@ export const createProductFromLine = createServerFn({ method: "POST" })
     log.info("createProductFromLine:done", { lineId: data.lineId, productId: product.id });
     return product;
   });
+
+/** Edit purchase-invoice header fields (supplier, number, date, totals). */
+export const updatePurchaseInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      invoiceId: z.string().uuid(),
+      supplier_name: z.string().nullish(),
+      supplier_gstin: z.string().nullish(),
+      invoice_number: z.string().nullish(),
+      invoice_date: z.string().nullish(),
+      subtotal: z.number().nullish(),
+      tax_total: z.number().nullish(),
+      grand_total: z.number().nullish(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { invoiceId, ...fields } = data;
+    const { error } = await context.supabase.from("invoices")
+      .update({
+        supplier_name: fields.supplier_name ?? null,
+        supplier_gstin: fields.supplier_gstin ?? null,
+        invoice_number: fields.invoice_number ?? null,
+        invoice_date: fields.invoice_date ?? null,
+        subtotal: fields.subtotal ?? null,
+        tax_total: fields.tax_total ?? null,
+        grand_total: fields.grand_total ?? null,
+      })
+      .eq("id", invoiceId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Delete a purchase invoice. If it was approved, reverse the stock it added
+ * so inventory stays correct (the scenario: re-buy the same item cheaper and
+ * re-upload). Last purchase rate isn't restored — the next approved purchase
+ * sets it — so re-upload + approve the corrected invoice right after.
+ */
+export const deletePurchaseInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: inv } = await supabase.from("invoices")
+      .select("status, storage_path").eq("id", data.invoiceId).single();
+
+    if (inv?.status === "approved") {
+      const { data: lines } = await supabase.from("invoice_lines")
+        .select("matched_product_id, quantity, free_quantity")
+        .eq("invoice_id", data.invoiceId);
+      for (const l of lines ?? []) {
+        if (!l.matched_product_id) continue;
+        const { data: p } = await supabase.from("products")
+          .select("current_stock").eq("id", l.matched_product_id).single();
+        const removed = Number(l.quantity ?? 0) + Number(l.free_quantity ?? 0);
+        await supabase.from("products")
+          .update({ current_stock: Number(p?.current_stock ?? 0) - removed })
+          .eq("id", l.matched_product_id);
+      }
+      log.info("deletePurchase:stock_reversed", { invoiceId: data.invoiceId });
+    }
+
+    await supabase.from("invoice_lines").delete().eq("invoice_id", data.invoiceId);
+    const { error } = await supabase.from("invoices").delete().eq("id", data.invoiceId);
+    if (error) throw new Error(error.message);
+
+    // Best-effort remove the stored file so storage doesn't accumulate orphans.
+    if (inv?.storage_path) {
+      await supabase.storage.from("invoices").remove([inv.storage_path]);
+    }
+    log.info("deletePurchase:done", { invoiceId: data.invoiceId });
+    return { ok: true };
+  });
