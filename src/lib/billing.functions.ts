@@ -13,19 +13,24 @@ export async function getOrgBilling(
   supabase: { from: (t: string) => any },
   orgId: string,
 ): Promise<BillingInfo> {
-  const [{ data: org }, { count }] = await Promise.all([
+  // Usage = AI-engine extractions + assistant questions this month.
+  const [{ data: org }, { count: aiCount }, { count: askCount }] = await Promise.all([
     supabase.from("organizations").select("plan, plan_valid_till").eq("id", orgId).single(),
     supabase.from("invoices")
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
       .eq("extraction_engine", "ai")
       .gte("created_at", firstOfMonthISO()),
+    supabase.from("assistant_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("created_at", firstOfMonthISO()),
   ]);
   const plan = effectivePlan(org?.plan, org?.plan_valid_till);
   return {
     plan,
     planValidTill: org?.plan_valid_till ?? null,
-    aiUsedThisMonth: count ?? 0,
+    aiUsedThisMonth: (aiCount ?? 0) + (askCount ?? 0),
     aiLimitPerMonth: PLANS[plan].aiExtractionsPerMonth,
   };
 }

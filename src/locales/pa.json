@@ -418,5 +418,20 @@
   "month": "ਮਹੀਨਾ",
   "{{amt}} billed yearly": "{{amt}} ਸਾਲਾਨਾ ਬਿਲਿੰਗ",
   "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates.": "AI ਅਸਿਸਟੈਂਟ — ਆਪਣੇ ਇਨਵੌਇਸ, ਰਿਟੇਲਰ, ਪ੍ਰੋਡਕਟ ਅਤੇ ਆਰਡਰਾਂ ਬਾਰੇ ਕੁਝ ਵੀ ਪੁੱਛੋ: ਗੜਬੜ ਫੜੋ, ਜਾਂ ਜਵਾਬ ਲਓ ਜਿਵੇਂ ਕਿਸੇ ਪ੍ਰੋਡਕਟ ਤੇ ਦੋ ਤਾਰੀਖਾਂ ਵਿਚਕਾਰ ਕਿੰਨਾ ਮੁਨਾਫ਼ਾ ਹੋਇਆ।",
-  "Coming soon": "ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ"
+  "Coming soon": "ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ",
+  "Ask AI": "AI ਤੋਂ ਪੁੱਛੋ",
+  "Ask Ledgerly Assistant": "Ledgerly ਅਸਿਸਟੈਂਟ ਤੋਂ ਪੁੱਛੋ",
+  "Ledgerly Assistant": "Ledgerly ਅਸਿਸਟੈਂਟ",
+  "{{n}} AI questions/extractions left this month": "ਇਸ ਮਹੀਨੇ {{n}} AI ਸਵਾਲ/ਐਕਸਟ੍ਰੈਕਸ਼ਨ ਬਾਕੀ",
+  "Book a call": "ਕਾਲ ਬੁੱਕ ਕਰੋ",
+  "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data.": "ਆਪਣੇ ਇਨਵੌਇਸ, ਰਿਟੇਲਰ, ਪ੍ਰੋਡਕਟ, ਆਰਡਰ ਜਾਂ ਮੁਨਾਫ਼ੇ ਬਾਰੇ ਕੁਝ ਵੀ ਪੁੱਛੋ — ਜਵਾਬ ਸਿੱਧੇ ਤੁਹਾਡੇ ਆਪਣੇ ਡੇਟਾ ਤੋਂ ਆਉਂਦੇ ਹਨ।",
+  "How much do retailers owe me right now?": "ਹੁਣ ਰਿਟੇਲਰਾਂ ਵੱਲ ਮੇਰਾ ਕਿੰਨਾ ਬਕਾਇਆ ਹੈ?",
+  "Profit this month, product by product?": "ਇਸ ਮਹੀਨੇ ਦਾ ਮੁਨਾਫ਼ਾ, ਪ੍ਰੋਡਕਟ ਦੇ ਹਿਸਾਬ ਨਾਲ?",
+  "Which invoices are unpaid for more than 30 days?": "ਕਿਹੜੇ ਇਨਵੌਇਸ 30 ਦਿਨਾਂ ਤੋਂ ਵੱਧ ਤੋਂ ਬਕਾਇਆ ਹਨ?",
+  "Checking your data…": "ਤੁਹਾਡਾ ਡੇਟਾ ਵੇਖ ਰਹੇ ਹਾਂ…",
+  "e.g. Profit on iphone from 1 July to today?": "ਜਿਵੇਂ: 1 ਜੁਲਾਈ ਤੋਂ ਅੱਜ ਤੱਕ iphone ਤੇ ਮੁਨਾਫ਼ਾ?",
+  "Wrong answer or missing feature? Talk to Jashan →": "ਗਲਤ ਜਵਾਬ ਜਾਂ ਕੋਈ ਸਹੂਲਤ ਚਾਹੀਦੀ ਹੈ? Jashan ਨਾਲ ਗੱਲ ਕਰੋ →",
+  "Hi Jashan! I'm using Ledgerly and would like to talk.": "Hi Jashan! ਮੈਂ Ledgerly ਵਰਤ ਰਿਹਾ/ਰਹੀ ਹਾਂ ਅਤੇ ਗੱਲ ਕਰਨਾ ਚਾਹੁੰਦਾ/ਚਾਹੁੰਦੀ ਹਾਂ।",
+  "Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.": "Hi Jashan! ਮੇਰੇ Ledgerly ਸਵਾਲ ਬਾਰੇ: \"{{q}}\" — ਜਵਾਬ ਸਹੀ ਨਹੀਂ ਲੱਗਿਆ / ਮੈਨੂੰ ਇੱਕ ਸਹੂਲਤ ਚਾਹੀਦੀ ਹੈ।",
+  "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.": "AI ਅਸਿਸਟੈਂਟ — ਆਪਣੇ ਇਨਵੌਇਸ, ਰਿਟੇਲਰ, ਪ੍ਰੋਡਕਟ ਅਤੇ ਆਰਡਰਾਂ ਬਾਰੇ ਕੁਝ ਵੀ ਪੁੱਛੋ: ਗੜਬੜ ਫੜੋ, ਜਾਂ ਜਵਾਬ ਲਓ ਜਿਵੇਂ ਦੋ ਤਾਰੀਖਾਂ ਵਿਚਕਾਰ ਕਿਸੇ ਪ੍ਰੋਡਕਟ ਤੇ ਮੁਨਾਫ਼ਾ। ਹਰ ਸਵਾਲ ਵਿੱਚ 1 AI ਐਕਸਟ੍ਰੈਕਸ਼ਨ ਲੱਗਦਾ ਹੈ।"
 }

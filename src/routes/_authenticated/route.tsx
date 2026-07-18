@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LANGUAGES, setLanguage } from "@/i18n";
+import { Assistant } from "@/components/assistant";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -82,6 +83,7 @@ function AuthedLayout() {
         </div>
       </aside>
       <main className="flex-1 overflow-auto"><Outlet /></main>
+      <Assistant />
     </div>
   );
 }
