@@ -4,15 +4,17 @@ import { z } from "zod";
 import { createLogger } from "./logger";
 import { TOOL_DECLARATIONS, executeTool } from "./assistant-tools";
 import { getOrgBilling } from "./billing.functions";
+import { aiProvider, anthropicModel, geminiModel, toAnthropicTools } from "./ai-provider";
 
 const log = createLogger("assistant.functions");
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_TOOL_ROUNDS = 8;
 
 type Part = Record<string, unknown>;
 type Content = { role: string; parts: Part[] };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = { from: (t: string) => any };
 
 function systemPrompt(orgName: string) {
   const today = new Date().toISOString().slice(0, 10);
@@ -30,7 +32,8 @@ Rules:
 }
 
 async function callGemini(apiKey: string, system: string, contents: Content[]) {
-  const resp = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent`;
+  const resp = await fetch(`${url}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -48,13 +51,98 @@ async function callGemini(apiKey: string, system: string, contents: Content[]) {
   return (json.candidates?.[0]?.content ?? { role: "model", parts: [] }) as Content;
 }
 
+type QA = { question: string; answer: string };
+
+/** Gemini agentic loop over the data tools. */
+async function runGemini(
+  apiKey: string, system: string, history: QA[], question: string, db: Db,
+): Promise<{ answer: string; toolCalls: number }> {
+  const contents: Content[] = [];
+  for (const h of history) {
+    contents.push({ role: "user", parts: [{ text: h.question }] });
+    contents.push({ role: "model", parts: [{ text: h.answer }] });
+  }
+  contents.push({ role: "user", parts: [{ text: question }] });
+
+  let toolCalls = 0;
+  let content = await callGemini(apiKey, system, contents);
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const calls = content.parts.filter(p => (p as { functionCall?: unknown }).functionCall) as
+      { functionCall: { name: string; args?: Record<string, unknown> } }[];
+    if (!calls.length) break;
+    contents.push(content);
+    const responses: Part[] = [];
+    for (const c of calls) {
+      toolCalls++;
+      let result: unknown;
+      try { result = await executeTool(db, c.functionCall.name, c.functionCall.args ?? {}); }
+      catch (e) { result = { error: (e as Error).message }; }
+      responses.push({ functionResponse: { name: c.functionCall.name, response: { result } } });
+    }
+    contents.push({ role: "user", parts: responses });
+    content = await callGemini(apiKey, system, contents);
+  }
+  const answer = content.parts.map(p => (p as { text?: string }).text ?? "").join("").trim();
+  return { answer, toolCalls };
+}
+
+/** Anthropic (Claude) agentic loop over the same data tools. */
+async function runAnthropic(
+  apiKey: string, system: string, history: QA[], question: string, db: Db,
+): Promise<{ answer: string; toolCalls: number }> {
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic({ apiKey });
+  const tools = toAnthropicTools(TOOL_DECLARATIONS);
+
+  type Block = Record<string, unknown>;
+  const messages: { role: "user" | "assistant"; content: string | Block[] }[] = [];
+  for (const h of history) {
+    messages.push({ role: "user", content: h.question });
+    messages.push({ role: "assistant", content: h.answer });
+  }
+  messages.push({ role: "user", content: question });
+
+  let toolCalls = 0;
+  let answer = "";
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resp: any = await client.messages.create({
+      model: anthropicModel(),
+      max_tokens: 2048,
+      system,
+      tools,
+      messages: messages as never,
+    });
+    messages.push({ role: "assistant", content: resp.content });
+    const toolUses = (resp.content as Block[]).filter(b => b.type === "tool_use");
+    answer = (resp.content as Block[])
+      .filter(b => b.type === "text").map(b => (b as { text: string }).text).join("").trim();
+    if (!toolUses.length) break;
+    const results: Block[] = [];
+    for (const tu of toolUses) {
+      toolCalls++;
+      let result: unknown;
+      try { result = await executeTool(db, tu.name as string, (tu.input as Record<string, unknown>) ?? {}); }
+      catch (e) { result = { error: (e as Error).message }; }
+      results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(result) });
+    }
+    messages.push({ role: "user", content: results });
+  }
+  return { answer, toolCalls };
+}
+
 export const askAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ question: z.string().min(2).max(2000) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error("Assistant is not configured (GOOGLE_API_KEY missing on the server)");
+    const provider = aiProvider();
+    const apiKey = provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        `Assistant is not configured (${provider === "anthropic" ? "ANTHROPIC_API_KEY" : "GOOGLE_API_KEY"} missing on the server)`,
+      );
+    }
 
     const { data: mem } = await supabase.from("memberships")
       .select("org_id, organization:organizations(name)")
@@ -76,45 +164,17 @@ export const askAssistant = createServerFn({ method: "POST" })
     const { data: history } = await supabase.from("assistant_messages")
       .select("question, answer").eq("org_id", orgId)
       .order("created_at", { ascending: false }).limit(5);
+    const qaHistory = ((history ?? []).reverse()) as QA[];
 
-    const contents: Content[] = [];
-    for (const h of (history ?? []).reverse()) {
-      contents.push({ role: "user", parts: [{ text: h.question }] });
-      contents.push({ role: "model", parts: [{ text: h.answer }] });
-    }
-    contents.push({ role: "user", parts: [{ text: data.question }] });
-
-    log.info("ask:start", { orgId, q: data.question.slice(0, 80) });
+    log.info("ask:start", { orgId, provider, q: data.question.slice(0, 80) });
     const t0 = Date.now();
-    let toolCalls = 0;
-    let content = await callGemini(apiKey, systemPrompt(orgName), contents);
+    const system = systemPrompt(orgName);
+    const run = provider === "anthropic"
+      ? await runAnthropic(apiKey, system, qaHistory, data.question, supabase)
+      : await runGemini(apiKey, system, qaHistory, data.question, supabase);
+    const toolCalls = run.toolCalls;
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const calls = content.parts.filter(p => (p as { functionCall?: unknown }).functionCall) as
-        { functionCall: { name: string; args?: Record<string, unknown> } }[];
-      if (!calls.length) break;
-
-      contents.push(content);
-      const responses: Part[] = [];
-      for (const c of calls) {
-        toolCalls++;
-        let result: unknown;
-        try {
-          result = await executeTool(supabase, c.functionCall.name, c.functionCall.args ?? {});
-        } catch (e) {
-          result = { error: (e as Error).message };
-        }
-        responses.push({
-          functionResponse: { name: c.functionCall.name, response: { result } },
-        });
-      }
-      contents.push({ role: "user", parts: responses });
-      content = await callGemini(apiKey, systemPrompt(orgName), contents);
-    }
-
-    const answer = content.parts
-      .map(p => (p as { text?: string }).text ?? "")
-      .join("").trim()
+    const answer = run.answer
       || "I couldn't work that one out. Please tap \"Talk to Jashan\" below and he'll help you directly.";
 
     const { error: insErr } = await supabase.from("assistant_messages")

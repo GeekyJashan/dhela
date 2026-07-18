@@ -43,6 +43,70 @@ GEMINI_ENDPOINT = (
     f"{GEMINI_MODEL}:generateContent"
 )
 
+# Provider selection: Anthropic (Claude) by default, Gemini kept as fallback.
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic").lower()
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+
+
+def _use_anthropic() -> bool:
+    """Use Claude when selected and its key is present; otherwise fall back to Gemini."""
+    if AI_PROVIDER == "gemini":
+        return False
+    return bool(ANTHROPIC_API_KEY)
+
+
+def _gemini_schema_to_json_schema(s: dict) -> dict:
+    """Gemini responseSchema (UPPERCASE types) -> JSON Schema for Claude tool use."""
+    out: dict = {}
+    t = s.get("type")
+    if t:
+        out["type"] = t.lower()
+    if "description" in s:
+        out["description"] = s["description"]
+    if "enum" in s:
+        out["enum"] = s["enum"]
+    if "properties" in s:
+        out["properties"] = {
+            k: _gemini_schema_to_json_schema(v) for k, v in s["properties"].items()
+        }
+    if "items" in s:
+        out["items"] = _gemini_schema_to_json_schema(s["items"])
+    if "required" in s:
+        out["required"] = s["required"]
+    return out
+
+
+async def _anthropic_json(system: str, schema: dict, blocks: list) -> dict:
+    """Ask Claude to fill `schema` via a forced tool call; return the parsed input."""
+    import anthropic  # local import so the service starts without the package on Gemini-only setups
+
+    tool_schema = _gemini_schema_to_json_schema(schema)
+    if tool_schema.get("type") != "object":
+        tool_schema = {"type": "object", "properties": {"result": tool_schema}, "required": ["result"]}
+        wrap = True
+    else:
+        wrap = False
+
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    msg = await client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=8000,
+        system=system,
+        tools=[{
+            "name": "record",
+            "description": "Record the extracted structured data.",
+            "input_schema": tool_schema,
+        }],
+        tool_choice={"type": "tool", "name": "record"},
+        messages=[{"role": "user", "content": blocks}],
+    )
+    for block in msg.content:
+        if getattr(block, "type", None) == "tool_use":
+            data = block.input
+            return data["result"] if wrap else data
+    raise HTTPException(502, "Claude returned no structured output")
+
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()
 ]
@@ -167,7 +231,14 @@ RESPONSE_SCHEMA: dict[str, Any] = {
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "model": GEMINI_MODEL, "has_key": bool(GOOGLE_API_KEY)}
+    provider = "anthropic" if _use_anthropic() else "gemini"
+    return {
+        "ok": True,
+        "provider": provider,
+        "model": ANTHROPIC_MODEL if provider == "anthropic" else GEMINI_MODEL,
+        "has_anthropic_key": bool(ANTHROPIC_API_KEY),
+        "has_gemini_key": bool(GOOGLE_API_KEY),
+    }
 
 
 # ---------- HSN suggestion ----------
@@ -211,10 +282,6 @@ Respond ONLY with valid JSON matching the schema."""
 
 @app.post("/suggest-hsn", response_model=HsnSuggestion)
 async def suggest_hsn(req: HsnSuggestRequest) -> HsnSuggestion:
-    if not GOOGLE_API_KEY:
-        log.error("suggest-hsn: GOOGLE_API_KEY missing")
-        raise HTTPException(500, "GOOGLE_API_KEY not configured on the service")
-
     name = (req.name or "").strip()
     if len(name) < 2:
         raise HTTPException(400, "Product name too short")
@@ -222,6 +289,17 @@ async def suggest_hsn(req: HsnSuggestRequest) -> HsnSuggestion:
     user_text = f"Product name: {name}"
     if req.context:
         user_text += f"\nContext: {req.context}"
+
+    if _use_anthropic():
+        log.info("suggest-hsn: calling Claude name=%r", name)
+        parsed = await _anthropic_json(HSN_SYSTEM_PROMPT, HSN_SCHEMA, [{"type": "text", "text": user_text}])
+        result = HsnSuggestion.model_validate(parsed)
+        log.info("suggest-hsn(claude): → hsn=%s gst=%s", result.hsn, result.gst_rate)
+        return result
+
+    if not GOOGLE_API_KEY:
+        log.error("suggest-hsn: GOOGLE_API_KEY missing")
+        raise HTTPException(500, "No AI provider configured (set ANTHROPIC_API_KEY or GOOGLE_API_KEY)")
 
     payload = {
         "systemInstruction": {"parts": [{"text": HSN_SYSTEM_PROMPT}]},
@@ -267,10 +345,6 @@ async def extract(
     file: UploadFile = File(...),
     mime_type: Optional[str] = Form(None),
 ) -> InvoiceExtraction:
-    if not GOOGLE_API_KEY:
-        log.error("extract: GOOGLE_API_KEY missing")
-        raise HTTPException(500, "GOOGLE_API_KEY not configured on the service")
-
     raw = await file.read()
     if not raw:
         log.warning("extract: empty file received filename=%s", file.filename)
@@ -282,6 +356,30 @@ async def extract(
         file.filename, len(raw), mime,
     )
     b64 = base64.b64encode(raw).decode("ascii")
+
+    if _use_anthropic():
+        log.info("extract: calling Claude model=%s mime=%s", ANTHROPIC_MODEL, mime)
+        if mime == "application/pdf":
+            doc_block = {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}}
+        elif mime.startswith("image/"):
+            doc_block = {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}
+        else:
+            raise HTTPException(400, f"Claude extraction supports PDF and images, not {mime}")
+        parsed = await _anthropic_json(
+            SYSTEM_PROMPT, RESPONSE_SCHEMA,
+            [doc_block, {"type": "text", "text": "Extract the full purchase invoice as structured JSON."}],
+        )
+        try:
+            result = InvoiceExtraction.model_validate(parsed)
+        except Exception as e:  # noqa: BLE001
+            log.exception("extract(claude): validation failed raw=%s", str(parsed)[:800])
+            raise HTTPException(502, f"Malformed Claude response: {e}") from e
+        log.info("extract(claude): supplier=%s lines=%d", result.supplier_name, len(result.lines))
+        return result
+
+    if not GOOGLE_API_KEY:
+        log.error("extract: GOOGLE_API_KEY missing")
+        raise HTTPException(500, "No AI provider configured (set ANTHROPIC_API_KEY or GOOGLE_API_KEY)")
 
     payload = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
