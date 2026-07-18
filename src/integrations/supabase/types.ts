@@ -264,6 +264,36 @@ export type Database = {
           },
         ]
       }
+      gstin_cache: {
+        Row: {
+          fetched_at: string
+          filer_rating: string | null
+          gstin: string
+          legal_name: string | null
+          raw: Json | null
+          status: string | null
+          trade_name: string | null
+        }
+        Insert: {
+          fetched_at?: string
+          filer_rating?: string | null
+          gstin: string
+          legal_name?: string | null
+          raw?: Json | null
+          status?: string | null
+          trade_name?: string | null
+        }
+        Update: {
+          fetched_at?: string
+          filer_rating?: string | null
+          gstin?: string
+          legal_name?: string | null
+          raw?: Json | null
+          status?: string | null
+          trade_name?: string | null
+        }
+        Relationships: []
+      }
       hsn_codes: {
         Row: {
           category: string | null

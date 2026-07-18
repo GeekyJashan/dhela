@@ -83,6 +83,26 @@ export const verifyGstin = createServerFn({ method: "POST" })
     if (!apiKey) return base;
     const genericUrl = process.env.GST_API_URL;
 
+    // Serve from the shared cache if we looked this GSTIN up recently.
+    const CACHE_TTL_DAYS = 30;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: cached } = await supabaseAdmin.from("gstin_cache")
+      .select("legal_name, trade_name, status, filer_rating, fetched_at")
+      .eq("gstin", gstin).maybeSingle();
+    if (cached) {
+      const ageDays = (Date.now() - new Date(cached.fetched_at).getTime()) / 86_400_000;
+      if (ageDays < CACHE_TTL_DAYS) {
+        return {
+          ...base,
+          legalName: cached.legal_name,
+          tradeName: cached.trade_name,
+          status: cached.status,
+          filerRating: cached.filer_rating,
+          source: "api" as const,
+        };
+      }
+    }
+
     try {
       let json: Record<string, unknown>;
       if (genericUrl) {
@@ -108,14 +128,15 @@ export const verifyGstin = createServerFn({ method: "POST" })
       const legalName = (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null;
       const tradeName = (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null;
       const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
-      return {
-        ...base,
-        legalName,
-        tradeName,
-        status,
-        filerRating: deriveFilerRating(status, d),
-        source: "api" as const,
-      };
+      const filerRating = deriveFilerRating(status, d);
+
+      // Cache the result so future lookups of this GSTIN are free.
+      await supabaseAdmin.from("gstin_cache").upsert({
+        gstin, legal_name: legalName, trade_name: tradeName,
+        status, filer_rating: filerRating, raw: json as never, fetched_at: new Date().toISOString(),
+      }, { onConflict: "gstin" });
+
+      return { ...base, legalName, tradeName, status, filerRating, source: "api" as const };
     } catch (e) {
       log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
       return base;
