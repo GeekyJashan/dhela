@@ -20,6 +20,8 @@ const RetailerInput = z.object({
   default_discount_pct: z.number().nullish(),
   credit_limit: z.number().nullish(),
   notes: z.string().nullish(),
+  gst_status: z.string().nullish(),
+  gst_filer_rating: z.string().nullish(),
 });
 
 export const upsertRetailer = createServerFn({ method: "POST" })

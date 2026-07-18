@@ -449,5 +449,14 @@
   "Delete this purchase invoice?": "ਇਹ ਖਰੀਦ ਇਨਵੌਇਸ ਹਟਾਓ?",
   "Delete this approved purchase? The stock it added will be reversed.": "ਇਹ ਮਨਜ਼ੂਰ ਖਰੀਦ ਹਟਾਓ? ਇਸ ਨਾਲ ਜੁੜਿਆ ਸਟਾਕ ਵਾਪਸ ਘਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।",
   "Record": "ਦਰਜ ਕਰੋ",
-  "Due": "ਬਕਾਇਆ"
+  "Due": "ਬਕਾਇਆ",
+  "Checking GSTIN…": "GSTIN ਜਾਂਚ ਰਹੇ ਹਾਂ…",
+  "Invalid GSTIN (check digits)": "ਗਲਤ GSTIN (ਅੰਕ ਜਾਂਚੋ)",
+  "Filer": "ਫਾਈਲਰ",
+  "GST filer": "GST ਫਾਈਲਰ",
+  "Good": "ਵਧੀਆ",
+  "Average": "ਔਸਤ",
+  "Poor": "ਕਮਜ਼ੋਰ",
+  "Defaulter": "ਡਿਫਾਲਟਰ",
+  "Unrated": "ਬਿਨਾਂ ਰੇਟਿੰਗ"
 }

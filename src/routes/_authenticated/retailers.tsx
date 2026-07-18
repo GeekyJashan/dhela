@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { upsertRetailer, deleteRetailer } from "@/lib/retailers.functions";
+import { verifyGstin } from "@/lib/gstin.functions";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +29,20 @@ type Retailer = {
   category: "A" | "B" | "C"; default_discount_pct: number | null;
   credit_limit: number | null; outstanding_balance: number | null;
   address: string | null; pincode: string | null; notes: string | null;
+  gst_status: string | null; gst_filer_rating: string | null;
 };
 
 const empty = {
   name: "", gstin: "", phone: "", email: "", address: "", city: "",
   state_code: "", pincode: "", category: "C" as "A" | "B" | "C",
   default_discount_pct: 0, credit_limit: 0, notes: "",
+  gst_status: "", gst_filer_rating: "",
+};
+
+type GstInfo = {
+  valid: boolean; formatOk: boolean; state: string | null; stateCode: string;
+  legalName: string | null; tradeName: string | null;
+  status: string | null; filerRating: string | null; source: "format" | "api";
 };
 
 function RetailersPage() {
@@ -39,9 +50,37 @@ function RetailersPage() {
   const qc = useQueryClient();
   const save = useServerFn(upsertRetailer);
   const remove = useServerFn(deleteRetailer);
+  const checkGstin = useServerFn(verifyGstin);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Retailer | null>(null);
   const [form, setForm] = useState<typeof empty>(empty);
+  const [gst, setGst] = useState<GstInfo | null>(null);
+  const [gstChecking, setGstChecking] = useState(false);
+
+  // Verify GSTIN (debounced) whenever a full 15-char GSTIN is present.
+  useEffect(() => {
+    const g = form.gstin.trim().toUpperCase();
+    if (g.length !== 15) { setGst(null); return; }
+    const timer = setTimeout(async () => {
+      setGstChecking(true);
+      try {
+        const info = await checkGstin({ data: { gstin: g } }) as GstInfo;
+        setGst(info);
+        setForm(f => {
+          const next = { ...f };
+          // Auto-fill state code and business name (only if blank).
+          if (info.stateCode) next.state_code = info.stateCode;
+          const apiName = info.tradeName || info.legalName;
+          if (apiName && !f.name.trim()) next.name = apiName;
+          next.gst_status = info.status ?? "";
+          next.gst_filer_rating = info.filerRating ?? "";
+          return next;
+        });
+      } catch { setGst(null); }
+      finally { setGstChecking(false); }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [form.gstin, checkGstin]);
 
   const { data } = useQuery({
     queryKey: ["retailers"],
@@ -64,15 +103,17 @@ function RetailersPage() {
   });
   const balances = new Map(balanceRows?.map(b => [b.party_id, Number(b.balance ?? 0)]));
 
-  const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm(empty); setGst(null); setOpen(true); };
   const openEdit = (r: Retailer) => {
     setEditing(r);
+    setGst(null);
     setForm({
       name: r.name, gstin: r.gstin ?? "", phone: r.phone ?? "", email: r.email ?? "",
       address: r.address ?? "", city: r.city ?? "", state_code: r.state_code ?? "",
       pincode: r.pincode ?? "", category: r.category ?? "C",
       default_discount_pct: Number(r.default_discount_pct ?? 0),
       credit_limit: Number(r.credit_limit ?? 0), notes: r.notes ?? "",
+      gst_status: r.gst_status ?? "", gst_filer_rating: r.gst_filer_rating ?? "",
     });
     setOpen(true);
   };
@@ -93,6 +134,8 @@ function RetailersPage() {
         default_discount_pct: Number(form.default_discount_pct) || 0,
         credit_limit: Number(form.credit_limit) || 0,
         notes: form.notes || null,
+        gst_status: form.gst_status || null,
+        gst_filer_rating: form.gst_filer_rating || null,
       }});
       toast.success(editing ? t("Retailer updated") : t("Retailer added"));
       setOpen(false);
@@ -129,6 +172,25 @@ function RetailersPage() {
               <div>
                 <label className="text-xs text-muted-foreground">{t("GSTIN")}</label>
                 <Input placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
+                  {gstChecking ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("Checking GSTIN…")}</span></>
+                  ) : gst ? (
+                    gst.valid ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        <span className="text-muted-foreground">
+                          {gst.state ?? gst.stateCode}
+                          {gst.legalName || gst.tradeName ? ` · ${gst.tradeName ?? gst.legalName}` : ""}
+                          {gst.status ? ` · ${gst.status}` : ""}
+                          {gst.filerRating && gst.filerRating !== "Unrated" ? ` · ${t("Filer")}: ${gst.filerRating}` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      <><XCircle className="h-3 w-3 text-destructive" /><span className="text-destructive">{t("Invalid GSTIN (check digits)")}</span></>
+                    )
+                  ) : null}
+                </div>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("State code")}</label>
@@ -190,6 +252,7 @@ function RetailersPage() {
             <TableHeader><TableRow>
               <TableHead>{t("Name")}</TableHead><TableHead>{t("GSTIN")}</TableHead>
               <TableHead>{t("City/State")}</TableHead><TableHead>{t("Category")}</TableHead>
+              <TableHead>{t("GST filer")}</TableHead>
               <TableHead>{t("Phone")}</TableHead>
               <TableHead className="text-right">{t("Credit")}</TableHead>
               <TableHead className="text-right">{t("Outstanding")}</TableHead>
@@ -202,6 +265,7 @@ function RetailersPage() {
                   <TableCell className="font-mono text-xs">{r.gstin ?? "—"}</TableCell>
                   <TableCell>{[r.city, r.state_code].filter(Boolean).join(" / ") || "—"}</TableCell>
                   <TableCell><span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-muted text-xs font-semibold">{r.category ?? "C"}</span></TableCell>
+                  <TableCell><FilerBadge rating={r.gst_filer_rating} /></TableCell>
                   <TableCell>{r.phone ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">₹ {Number(r.credit_limit ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right tabular-nums">₹ {(balances.get(r.id) ?? 0).toLocaleString("en-IN")}</TableCell>
@@ -214,11 +278,21 @@ function RetailersPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!data?.length && <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">{t("No retailers yet.")}</TableCell></TableRow>}
+              {!data?.length && <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">{t("No retailers yet.")}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function FilerBadge({ rating }: { rating: string | null }) {
+  const { t } = useTranslation();
+  if (!rating) return <span className="text-muted-foreground">—</span>;
+  const cls = rating === "Good" ? "bg-green-100 text-green-800"
+    : rating === "Average" ? "bg-amber-100 text-amber-800"
+    : rating === "Poor" || rating === "Defaulter" ? "bg-red-100 text-red-800"
+    : "bg-muted text-muted-foreground";
+  return <Badge variant="secondary" className={cls}>{t(rating)}</Badge>;
 }

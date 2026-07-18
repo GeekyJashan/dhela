@@ -951,6 +951,8 @@ export type Database = {
           credit_limit: number | null
           default_discount_pct: number | null
           email: string | null
+          gst_filer_rating: string | null
+          gst_status: string | null
           gstin: string | null
           id: string
           name: string
@@ -973,6 +975,8 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          gst_filer_rating?: string | null
+          gst_status?: string | null
           gstin?: string | null
           id?: string
           name: string
@@ -995,6 +999,8 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          gst_filer_rating?: string | null
+          gst_status?: string | null
           gstin?: string | null
           id?: string
           name?: string
