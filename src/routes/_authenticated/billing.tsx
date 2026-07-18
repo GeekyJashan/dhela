@@ -95,8 +95,15 @@ function BillingPage() {
                   )}
                 </CardTitle>
                 <div className="pt-1">
-                  <span className="text-3xl font-semibold">{p.priceYearly ? inr(p.priceYearly) : t("Free")}</span>
-                  {p.priceYearly > 0 && <span className="text-sm text-muted-foreground"> / {t("year")}</span>}
+                  <span className="text-3xl font-semibold">
+                    {p.priceYearly ? inr(Math.round(p.priceYearly / 12)) : t("Free")}
+                  </span>
+                  {p.priceYearly > 0 && <span className="text-sm text-muted-foreground"> / {t("month")}</span>}
+                  {p.priceYearly > 0 && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {t("{{amt}} billed yearly", { amt: inr(p.priceYearly) })}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

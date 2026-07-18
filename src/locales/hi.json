@@ -414,5 +414,7 @@
   "Contact your administrator to upgrade this workspace.": "इस वर्कस्पेस को अपग्रेड करने के लिए अपने एडमिन से संपर्क करें।",
   "Payment is collected via UPI/bank transfer after you reach out — your plan is activated the same day.": "संपर्क करने के बाद भुगतान UPI/बैंक ट्रांसफर से लिया जाता है — आपका प्लान उसी दिन सक्रिय हो जाता है।",
   "{{n}} AI extractions left this month": "इस महीने {{n}} AI एक्सट्रैक्शन बाकी",
-  "Upgrade": "अपग्रेड करें"
+  "Upgrade": "अपग्रेड करें",
+  "month": "माह",
+  "{{amt}} billed yearly": "{{amt}} वार्षिक बिलिंग"
 }
