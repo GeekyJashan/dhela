@@ -30,12 +30,11 @@ function BillingPage() {
 
   const supportPhone = (import.meta.env.VITE_SUPPORT_PHONE ?? "").replace(/\D/g, "");
   const upgradeHref = (plan: PlanId) => {
-    const text = encodeURIComponent(
-      `Hi! I want to upgrade my Ledgerly workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`,
-    );
+    const message = `Hi! I want to upgrade my Ledgerly workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`;
+    const text = encodeURIComponent(message);
     return supportPhone
       ? `https://wa.me/${supportPhone.length === 10 ? "91" + supportPhone : supportPhone}?text=${text}`
-      : null;
+      : `mailto:jsehgal2003@gmail.com?subject=${encodeURIComponent("Ledgerly upgrade")}&body=${text}`;
   };
 
   const planOrder: PlanId[] = ["free", "standard", "pro"];
@@ -128,15 +127,9 @@ function BillingPage() {
                   </li>
                 </ul>
                 {!current && id !== "free" && (
-                  href ? (
-                    <a href={href} target="_blank" rel="noreferrer" className="block">
-                      <Button className="w-full"><MessageCircle className="h-4 w-4 mr-2" />{t("Upgrade on WhatsApp")}</Button>
-                    </a>
-                  ) : (
-                    <p className="text-xs text-muted-foreground border rounded-md p-2">
-                      {t("Contact your administrator to upgrade this workspace.")}
-                    </p>
-                  )
+                  <a href={href} target="_blank" rel="noreferrer" className="block">
+                    <Button className="w-full"><MessageCircle className="h-4 w-4 mr-2" />{t("Upgrade now")}</Button>
+                  </a>
                 )}
               </CardContent>
             </Card>

@@ -433,5 +433,7 @@
   "Wrong answer or missing feature? Talk to Jashan →": "गलत जवाब या कोई सुविधा चाहिए? Jashan से बात करें →",
   "Hi Jashan! I'm using Ledgerly and would like to talk.": "Hi Jashan! मैं Ledgerly इस्तेमाल कर रहा/रही हूं और बात करना चाहता/चाहती हूं।",
   "Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.": "Hi Jashan! मेरे Ledgerly सवाल के बारे में: \"{{q}}\" — जवाब सही नहीं लगा / मुझे एक सुविधा चाहिए।",
-  "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे दो तारीखों के बीच किसी प्रोडक्ट पर मुनाफ़ा। हर सवाल में 1 AI एक्सट्रैक्शन लगता है।"
+  "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे दो तारीखों के बीच किसी प्रोडक्ट पर मुनाफ़ा। हर सवाल में 1 AI एक्सट्रैक्शन लगता है।",
+  "Talk to Jashan": "Jashan से बात करें",
+  "Upgrade now": "अभी अपग्रेड करें"
 }

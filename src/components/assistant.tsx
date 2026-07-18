@@ -8,10 +8,13 @@ import { useTranslation } from "react-i18next";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
+// WhatsApp when VITE_SUPPORT_PHONE is configured; email otherwise — the
+// founder must always be reachable.
+const FOUNDER_EMAIL = "jsehgal2003@gmail.com";
 const founderLink = (text: string) => {
   const phone = (import.meta.env.VITE_SUPPORT_PHONE ?? "").replace(/\D/g, "");
-  if (!phone) return null;
-  return `https://wa.me/${phone.length === 10 ? "91" + phone : phone}?text=${encodeURIComponent(text)}`;
+  if (phone) return `https://wa.me/${phone.length === 10 ? "91" + phone : phone}?text=${encodeURIComponent(text)}`;
+  return `mailto:${FOUNDER_EMAIL}?subject=${encodeURIComponent("Ledgerly support")}&body=${encodeURIComponent(text)}`;
 };
 
 export function Assistant() {
@@ -95,12 +98,10 @@ export function Assistant() {
             </div>
           )}
         </div>
-        {callLink && (
-          <a href={callLink} target="_blank" rel="noreferrer"
-            className="text-xs text-primary inline-flex items-center gap-1 hover:underline">
-            <PhoneCall className="h-3 w-3" /> {t("Book a call")}
-          </a>
-        )}
+        <a href={callLink} target="_blank" rel="noreferrer"
+          className="text-xs text-primary inline-flex items-center gap-1 hover:underline">
+          <PhoneCall className="h-3 w-3" /> {t("Talk to Jashan")}
+        </a>
         <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground ml-1">
           <X className="h-4 w-4" />
         </button>
@@ -128,10 +129,10 @@ export function Assistant() {
                 : "bg-muted rounded-2xl rounded-bl-sm px-3 py-2 text-sm max-w-[90%] whitespace-pre-wrap"
             }>
               {m.text}
-              {m.role === "assistant" && callLink && i === messages.length - 1 && !busy && (
+              {m.role === "assistant" && i === messages.length - 1 && !busy && (
                 <div className="mt-2 pt-2 border-t border-border/60">
                   <a
-                    href={founderLink(t("Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.", { q: messages[i - 1]?.text?.slice(0, 150) ?? "" })) ?? "#"}
+                    href={founderLink(t("Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.", { q: messages[i - 1]?.text?.slice(0, 150) ?? "" }))}
                     target="_blank" rel="noreferrer"
                     className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
                   >
