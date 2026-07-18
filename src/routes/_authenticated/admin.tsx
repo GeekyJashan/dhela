@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { listAppUsers, generateUserMagicLink } from "@/lib/admin.functions";
+import { listAppUsers, generateUserMagicLink, setOrgPlan } from "@/lib/admin.functions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PLANS, type PlanId } from "@/lib/plans";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,12 +27,16 @@ export const Route = createFileRoute("/_authenticated/admin")({
 type AppUser = {
   id: string; email: string | null; created_at: string;
   last_sign_in_at: string | null; confirmed: boolean;
-  org: string | null; platform_admin: boolean;
+  org: string | null; org_id: string | null;
+  plan: string | null; plan_valid_till: string | null;
+  platform_admin: boolean;
 };
 
 function AdminPage() {
+  const qc = useQueryClient();
   const fetchUsers = useServerFn(listAppUsers);
   const magicLink = useServerFn(generateUserMagicLink);
+  const changePlan = useServerFn(setOrgPlan);
   const [link, setLink] = useState<{ email: string; url: string } | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
 
@@ -45,6 +52,17 @@ function AdminPage() {
       setLink({ email, url: res.action_link });
     } catch (e) { toast.error((e as Error).message); }
     finally { setGenerating(null); }
+  };
+
+  const setPlan = async (orgId: string, plan: PlanId) => {
+    // Paid plans get one year of validity from today; free clears it.
+    const validTill = plan === "free" ? null
+      : new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
+    try {
+      await changePlan({ data: { orgId, plan, validTill } });
+      toast.success(`Plan set to ${PLANS[plan].name}${validTill ? ` till ${validTill}` : ""}`);
+      qc.invalidateQueries({ queryKey: ["admin_users"] });
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   const copy = async () => {
@@ -69,6 +87,7 @@ function AdminPage() {
             <TableHeader><TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Organization</TableHead>
+              <TableHead>Plan</TableHead>
               <TableHead>Signed up</TableHead>
               <TableHead>Last sign-in</TableHead>
               <TableHead>Status</TableHead>
@@ -86,6 +105,23 @@ function AdminPage() {
                     )}
                   </TableCell>
                   <TableCell>{u.org ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>
+                    {u.org_id ? (
+                      <div>
+                        <Select value={u.plan ?? "free"} onValueChange={v => setPlan(u.org_id!, v as PlanId)}>
+                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(PLANS) as PlanId[]).map(pid => (
+                              <SelectItem key={pid} value={pid}>{PLANS[pid].name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {u.plan_valid_till && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">till {u.plan_valid_till}</div>
+                        )}
+                      </div>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell>{u.created_at.slice(0, 10)}</TableCell>
                   <TableCell>{u.last_sign_in_at ? u.last_sign_in_at.slice(0, 16).replace("T", " ") : "never"}</TableCell>
                   <TableCell>
@@ -105,7 +141,7 @@ function AdminPage() {
                 </TableRow>
               ))}
               {!users?.length && (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                   Loading users…
                 </TableCell></TableRow>
               )}

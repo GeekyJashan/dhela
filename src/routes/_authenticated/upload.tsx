@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { FileUp, Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices } from "@/lib/invoices.functions";
+import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
+import { useQuery } from "@tanstack/react-query";
+import { Link as RouterLink } from "@tanstack/react-router";
 import { createLogger } from "@/lib/logger";
 import { useTranslation } from "react-i18next";
 
@@ -52,6 +55,12 @@ function Upload() {
   const enqueue = useServerFn(enqueueInvoices);
   const [rows, setRows] = useState<Row[]>([]);
   const [engine, setEngine] = useState<Engine>("ai");
+  const fetchBilling = useServerFn(getBillingInfo);
+  const { data: billing } = useQuery({
+    queryKey: ["billing_info"],
+    queryFn: async () => (await fetchBilling()) as BillingInfo,
+  });
+  const aiRemaining = billing ? Math.max(0, billing.aiLimitPerMonth - billing.aiUsedThisMonth) : null;
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
 
@@ -215,6 +224,14 @@ function Upload() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.")}
                 </p>
+                {aiRemaining != null && (
+                  <p className={`text-xs mt-1.5 font-medium ${aiRemaining === 0 ? "text-destructive" : "text-primary"}`}>
+                    {t("{{n}} AI extractions left this month", { n: aiRemaining })}
+                    {aiRemaining === 0 && (
+                      <RouterLink to="/billing" className="ml-1 underline">{t("Upgrade")}</RouterLink>
+                    )}
+                  </p>
+                )}
               </div>
             </label>
             <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ocr" ? "border-primary bg-primary/5" : ""}`}>

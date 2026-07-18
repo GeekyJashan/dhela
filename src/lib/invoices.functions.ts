@@ -178,6 +178,20 @@ export const enqueueInvoices = createServerFn({ method: "POST" })
       .from("memberships").select("org_id").eq("user_id", userId).limit(1).single();
     if (!mem?.org_id) throw new Error("No organization");
 
+    // AI extractions are the metered resource — enforce the plan quota.
+    if (data.engine === "ai") {
+      const { getOrgBilling } = await import("./billing.functions");
+      const billing = await getOrgBilling(supabase, mem.org_id);
+      const remaining = billing.aiLimitPerMonth - billing.aiUsedThisMonth;
+      if (data.items.length > remaining) {
+        log.info("enqueue:quota_blocked", { org: mem.org_id, remaining, requested: data.items.length });
+        throw new Error(
+          `AI extraction limit reached (${billing.aiUsedThisMonth}/${billing.aiLimitPerMonth} used this month, ` +
+          `${Math.max(0, remaining)} left). Use the free OCR engine, or upgrade your plan on the Billing page.`,
+        );
+      }
+    }
+
     const rows = data.items.map((it) => ({
       org_id: mem.org_id,
       storage_path: it.storagePath,

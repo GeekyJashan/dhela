@@ -595,6 +595,8 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          plan: string
+          plan_valid_till: string | null
           state_code: string | null
         }
         Insert: {
@@ -607,6 +609,8 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          plan?: string
+          plan_valid_till?: string | null
           state_code?: string | null
         }
         Update: {
@@ -619,6 +623,8 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          plan?: string
+          plan_valid_till?: string | null
           state_code?: string | null
         }
         Relationships: []

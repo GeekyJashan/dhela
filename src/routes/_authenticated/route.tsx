@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ const NAV = [
   { to: "/products", label: "Products", icon: Package },
   { to: "/pricing", label: "Pricing", icon: Tag },
   { to: "/suppliers", label: "Suppliers", icon: Users },
+  { to: "/billing", label: "Billing", icon: CreditCard },
 ] as const;
 
 function AuthedLayout() {
