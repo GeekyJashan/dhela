@@ -120,6 +120,17 @@ function BillingPage() {
                     <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                       {t("Priority support")}</li>
                   )}
+                  {id === "pro" && (
+                    <li className="flex gap-2">
+                      <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                      <span>
+                        {t("AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates.")}
+                        <span className="ml-1.5 inline-block text-[10px] font-semibold uppercase tracking-wide text-accent-foreground bg-accent/30 rounded-full px-2 py-0.5 align-middle">
+                          {t("Coming soon")}
+                        </span>
+                      </span>
+                    </li>
+                  )}
                 </ul>
                 {!current && id !== "free" && (
                   href ? (

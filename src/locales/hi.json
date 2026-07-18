@@ -416,5 +416,7 @@
   "{{n}} AI extractions left this month": "इस महीने {{n}} AI एक्सट्रैक्शन बाकी",
   "Upgrade": "अपग्रेड करें",
   "month": "माह",
-  "{{amt}} billed yearly": "{{amt}} वार्षिक बिलिंग"
+  "{{amt}} billed yearly": "{{amt}} वार्षिक बिलिंग",
+  "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे किसी प्रोडक्ट पर दो तारीखों के बीच कितना मुनाफ़ा हुआ।",
+  "Coming soon": "जल्द आ रहा है"
 }
