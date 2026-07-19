@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
-import { effectivePlan } from "./plans";
 
 const log = createLogger("gstin.functions");
 
@@ -70,20 +69,22 @@ function extractTaxpayer(json: Record<string, unknown>): Taxpayer {
 
   const pradr = (d.pradr ?? {}) as Record<string, unknown>;
   const addr = (pradr.addr ?? d.addr ?? {}) as Record<string, string>;
-  const parts = [addr.bno, addr.flno, addr.bnm, addr.st, addr.loc, addr.landMark]
-    .map(x => (x ?? "").trim()).filter(Boolean);
-  const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
+  const composed = [addr.bno, addr.flno, addr.bnm, addr.st, addr.loc, addr.landMark]
+    .map(x => (x ?? "").trim()).filter(Boolean).join(", ");
+  const status = (d.gstin_status ?? d.sts ?? (typeof d.status === "string" ? d.status : null) ?? null) as string | null;
+  // Tally returns a flat `address` string; Appyflow/GSPs nest it under pradr.addr.
+  const flatAddress = typeof d.address === "string" ? d.address : "";
 
   return {
     legalName: (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null,
     tradeName: (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null,
     status,
-    constitution: (d.ctb ?? d.constitution ?? d.constitutionOfBusiness ?? null) as string | null,
-    taxpayerType: (d.dty ?? d.taxpayerType ?? d.taxPayerType ?? null) as string | null,
-    registrationDate: (d.rgdt ?? d.registrationDate ?? d.rgdate ?? null) as string | null,
-    address: parts.length ? parts.join(", ") : null,
-    city: ((addr.city || addr.dst) ?? null) as string | null,
-    pincode: (addr.pncd ?? null) as string | null,
+    constitution: (d.business_constitution ?? d.ctb ?? d.constitution ?? d.constitutionOfBusiness ?? null) as string | null,
+    taxpayerType: (d.registration_type ?? d.dty ?? d.taxpayerType ?? d.taxPayerType ?? null) as string | null,
+    registrationDate: (d.registration_date ?? d.rgdt ?? d.registrationDate ?? d.rgdate ?? null) as string | null,
+    address: (flatAddress || composed) || null,
+    city: (d.city ?? addr.city ?? addr.dst ?? null) as string | null,
+    pincode: (d.pincode ?? addr.pncd ?? null) as string | null,
     filerRating: deriveFilerRating(status, d),
   };
 }
@@ -91,8 +92,7 @@ function extractTaxpayer(json: Record<string, unknown>): Taxpayer {
 export const verifyGstin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ gstin: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+  .handler(async ({ data }) => {
     const gstin = data.gstin.trim().toUpperCase();
     const formatOk = GSTIN_RE.test(gstin);
     const checksumOk = formatOk && checksumValid(gstin);
@@ -119,18 +119,10 @@ export const verifyGstin = createServerFn({ method: "POST" })
     };
     if (!checksumOk) return base;
 
-    // Live business-name + filer lookup is a Pro-plan feature.
-    const { data: mem } = await supabase.from("memberships")
-      .select("organization:organizations(plan, plan_valid_till)")
-      .eq("user_id", userId).limit(1).maybeSingle();
-    const orgPlan = mem?.organization as { plan?: string; plan_valid_till?: string } | null;
-    const plan = effectivePlan(orgPlan?.plan, orgPlan?.plan_valid_till);
-    if (plan !== "pro") return { ...base, proRequired: true };
-
-    // Live lookup. Default provider is Appyflow (key_secret param). A generic
-    // Bearer provider can be used instead by setting GST_API_URL.
+    // Provider selection. Default: Tally's free public tool (no key, real data).
+    // Set GST_PROVIDER=appyflow (with GST_API_KEY) or GST_API_URL for a GSP.
+    const provider = (process.env.GST_PROVIDER ?? "tally").toLowerCase();
     const apiKey = process.env.GST_API_KEY;
-    if (!apiKey) return { ...base, lookupUnavailable: true };
     const genericUrl = process.env.GST_API_URL;
 
     // Serve from the shared cache if we looked this GSTIN up recently.
@@ -155,7 +147,13 @@ export const verifyGstin = createServerFn({ method: "POST" })
 
     try {
       let json: Record<string, unknown>;
-      if (genericUrl) {
+      if (provider === "appyflow" && apiKey) {
+        const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
+        json = await resp.json();
+        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return { ...base, lookupUnavailable: true }; }
+      } else if (genericUrl && apiKey) {
         const url = genericUrl.includes("{gstin}") ? genericUrl.replace("{gstin}", gstin) : `${genericUrl}${gstin}`;
         const resp = await fetch(url, {
           headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
@@ -163,12 +161,21 @@ export const verifyGstin = createServerFn({ method: "POST" })
         if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
         json = await resp.json();
       } else {
-        // Appyflow: https://appyflow.in/api/verifyGST?gstNo=..&key_secret=..
-        const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
-        const resp = await fetch(url);
-        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
-        json = await resp.json();
-        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return { ...base, lookupUnavailable: true }; }
+        // Default: Tally's free public GSTIN tool — POST gstin=<value>, no auth.
+        const resp = await fetch("https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://tallysolutions.com/business-tools-templates/gstin-verification-search/",
+          },
+          body: `gstin=${encodeURIComponent(gstin)}`,
+        });
+        if (!resp.ok) { log.error("verifyGstin:tally_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
+        const text = await resp.text();
+        try { json = JSON.parse(text); } catch { log.error("verifyGstin:tally_parse", { body: text.slice(0, 200) }); return { ...base, lookupUnavailable: true }; }
+        if (Number(json.status) !== 1) { log.info("verifyGstin:tally_invalid", { msg: String(json.message ?? "") }); return { ...base, lookupUnavailable: true }; }
       }
 
       // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
