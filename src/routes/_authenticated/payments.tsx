@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Plus, Trash2, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { PaymentsAnalytics } from "@/components/payments-analytics";
 
 export const Route = createFileRoute("/_authenticated/payments")({
   head: () => ({ meta: [{ title: "Payments — Ledgerly" }] }),
@@ -111,11 +112,6 @@ function PaymentsPage() {
     queryFn: async () => (await supabase.from("suppliers").select("id, name").order("name")).data ?? [],
   });
 
-  const receivable = (balances ?? []).filter(b => b.party_type === "retailer")
-    .reduce((s, b) => s + Number(b.balance ?? 0), 0);
-  const payable = (balances ?? []).filter(b => b.party_type === "supplier")
-    .reduce((s, b) => s + Number(b.balance ?? 0), 0);
-
   const partyOptions = form.party_type === "retailer" ? retailers : suppliers;
   const partyBalance = balances?.find(b => b.party_type === form.party_type && b.party_id === form.party_id);
 
@@ -171,30 +167,7 @@ function PaymentsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="pt-6 flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
-              <ArrowDownLeft className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">{t("To receive from retailers")}</div>
-              <div className="text-2xl font-semibold tabular-nums">{inr(receivable)}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
-              <ArrowUpRight className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">{t("To pay suppliers")}</div>
-              <div className="text-2xl font-semibold tabular-nums">{inr(payable)}</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PaymentsAnalytics />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
