@@ -50,12 +50,12 @@ function AuthedLayout() {
   };
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col print:hidden">
-        <Link to="/dashboard" className="flex items-center gap-2 px-5 py-5 text-lg font-semibold border-b border-sidebar-border">
+    <div className="h-dvh flex bg-background overflow-hidden print:h-auto print:overflow-visible">
+      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-full print:hidden">
+        <Link to="/dashboard" className="flex items-center gap-2 px-5 py-5 text-lg font-semibold border-b border-sidebar-border shrink-0">
           <Sparkles className="h-5 w-5 text-accent" /> Ledgerly
         </Link>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1">
           {nav.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || pathname.startsWith(to + "/");
             return (
@@ -68,7 +68,7 @@ function AuthedLayout() {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-sidebar-border space-y-2">
+        <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">
           <Select value={i18n.language} onValueChange={setLanguage}>
             <SelectTrigger className="w-full h-9 bg-transparent border-sidebar-border text-sidebar-foreground/80">
               <span className="inline-flex items-center gap-2"><Globe className="h-4 w-4" /><SelectValue /></span>
