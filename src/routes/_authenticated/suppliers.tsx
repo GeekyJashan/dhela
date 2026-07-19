@@ -118,7 +118,13 @@ function Suppliers() {
         gst_legal_name: form.gst_legal_name || null, gst_constitution: form.gst_constitution || null,
         gst_taxpayer_type: form.gst_taxpayer_type || null, gst_registration_date: form.gst_registration_date || null,
       });
-      if (error) throw error;
+      if (error) {
+        if ((error as { code?: string }).code === "23505") {
+          toast.error(gstin ? t("A supplier with this GSTIN already exists") : t("A supplier with this name already exists"));
+          return;
+        }
+        throw error;
+      }
       toast.success(t("Supplier added"));
       setOpen(false);
       setForm({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });

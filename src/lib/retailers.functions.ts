@@ -57,6 +57,11 @@ export const upsertRetailer = createServerFn({ method: "POST" })
       : await supabase.from("retailers").insert(payload).select().single();
     if (error) {
       log.error("upsert:failed", { err: error });
+      if (error.code === "23505") {
+        throw new Error(gstin
+          ? "A retailer with this GSTIN already exists"
+          : "A retailer with this name already exists");
+      }
       throw new Error(error.message);
     }
     log.info("upsert:done", { id: row.id });
