@@ -36,26 +36,32 @@ function Products() {
   const [hsnQuery, setHsnQuery] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiHint, setAiHint] = useState<string | null>(null);
-  const hsnTouchedRef = useRef(false);
+  const hsnUserEditedRef = useRef(false);   // user manually typed/picked HSN or GST
+  const loadedNameRef = useRef("");         // product name when an edit dialog opened
 
-  // Auto-suggest HSN via GenAI when product name changes (debounced).
-  // Skips if the user has already typed/picked an HSN.
+  // Auto-suggest HSN via GenAI when the product name changes (debounced).
+  // Runs for both new and edited products, but never overrides a value the
+  // user typed/picked, and won't re-classify an edited product until its name
+  // actually changes from what was loaded.
   useEffect(() => {
-    if (!open || editingId) return;
-    if (hsnTouchedRef.current) return;
+    if (!open) return;
+    if (hsnUserEditedRef.current) return;
     const name = form.name.trim();
     if (name.length < 3) { setAiHint(null); return; }
+    if (editingId && name === loadedNameRef.current.trim()) return; // unchanged edit
     const timer = setTimeout(async () => {
       setAiLoading(true);
       setAiHint(null);
       try {
         const s = await aiSuggestHsn({ data: { name } });
-        if (hsnTouchedRef.current) return; // user typed while we waited
+        if (hsnUserEditedRef.current) return; // user typed while we waited
         if (s.hsn) {
+          // The user hasn't touched HSN, so the latest AI classification wins
+          // (overwrites any earlier auto-fill from a partial name).
           setForm(f => ({
             ...f,
-            hsn: f.hsn || s.hsn || "",
-            gst_rate: f.gst_rate || (s.gst_rate != null ? String(s.gst_rate) : ""),
+            hsn: s.hsn || "",
+            gst_rate: s.gst_rate != null ? String(s.gst_rate) : "",
           }));
           setAiHint(`AI: ${s.hsn}${s.gst_rate != null ? ` · GST ${s.gst_rate}%` : ""}${s.description ? ` · ${s.description}` : ""}`);
         } else {
@@ -148,7 +154,7 @@ function Products() {
   });
 
   const pickHsn = (h: { code: string; gst_rate: number }) => {
-    hsnTouchedRef.current = true;
+    hsnUserEditedRef.current = true;
     setForm(f => ({ ...f, hsn: h.code, gst_rate: String(h.gst_rate) }));
     setHsnQuery("");
     setAiHint(null);
@@ -161,7 +167,8 @@ function Products() {
       setForm(empty);
       setHsnQuery("");
       setAiHint(null);
-      hsnTouchedRef.current = false;
+      hsnUserEditedRef.current = false;
+      loadedNameRef.current = "";
     }
   };
 
@@ -181,7 +188,9 @@ function Products() {
       purchase_rate: p.purchase_rate != null ? String(p.purchase_rate) : "",
       current_stock: p.current_stock != null ? String(Number(p.current_stock)) : "",
     });
-    hsnTouchedRef.current = true; // don't let the AI overwrite an existing HSN
+    // Keep the loaded HSN as-is; only re-classify if the user changes the name.
+    hsnUserEditedRef.current = false;
+    loadedNameRef.current = p.name;
     setOpen(true);
   };
 
@@ -242,12 +251,12 @@ function Products() {
                   <div className="flex-1">
                     <label className="text-xs text-muted-foreground">{t("HSN code")}</label>
                     <Input placeholder={t("Auto-fills from name")} value={form.hsn}
-                      onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
+                      onChange={e => { hsnUserEditedRef.current = true; setForm({ ...form, hsn: e.target.value }); }} />
                   </div>
                   <div className="w-28">
                     <label className="text-xs text-muted-foreground">{t("GST %")}</label>
                     <Input placeholder={t("e.g. 18")} value={form.gst_rate}
-                      onChange={e => { hsnTouchedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
+                      onChange={e => { hsnUserEditedRef.current = true; setForm({ ...form, gst_rate: e.target.value }); }} />
                   </div>
                 </div>
                 <div className="text-xs flex items-center gap-1.5 min-h-[18px]">

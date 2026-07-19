@@ -15,6 +15,14 @@ const SuggestionSchema = z.object({
 
 export type HsnSuggestion = z.infer<typeof SuggestionSchema>;
 
+/** Normalize a product name (+ optional context) into a stable cache key. */
+function suggestionKey(name: string, context?: string): string {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const base = norm(name);
+  const ctx = context ? norm(context) : "";
+  return ctx ? `${base}${ctx}` : base;
+}
+
 export const suggestHsn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -24,6 +32,27 @@ export const suggestHsn = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }): Promise<HsnSuggestion> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const key = suggestionKey(data.name, data.context);
+
+    // 1) Permanent, platform-wide cache. Once we've classified a product name
+    //    we serve it forever — instant and free, no AI/FastAPI call.
+    const { data: cached } = await supabaseAdmin.from("hsn_suggestions")
+      .select("hsn, gst_rate, description, confidence")
+      .eq("name_key", key).maybeSingle();
+    if (cached && cached.hsn) {
+      void supabaseAdmin.rpc("bump_hsn_suggestion_hit", { _name_key: key });
+      log.info("suggestHsn:cache_hit", { hsn: cached.hsn, gst: cached.gst_rate });
+      return {
+        hsn: cached.hsn,
+        gst_rate: cached.gst_rate,
+        description: cached.description,
+        confidence: cached.confidence,
+        reasoning: null,
+      };
+    }
+
+    // 2) First time we've seen this name — classify via the AI service.
     const apiUrl = process.env.EXTRACTION_API_URL ?? "http://localhost:8000";
     log.info("suggestHsn:start", { name: data.name, apiUrl });
     try {
@@ -41,10 +70,24 @@ export const suggestHsn = createServerFn({ method: "POST" })
       const parsed = SuggestionSchema.parse(json);
       log.info("suggestHsn:ok", { hsn: parsed.hsn, gst: parsed.gst_rate });
 
-      // Grow the searchable HSN reference from AI classifications — the seed
-      // list is a small curated set, so codes the AI finds get added here.
       if (parsed.hsn && parsed.gst_rate != null) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        // Cache the name → classification so this name is free next time.
+        const { error: cacheErr } = await supabaseAdmin.from("hsn_suggestions").upsert(
+          {
+            name_key: key,
+            name: data.name,
+            hsn: parsed.hsn,
+            gst_rate: parsed.gst_rate,
+            description: parsed.description ?? null,
+            confidence: parsed.confidence ?? null,
+            fetched_at: new Date().toISOString(),
+          },
+          { onConflict: "name_key" },
+        );
+        if (cacheErr) log.error("suggestHsn:cache_failed", { err: cacheErr.message });
+
+        // Also grow the searchable HSN reference — the seed list is a small
+        // curated set, so codes the AI finds get added to the code table too.
         const { error: upsertErr } = await supabaseAdmin.from("hsn_codes").upsert(
           {
             code: parsed.hsn,

@@ -342,6 +342,42 @@ export type Database = {
         }
         Relationships: []
       }
+      hsn_suggestions: {
+        Row: {
+          confidence: number | null
+          description: string | null
+          fetched_at: string
+          gst_rate: number | null
+          hit_count: number
+          hsn: string | null
+          last_accessed_at: string | null
+          name: string
+          name_key: string
+        }
+        Insert: {
+          confidence?: number | null
+          description?: string | null
+          fetched_at?: string
+          gst_rate?: number | null
+          hit_count?: number
+          hsn?: string | null
+          last_accessed_at?: string | null
+          name: string
+          name_key: string
+        }
+        Update: {
+          confidence?: number | null
+          description?: string | null
+          fetched_at?: string
+          gst_rate?: number | null
+          hit_count?: number
+          hsn?: string | null
+          last_accessed_at?: string | null
+          name?: string
+          name_key?: string
+        }
+        Relationships: []
+      }
       invoice_lines: {
         Row: {
           batch: string | null
@@ -1465,6 +1501,10 @@ export type Database = {
     }
     Functions: {
       bump_gstin_hit: { Args: { _gstin: string }; Returns: undefined }
+      bump_hsn_suggestion_hit: {
+        Args: { _name_key: string }
+        Returns: undefined
+      }
       has_org_role: {
         Args: { _org: string; _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
