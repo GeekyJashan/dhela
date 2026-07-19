@@ -588,5 +588,6 @@
   "Tip: enter the GSTIN first — business name, address, city, state & GST status fill in automatically.": "ਸੁਝਾਅ: ਪਹਿਲਾਂ GSTIN ਭਰੋ — ਕਾਰੋਬਾਰ ਦਾ ਨਾਮ, ਪਤਾ, ਸ਼ਹਿਰ, ਰਾਜ ਅਤੇ GST ਸਥਿਤੀ ਆਪੇ ਭਰ ਜਾਣਗੇ।",
   "GSTIN *": "GSTIN *",
   "Enter a valid GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ ਵੈਧ GSTIN ਭਰੋ",
-  "A valid GSTIN is required": "ਵੈਧ GSTIN ਲਾਜ਼ਮੀ ਹੈ"
+  "A valid GSTIN is required": "ਵੈਧ GSTIN ਲਾਜ਼ਮੀ ਹੈ",
+  "Fix or clear the GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ GSTIN ਠੀਕ ਕਰੋ ਜਾਂ ਹਟਾਓ"
 }

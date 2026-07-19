@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { upsertRetailer, deleteRetailer } from "@/lib/retailers.functions";
@@ -65,6 +65,9 @@ function RetailersPage() {
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
   const [flash, triggerFlash] = useFlash();
+  const gstinRef = useRef<HTMLInputElement>(null);
+  // GSTIN is optional for retailers, but if one is entered it must be valid.
+  const gstinOk = !form.gstin.trim() || !!gst?.valid;
 
   // Verify GSTIN (debounced) whenever a full 15-char GSTIN is present.
   useEffect(() => {
@@ -184,17 +187,17 @@ function RetailersPage() {
           <DialogTrigger asChild>
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New retailer")}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => { e.preventDefault(); gstinRef.current?.focus(); }}>
             <DialogHeader><DialogTitle>{editing ? t("Edit retailer") : t("Add retailer")}</DialogTitle></DialogHeader>
-            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && gst?.valid) submit(); }}>
+            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && gstinOk && !gstChecking) submit(); }}>
               <GstHint show={!editing && !form.gstin.trim()} className="col-span-2" />
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Business name *")}</label>
                 <Input className={cn(flash && "field-flash")} placeholder={t("e.g. Sharma General Store")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">{t("GSTIN *")}</label>
-                <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <label className="text-xs text-muted-foreground">{t("GSTIN")}</label>
+                <Input ref={gstinRef} className={cn(!form.gstin.trim() && "gstin-attract")} placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                 <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
                   {gstChecking ? (
                     <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("Checking GSTIN…")}</span></>
@@ -273,11 +276,11 @@ function RetailersPage() {
                 <Textarea placeholder={t("Anything worth remembering")} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
               <DialogFooter className="col-span-2 items-center">
-                {!gst?.valid && form.gstin.trim().length > 0 && !gstChecking && (
+                {!gstinOk && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
                 )}
-                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid}
-                  title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{t("Save")}</Button>
+                <Button type="submit" disabled={!form.name || gstChecking || !gstinOk}
+                  title={!gstinOk ? t("Fix or clear the GSTIN to save") : undefined}>{t("Save")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
