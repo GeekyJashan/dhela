@@ -468,5 +468,8 @@
   "Pick a retailer and a file": "रिटेलर और फ़ाइल चुनें",
   "No products matched. Add them to your catalog first, or create the order manually.": "कोई प्रोडक्ट मैच नहीं हुआ। पहले उन्हें कैटलॉग में जोड़ें, या ऑर्डर मैन्युअल बनाएं।",
   "Order {{n}} created — {{m}} product(s) matched{{u}}": "ऑर्डर {{n}} बना — {{m}} प्रोडक्ट मिले{{u}}",
-  ", {{k}} not matched": ", {{k}} मैच नहीं हुए"
+  ", {{k}} not matched": ", {{k}} मैच नहीं हुए",
+  "Issue": "जारी करें",
+  "Invoice issued": "इनवॉइस जारी हुआ",
+  "Issue this invoice? Stock will be deducted and it becomes a receivable.": "यह इनवॉइस जारी करें? स्टॉक घटेगा और यह बकाया बन जाएगा।"
 }

@@ -161,6 +161,61 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
     return { id: invoiceId, invoice_number: invoiceNumber };
   });
 
+/** Promote a draft sales invoice to 'issued': deduct stock and fulfil orders. */
+export const issueSalesInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: inv } = await supabase.from("sales_invoices")
+      .select("status, order_id").eq("id", data.id).single();
+    if (!inv) throw new Error("Invoice not found");
+    if (inv.status !== "draft") return { ok: true };  // already issued/paid/cancelled — nothing to do
+
+    const { data: lines } = await supabase.from("sales_invoice_lines")
+      .select("product_id, quantity, free_quantity").eq("sales_invoice_id", data.id);
+
+    // Deduct stock.
+    for (const l of lines ?? []) {
+      if (!l.product_id) continue;
+      const { data: p } = await supabase.from("products")
+        .select("current_stock").eq("id", l.product_id).single();
+      const newStock = Number(p?.current_stock ?? 0) - (Number(l.quantity) + Number(l.free_quantity ?? 0));
+      await supabase.from("products").update({ current_stock: newStock }).eq("id", l.product_id);
+    }
+
+    // Fulfil the linked order, if any.
+    if (inv.order_id) {
+      const { data: orderLines } = await supabase.from("order_lines")
+        .select("id, product_id, quantity, fulfilled_quantity").eq("order_id", inv.order_id);
+      if (orderLines?.length) {
+        const invoicedByProduct = new Map<string, number>();
+        for (const l of lines ?? []) {
+          if (!l.product_id) continue;
+          invoicedByProduct.set(l.product_id, (invoicedByProduct.get(l.product_id) ?? 0) + Number(l.quantity));
+        }
+        for (const ol of orderLines) {
+          const invoiced = invoicedByProduct.get(ol.product_id) ?? 0;
+          const already = Number(ol.fulfilled_quantity ?? 0);
+          const add = Math.min(invoiced, Number(ol.quantity) - already);
+          if (add <= 0) continue;
+          await supabase.from("order_lines").update({ fulfilled_quantity: already + add }).eq("id", ol.id);
+          ol.fulfilled_quantity = already + add;
+        }
+        const allDone = orderLines.every(ol => Number(ol.fulfilled_quantity ?? 0) >= Number(ol.quantity));
+        const anyDone = orderLines.some(ol => Number(ol.fulfilled_quantity ?? 0) > 0);
+        await supabase.from("orders")
+          .update({ status: allDone ? "fulfilled" : anyDone ? "partial" : "pending" })
+          .eq("id", inv.order_id);
+      }
+    }
+
+    const { error } = await supabase.from("sales_invoices").update({ status: "issued" }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    log.info("issue:done", { invoiceId: data.id });
+    return { ok: true };
+  });
+
 export const deleteSalesInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))

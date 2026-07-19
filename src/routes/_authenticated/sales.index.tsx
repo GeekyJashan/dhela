@@ -4,6 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { recordPayment } from "@/lib/payments.functions";
+import { issueSalesInvoice } from "@/lib/sales.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, IndianRupee } from "lucide-react";
+import { Plus, IndianRupee, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -35,6 +36,16 @@ function SalesList() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const record = useServerFn(recordPayment);
+  const issue = useServerFn(issueSalesInvoice);
+
+  const doIssue = async (id: string) => {
+    if (!confirm(t("Issue this invoice? Stock will be deducted and it becomes a receivable."))) return;
+    try {
+      await issue({ data: { id } });
+      toast.success(t("Invoice issued"));
+      qc.invalidateQueries({ queryKey: ["sales_invoices"] });
+    } catch (e) { toast.error((e as Error).message); }
+  };
 
   const { data } = useQuery({
     queryKey: ["sales_invoices"],
@@ -125,7 +136,8 @@ function SalesList() {
           </TableHeader>
           <TableBody>
             {data?.map((i) => {
-              const canPay = i.status !== "cancelled" && i.payment_status !== "paid" && !!i.retailer;
+              const canPay = i.status === "issued" && i.payment_status !== "paid" && !!i.retailer;
+              const isDraft = i.status === "draft";
               return (
                 <TableRow key={i.id} className="cursor-pointer hover:bg-muted/40"
                   onClick={() => navigate({ to: "/sales/$id", params: { id: i.id } })}>
@@ -137,11 +149,15 @@ function SalesList() {
                   <TableCell><Badge className={statusColor(i.status)} variant="secondary">{t(i.status)}</Badge></TableCell>
                   <TableCell><Badge variant="outline">{t(i.payment_status)}</Badge></TableCell>
                   <TableCell className="text-right">
-                    {canPay && (
+                    {isDraft ? (
+                      <Button size="sm" variant="outline" title={t("Issue invoice")} onClick={(e) => { e.stopPropagation(); doIssue(i.id); }}>
+                        <Send className="h-3.5 w-3.5 mr-1" /> {t("Issue")}
+                      </Button>
+                    ) : canPay ? (
                       <Button size="sm" variant="outline" title={t("Record payment")} onClick={(e) => { e.stopPropagation(); openPay(i); }}>
                         <IndianRupee className="h-3.5 w-3.5 mr-1" /> {t("Record")}
                       </Button>
-                    )}
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );
