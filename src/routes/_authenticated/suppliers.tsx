@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { verifyGstin } from "@/lib/gstin.functions";
+import { GstHint, GstFilerField, useFlash } from "@/components/gst-fields";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +40,7 @@ function Suppliers() {
   const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
+  const [flash, triggerFlash] = useFlash();
 
   useEffect(() => {
     const g = form.gstin.trim().toUpperCase();
@@ -64,6 +67,7 @@ function Suppliers() {
             gst_registration_date: info.registrationDate ?? "",
           };
         });
+        if (info.valid) triggerFlash();
       } catch { setGst(null); }
       finally { setGstChecking(false); }
     }, 700);
@@ -122,9 +126,10 @@ function Suppliers() {
           <DialogContent>
             <DialogHeader><DialogTitle>{t("Add supplier")}</DialogTitle></DialogHeader>
             <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
-              <Input placeholder={t("Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+              <GstHint show={!form.gstin.trim()} />
+              <Input className={cn(flash && "field-flash")} placeholder={t("Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               <div>
-                <Input placeholder="GSTIN" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder="GSTIN" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                 <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
                   {gstChecking ? (
                     <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("Checking GSTIN…")}</span></>
@@ -154,12 +159,13 @@ function Suppliers() {
                   </div>
                 )}
               </div>
+              <GstFilerField flash={flash} status={form.gst_status} rating={form.gst_filer_rating} taxpayerType={form.gst_taxpayer_type} />
               <Input placeholder={t("Contact")} value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
-              <Input placeholder={t("Address")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+              <Input className={cn(flash && "field-flash")} placeholder={t("Address")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
               <div className="grid grid-cols-3 gap-3">
-                <Input placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
-                <Input placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
-                <Input placeholder={t("State code")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("State code")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
               </div>
               <DialogFooter><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
             </form>

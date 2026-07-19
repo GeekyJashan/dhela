@@ -164,3 +164,20 @@
   animation: border-spin 6s linear infinite; pointer-events: none;
 }
 .tilt-3d { transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); transform-style: preserve-3d; will-change: transform; }
+
+/* --- GSTIN auto-fill affordances --- */
+@keyframes gstin-attract {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.42 0.09 200 / 0); }
+  50% { box-shadow: 0 0 0 4px oklch(0.42 0.09 200 / 0.16); }
+}
+.gstin-attract { animation: gstin-attract 2s ease-in-out infinite; }
+@keyframes field-flash {
+  0% { background-color: oklch(0.78 0.14 65 / 0.35); }
+  100% { background-color: transparent; }
+}
+.field-flash { animation: field-flash 1.1s ease-out; }
+@keyframes hint-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.42 0.09 200 / 0); }
+  50% { box-shadow: 0 0 0 3px oklch(0.42 0.09 200 / 0.12); }
+}
+.hint-glow { animation: hint-glow 2.2s ease-in-out infinite; }

@@ -582,5 +582,8 @@
   "Tap to flip back": "वापस पलटने के लिए टैप करें",
   "Tap the legend to toggle.": "टॉगल करने के लिए लेजेंड पर टैप करें।",
   "Top retailers by outstanding — tap a bar to open the statement.": "बकाया के अनुसार शीर्ष रिटेलर — स्टेटमेंट खोलने के लिए बार पर टैप करें।",
-  "Replace signature image (PNG)": "हस्ताक्षर छवि बदलें (PNG)"
+  "Replace signature image (PNG)": "हस्ताक्षर छवि बदलें (PNG)",
+  "GST filer status": "GST फाइलर स्थिति",
+  "Enter GSTIN to fetch": "जानकारी लाने के लिए GSTIN भरें",
+  "Tip: enter the GSTIN first — business name, address, city, state & GST status fill in automatically.": "सुझाव: पहले GSTIN भरें — व्यवसाय का नाम, पता, शहर, राज्य और GST स्थिति अपने आप भर जाएंगे।"
 }

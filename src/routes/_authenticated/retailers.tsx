@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { upsertRetailer, deleteRetailer } from "@/lib/retailers.functions";
 import { verifyGstin } from "@/lib/gstin.functions";
+import { GstHint, GstFilerField, useFlash } from "@/components/gst-fields";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +64,7 @@ function RetailersPage() {
   const [form, setForm] = useState<typeof empty>(empty);
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
+  const [flash, triggerFlash] = useFlash();
 
   // Verify GSTIN (debounced) whenever a full 15-char GSTIN is present.
   useEffect(() => {
@@ -88,6 +91,7 @@ function RetailersPage() {
           next.gst_registration_date = info.registrationDate ?? "";
           return next;
         });
+        if (info.valid) triggerFlash();
       } catch { setGst(null); }
       finally { setGstChecking(false); }
     }, 700);
@@ -183,13 +187,14 @@ function RetailersPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>{editing ? t("Edit retailer") : t("Add retailer")}</DialogTitle></DialogHeader>
             <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
+              <GstHint show={!editing && !form.gstin.trim()} className="col-span-2" />
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Business name *")}</label>
-                <Input placeholder={t("e.g. Sharma General Store")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("e.g. Sharma General Store")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("GSTIN")}</label>
-                <Input placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                 <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
                   {gstChecking ? (
                     <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("Checking GSTIN…")}</span></>
@@ -221,8 +226,9 @@ function RetailersPage() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("State code")}</label>
-                <Input placeholder={t("e.g. 27 for Maharashtra")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("e.g. 27 for Maharashtra")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
               </div>
+              <GstFilerField className="col-span-2" flash={flash} status={form.gst_status} rating={form.gst_filer_rating} taxpayerType={form.gst_taxpayer_type} />
               <div>
                 <label className="text-xs text-muted-foreground">{t("Phone")}</label>
                 <Input placeholder={t("Mobile / landline")} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
@@ -233,15 +239,15 @@ function RetailersPage() {
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Address")}</label>
-                <Textarea placeholder={t("Street, area, landmark")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+                <Textarea className={cn(flash && "field-flash")} placeholder={t("Street, area, landmark")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("City")}</label>
-                <Input placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("Pincode")}</label>
-                <Input placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+                <Input className={cn(flash && "field-flash")} placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("Retailer category (discount tier)")}</label>
