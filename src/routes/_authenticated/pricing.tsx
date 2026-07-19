@@ -128,7 +128,7 @@ function PricingPage() {
   const save = useServerFn(upsertPriceOverride);
   const remove = useServerFn(deletePriceOverride);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ product_id: "", retailer_id: "__none__", selling_rate: 0, discount_pct: 0 });
+  const [form, setForm] = useState({ product_id: "", retailer_id: "__none__", selling_rate: "", discount_pct: "" });
 
   const { data: rows } = useQuery({
     queryKey: ["price_overrides_list"],
@@ -162,12 +162,12 @@ function PricingPage() {
       await save({ data: {
         product_id: form.product_id,
         retailer_id: form.retailer_id === "__none__" ? null : form.retailer_id,
-        selling_rate: Number(form.selling_rate),
+        selling_rate: Number(form.selling_rate) || 0,
         discount_pct: Number(form.discount_pct) || 0,
       }});
       toast.success(t("Price override saved"));
       setOpen(false);
-      setForm({ product_id: "", retailer_id: "__none__", selling_rate: 0, discount_pct: 0 });
+      setForm({ product_id: "", retailer_id: "__none__", selling_rate: "", discount_pct: "" });
       qc.invalidateQueries({ queryKey: ["price_overrides_list"] });
       qc.invalidateQueries({ queryKey: ["price-overrides"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -212,11 +212,11 @@ function PricingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">{t("Selling rate (₹) *")}</label>
-                  <Input type="number" value={form.selling_rate} onChange={e => setForm({ ...form, selling_rate: Number(e.target.value) })} />
+                  <Input type="number" value={form.selling_rate} onChange={e => setForm({ ...form, selling_rate: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">{t("Discount %")}</label>
-                  <Input type="number" value={form.discount_pct} onChange={e => setForm({ ...form, discount_pct: Number(e.target.value) })} />
+                  <Input type="number" value={form.discount_pct} onChange={e => setForm({ ...form, discount_pct: e.target.value })} />
                 </div>
               </div>
               <DialogFooter><Button type="submit" disabled={!form.product_id || !form.selling_rate}>{t("Save")}</Button></DialogFooter>

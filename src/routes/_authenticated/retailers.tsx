@@ -35,7 +35,7 @@ type Retailer = {
 const empty = {
   name: "", gstin: "", phone: "", email: "", address: "", city: "",
   state_code: "", pincode: "", category: "C" as "A" | "B" | "C",
-  default_discount_pct: 0, credit_limit: 0, notes: "",
+  default_discount_pct: "", credit_limit: "", notes: "",
   gst_status: "", gst_filer_rating: "",
 };
 
@@ -111,8 +111,8 @@ function RetailersPage() {
       name: r.name, gstin: r.gstin ?? "", phone: r.phone ?? "", email: r.email ?? "",
       address: r.address ?? "", city: r.city ?? "", state_code: r.state_code ?? "",
       pincode: r.pincode ?? "", category: r.category ?? "C",
-      default_discount_pct: Number(r.default_discount_pct ?? 0),
-      credit_limit: Number(r.credit_limit ?? 0), notes: r.notes ?? "",
+      default_discount_pct: r.default_discount_pct != null ? String(r.default_discount_pct) : "",
+      credit_limit: r.credit_limit != null ? String(r.credit_limit) : "", notes: r.notes ?? "",
       gst_status: r.gst_status ?? "", gst_filer_rating: r.gst_filer_rating ?? "",
     });
     setOpen(true);
@@ -229,11 +229,11 @@ function RetailersPage() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("Default discount % (fallback)")}</label>
-                <Input type="number" placeholder={t("Used when no group discount")} value={form.default_discount_pct} onChange={e => setForm({ ...form, default_discount_pct: Number(e.target.value) })} />
+                <Input type="number" placeholder={t("Used when no group discount")} value={form.default_discount_pct} onChange={e => setForm({ ...form, default_discount_pct: e.target.value })} />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Credit limit (₹)")}</label>
-                <Input type="number" placeholder={t("0 = no limit")} value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: Number(e.target.value) })} />
+                <Input type="number" placeholder={t("0 = no limit")} value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: e.target.value })} />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Notes")}</label>

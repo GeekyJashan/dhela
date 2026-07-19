@@ -125,6 +125,15 @@ export const verifyGstin = createServerFn({ method: "POST" })
       const info = (json.taxpayerInfo ?? {}) as Record<string, unknown>;
       const wrap = (json.data ?? json.result ?? {}) as Record<string, unknown>;
       const d = { ...json, ...wrap, ...info } as Record<string, unknown>;
+
+      // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
+      // it's a demo/unauthenticated response (invalid key) — never trust it.
+      const returned = String(d.gstin ?? d.gstno ?? d.gstNo ?? "").toUpperCase();
+      if (returned && returned !== gstin) {
+        log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
+        return base;
+      }
+
       const legalName = (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null;
       const tradeName = (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null;
       const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
