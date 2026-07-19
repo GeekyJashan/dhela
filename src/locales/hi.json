@@ -513,5 +513,6 @@
   "Image too large — use a smaller PNG (< 300 KB)": "छवि बहुत बड़ी — छोटा PNG (< 300 KB) उपयोग करें",
   "Saved": "सहेजा गया",
   "Get business name + filer rating on Pro": "बिज़नेस नाम + फाइलर रेटिंग Pro पर पाएं",
-  "Live GSTIN lookup — auto-fill business name + GST filer/defaulter rating for retailers & suppliers": "लाइव GSTIN लुकअप — रिटेलर और सप्लायर के लिए बिज़नेस नाम और GST फाइलर/डिफॉल्टर रेटिंग अपने आप भरें"
+  "Live GSTIN lookup — auto-fill business name + GST filer/defaulter rating for retailers & suppliers": "लाइव GSTIN लुकअप — रिटेलर और सप्लायर के लिए बिज़नेस नाम और GST फाइलर/डिफॉल्टर रेटिंग अपने आप भरें",
+  "live lookup unavailable — add paid GST-API credits": "लाइव लुकअप उपलब्ध नहीं — पेड GST-API क्रेडिट जोड़ें"
 }

@@ -77,6 +77,7 @@ export const verifyGstin = createServerFn({ method: "POST" })
       filerRating: null as string | null,
       source: "format" as "format" | "api",
       proRequired: false,
+      lookupUnavailable: false,  // Pro, but the API couldn't return real data (no credits / bad key)
     };
     if (!checksumOk) return base;
 
@@ -91,7 +92,7 @@ export const verifyGstin = createServerFn({ method: "POST" })
     // Live lookup. Default provider is Appyflow (key_secret param). A generic
     // Bearer provider can be used instead by setting GST_API_URL.
     const apiKey = process.env.GST_API_KEY;
-    if (!apiKey) return base;
+    if (!apiKey) return { ...base, lookupUnavailable: true };
     const genericUrl = process.env.GST_API_URL;
 
     // Serve from the shared cache if we looked this GSTIN up recently.
@@ -121,15 +122,15 @@ export const verifyGstin = createServerFn({ method: "POST" })
         const resp = await fetch(url, {
           headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
         });
-        if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return base; }
+        if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
         json = await resp.json();
       } else {
         // Appyflow: https://appyflow.in/api/verifyGST?gstNo=..&key_secret=..
         const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
         const resp = await fetch(url);
-        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return base; }
+        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
         json = await resp.json();
-        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return base; }
+        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return { ...base, lookupUnavailable: true }; }
       }
 
       // Merge possible response wrappers so field lookup works across shapes.
@@ -141,8 +142,10 @@ export const verifyGstin = createServerFn({ method: "POST" })
       // it's a demo/unauthenticated response (invalid key) — never trust it.
       const returned = String(d.gstin ?? d.gstno ?? d.gstNo ?? "").toUpperCase();
       if (returned && returned !== gstin) {
+        // Sandbox/unauthenticated response (e.g. Appyflow free credits return
+        // their own demo GSTIN). Never trust it as the business name.
         log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
-        return base;
+        return { ...base, lookupUnavailable: true };
       }
 
       const legalName = (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null;
@@ -159,6 +162,6 @@ export const verifyGstin = createServerFn({ method: "POST" })
       return { ...base, legalName, tradeName, status, filerRating, source: "api" as const };
     } catch (e) {
       log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
-      return base;
+      return { ...base, lookupUnavailable: true };
     }
   });
