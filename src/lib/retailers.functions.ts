@@ -37,6 +37,20 @@ export const upsertRetailer = createServerFn({ method: "POST" })
     const { data: mem } = await supabase.from("memberships")
       .select("org_id").eq("user_id", userId).limit(1).maybeSingle();
     if (!mem) throw new Error("No organization");
+
+    // Duplicate guard: match on GSTIN when present, otherwise on name
+    // (case-insensitive). Excludes the row being edited.
+    const gstin = data.gstin?.trim();
+    let dupQ = supabase.from("retailers").select("id").eq("org_id", mem.org_id).limit(1);
+    dupQ = gstin ? dupQ.eq("gstin", gstin) : dupQ.ilike("name", data.name.trim());
+    if (data.id) dupQ = dupQ.neq("id", data.id);
+    const { data: dup } = await dupQ;
+    if (dup && dup.length > 0) {
+      throw new Error(gstin
+        ? "A retailer with this GSTIN already exists"
+        : "A retailer with this name already exists");
+    }
+
     const payload = { ...data, org_id: mem.org_id, created_by: userId };
     const { data: row, error } = data.id
       ? await supabase.from("retailers").update(payload).eq("id", data.id).select().single()

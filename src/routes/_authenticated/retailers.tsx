@@ -66,6 +66,7 @@ function RetailersPage() {
   const [gstChecking, setGstChecking] = useState(false);
   const [flash, triggerFlash] = useFlash();
   const gstinRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
   // GSTIN is optional for retailers, but if one is entered it must be valid.
   const gstinOk = !form.gstin.trim() || !!gst?.valid;
 
@@ -140,6 +141,8 @@ function RetailersPage() {
   };
 
   const submit = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       await save({ data: {
         ...(editing ? { id: editing.id } : {}),
@@ -166,6 +169,7 @@ function RetailersPage() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["retailers"] });
     } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
   };
 
   const del = async (id: string) => {
@@ -189,7 +193,7 @@ function RetailersPage() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => { e.preventDefault(); gstinRef.current?.focus(); }}>
             <DialogHeader><DialogTitle>{editing ? t("Edit retailer") : t("Add retailer")}</DialogTitle></DialogHeader>
-            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && gstinOk && !gstChecking) submit(); }}>
+            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && gstinOk && !gstChecking && !saving) submit(); }}>
               <GstHint show={!editing && !form.gstin.trim()} className="col-span-2" />
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Business name *")}</label>
@@ -279,8 +283,8 @@ function RetailersPage() {
                 {!gstinOk && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
                 )}
-                <Button type="submit" disabled={!form.name || gstChecking || !gstinOk}
-                  title={!gstinOk ? t("Fix or clear the GSTIN to save") : undefined}>{t("Save")}</Button>
+                <Button type="submit" disabled={!form.name || gstChecking || !gstinOk || saving}
+                  title={!gstinOk ? t("Fix or clear the GSTIN to save") : undefined}>{saving ? t("Saving…") : t("Save")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

@@ -42,6 +42,7 @@ function Suppliers() {
   const [gstChecking, setGstChecking] = useState(false);
   const [flash, triggerFlash] = useFlash();
   const gstinRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const g = form.gstin.trim().toUpperCase();
@@ -96,8 +97,19 @@ function Suppliers() {
   const balances = new Map(balanceRows?.map(b => [b.party_id, Number(b.balance ?? 0)]));
 
   const submit = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const { orgId } = await getOrg();
+      // Duplicate guard: by GSTIN when present, else by name (case-insensitive).
+      const gstin = form.gstin.trim();
+      let dupQ = supabase.from("suppliers").select("id").eq("org_id", orgId).limit(1);
+      dupQ = gstin ? dupQ.eq("gstin", gstin) : dupQ.ilike("name", form.name.trim());
+      const { data: dup } = await dupQ;
+      if (dup && dup.length > 0) {
+        toast.error(gstin ? t("A supplier with this GSTIN already exists") : t("A supplier with this name already exists"));
+        return;
+      }
       const { error } = await supabase.from("suppliers").insert({
         org_id: orgId,
         name: form.name, gstin: form.gstin || null, contact: form.contact || null, address: form.address || null,
@@ -113,6 +125,7 @@ function Suppliers() {
       setGst(null);
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -126,7 +139,7 @@ function Suppliers() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New supplier")}</Button></DialogTrigger>
           <DialogContent onOpenAutoFocus={(e) => { e.preventDefault(); gstinRef.current?.focus(); }}>
             <DialogHeader><DialogTitle>{t("Add supplier")}</DialogTitle></DialogHeader>
-            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name && gst?.valid) submit(); }}>
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name && gst?.valid && !gstChecking && !saving) submit(); }}>
               <GstHint show={!form.gstin.trim()} />
               <Input className={cn(flash && "field-flash")} placeholder={t("Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               <div>
@@ -172,8 +185,8 @@ function Suppliers() {
                 {!gst?.valid && form.gstin.trim().length > 0 && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
                 )}
-                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid}
-                  title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{t("Save")}</Button>
+                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid || saving}
+                  title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{saving ? t("Saving…") : t("Save")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

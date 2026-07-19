@@ -589,5 +589,8 @@
   "GSTIN *": "GSTIN *",
   "Enter a valid GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ ਵੈਧ GSTIN ਭਰੋ",
   "A valid GSTIN is required": "ਵੈਧ GSTIN ਲਾਜ਼ਮੀ ਹੈ",
-  "Fix or clear the GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ GSTIN ਠੀਕ ਕਰੋ ਜਾਂ ਹਟਾਓ"
+  "Fix or clear the GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ GSTIN ਠੀਕ ਕਰੋ ਜਾਂ ਹਟਾਓ",
+  "Saving…": "ਸੇਵ ਹੋ ਰਿਹਾ ਹੈ…",
+  "A supplier with this GSTIN already exists": "ਇਸ GSTIN ਵਾਲਾ ਸਪਲਾਇਰ ਪਹਿਲਾਂ ਹੀ ਮੌਜੂਦ ਹੈ",
+  "A supplier with this name already exists": "ਇਸ ਨਾਮ ਵਾਲਾ ਸਪਲਾਇਰ ਪਹਿਲਾਂ ਹੀ ਮੌਜੂਦ ਹੈ"
 }
