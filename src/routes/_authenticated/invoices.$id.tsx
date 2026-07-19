@@ -13,6 +13,7 @@ import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
 import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
   head: () => ({ meta: [{ title: "Review invoice — Ledgerly" }] }),
@@ -210,7 +211,10 @@ function InvoiceReview() {
               <EditField label={t("Subtotal")} type="number" value={hdr?.subtotal ?? ""} onChange={v => setHdr(h => h && { ...h, subtotal: v })} />
               <EditField label={t("Tax")} type="number" value={hdr?.tax_total ?? ""} onChange={v => setHdr(h => h && { ...h, tax_total: v })} />
               <EditField label={t("Grand total")} type="number" value={hdr?.grand_total ?? ""} onChange={v => setHdr(h => h && { ...h, grand_total: v })} />
-              <Field label={t("Confidence")} value={inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : null} />
+              <div>
+                <p className="text-xs text-muted-foreground"><ExtractionAccuracyLabel /></p>
+                <div className="mt-1.5"><ExtractionAccuracy value={inv.confidence} /></div>
+              </div>
             </CardContent>
           </Card>
 
@@ -272,15 +276,6 @@ function InvoiceReview() {
           </Card>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <Input readOnly value={value ?? ""} className="mt-1 bg-muted/30" />
     </div>
   );
 }

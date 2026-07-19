@@ -54,7 +54,7 @@ function Dashboard() {
         <StatCard label={t("Total invoices")} value={stats?.total ?? 0} />
         <StatCard label={t("Pending review")} value={stats?.pending ?? 0} icon={<Clock className="h-4 w-4 text-warning" />} />
         <StatCard label={t("Approved")} value={stats?.approved ?? 0} icon={<CheckCircle2 className="h-4 w-4 text-success" />} />
-        <StatCard label={t("Avg. confidence")} value={stats?.avgConf ? `${stats.avgConf.toFixed(0)}%` : "—"} />
+        <StatCard label={t("Avg. extraction accuracy")} value={stats?.avgConf ? `${stats.avgConf.toFixed(0)}%` : "—"} />
       </div>
 
       <Card>

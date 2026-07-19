@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileUp, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
   head: () => ({ meta: [{ title: "Invoices — Ledgerly" }] }),
@@ -51,7 +52,7 @@ function InvoicesList() {
               <TableHead>{t("Invoice #")}</TableHead>
               <TableHead>{t("Date")}</TableHead>
               <TableHead className="text-right">{t("Total")}</TableHead>
-              <TableHead>{t("Confidence")}</TableHead>
+              <TableHead><ExtractionAccuracyLabel /></TableHead>
               <TableHead>{t("Status")}</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -64,7 +65,7 @@ function InvoicesList() {
                 <TableCell>{inv.invoice_number ?? "—"}</TableCell>
                 <TableCell>{inv.invoice_date ?? new Date(inv.created_at).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right tabular-nums">₹ {Number(inv.grand_total ?? 0).toLocaleString("en-IN")}</TableCell>
-                <TableCell>{inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : "—"}</TableCell>
+                <TableCell><ExtractionAccuracy value={inv.confidence} /></TableCell>
                 <TableCell><StatusBadge status={inv.status} /></TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); del(inv.id, inv.status === "approved"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
