@@ -36,6 +36,7 @@ function Products() {
   const [hsnQuery, setHsnQuery] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiHint, setAiHint] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const hsnUserEditedRef = useRef(false);   // user manually typed/picked HSN or GST
   const loadedNameRef = useRef("");         // product name when an edit dialog opened
 
@@ -195,6 +196,8 @@ function Products() {
   };
 
   const submit = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         name: form.name,
@@ -219,6 +222,7 @@ function Products() {
       handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -232,7 +236,7 @@ function Products() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New product")}</Button></DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>{editingId ? t("Edit product") : t("Add product")}</DialogTitle></DialogHeader>
-            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
+            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && !saving) submit(); }}>
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Product name *")}</label>
                 <Input placeholder={t("e.g. Maggi Masala Noodles 70g")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
@@ -301,7 +305,7 @@ function Products() {
                 <label className="text-xs text-muted-foreground">{editingId ? t("Current stock") : t("Opening stock")}</label>
                 <Input placeholder={t("Quantity on hand")} value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
               </div>
-              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
+              <DialogFooter className="col-span-2"><Button type="submit" loading={saving} disabled={!form.name}>{saving ? t("Saving…") : t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

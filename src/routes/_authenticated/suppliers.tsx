@@ -191,7 +191,7 @@ function Suppliers() {
                 {!gst?.valid && form.gstin.trim().length > 0 && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
                 )}
-                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid || saving}
+                <Button type="submit" loading={saving} disabled={!form.name || gstChecking || !gst?.valid}
                   title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{saving ? t("Saving…") : t("Save")}</Button>
               </DialogFooter>
             </form>

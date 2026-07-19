@@ -283,7 +283,7 @@ function RetailersPage() {
                 {!gstinOk && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
                 )}
-                <Button type="submit" disabled={!form.name || gstChecking || !gstinOk || saving}
+                <Button type="submit" loading={saving} disabled={!form.name || gstChecking || !gstinOk}
                   title={!gstinOk ? t("Fix or clear the GSTIN to save") : undefined}>{saving ? t("Saving…") : t("Save")}</Button>
               </DialogFooter>
             </form>

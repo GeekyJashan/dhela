@@ -245,7 +245,7 @@ function PaymentsPage() {
               {t("The amount is settled against the party's oldest unpaid invoices automatically; anything left over stays as an advance.")}
             </p>
             <DialogFooter>
-              <Button type="submit" disabled={saving}>{t("Save payment")}</Button>
+              <Button type="submit" loading={saving}>{saving ? t("Saving…") : t("Save payment")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

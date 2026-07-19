@@ -51,6 +51,7 @@ function SalesInvoiceView() {
   const [signOpen, setSignOpen] = useState(false);
   const [bank, setBank] = useState({ bank_name: "", bank_account_no: "", bank_ifsc: "", bank_branch: "", upi_id: "" });
   const [sign, setSign] = useState({ signatory_name: "", signature_image: "" });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   if (!data) return <div className="p-8 text-muted-foreground">{t("Loading…")}</div>;
   const { inv, lines } = data;
@@ -73,12 +74,15 @@ function SalesInvoiceView() {
   };
 
   const persist = async (patch: Record<string, string>, close: () => void) => {
+    if (savingProfile) return;
+    setSavingProfile(true);
     try {
       await saveProfile({ data: patch });
       toast.success(t("Saved"));
       close();
       qc.invalidateQueries({ queryKey: ["sales_invoice", id] });
     } catch (e) { toast.error((e as Error).message); }
+    finally { setSavingProfile(false); }
   };
 
   const onSignatureFile = async (file: File | null) => {
@@ -262,7 +266,7 @@ function SalesInvoiceView() {
               <div><Label>{t("UPI ID")}</Label><Input value={bank.upi_id} onChange={e => setBank({ ...bank, upi_id: e.target.value })} /></div>
             </div>
             <p className="text-xs text-muted-foreground">{t("Saved on your organization — shown on every invoice.")}</p>
-            <DialogFooter><Button type="submit">{t("Save")}</Button></DialogFooter>
+            <DialogFooter><Button type="submit" loading={savingProfile}>{savingProfile ? t("Saving…") : t("Save")}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -284,7 +288,7 @@ function SalesInvoiceView() {
                 <Button type="button" variant="ghost" className="mr-auto text-destructive"
                   onClick={() => setSign({ ...sign, signature_image: "" })}>{t("Remove image")}</Button>
               )}
-              <Button type="submit">{t("Save")}</Button>
+              <Button type="submit" loading={savingProfile}>{savingProfile ? t("Saving…") : t("Save")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
