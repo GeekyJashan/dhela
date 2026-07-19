@@ -602,5 +602,11 @@
   "Pick one file, or several to create multiple orders at once.": "ਇੱਕ ਫ਼ਾਈਲ ਚੁਣੋ, ਜਾਂ ਇੱਕੋ ਵਾਰ ਕਈ ਆਰਡਰ ਬਣਾਉਣ ਲਈ ਕਈ ਚੁਣੋ।",
   "Create {{n}} orders": "{{n}} ਆਰਡਰ ਬਣਾਓ",
   "{{n}} order(s) queued — reading in the background": "{{n}} ਆਰਡਰ ਕਤਾਰ ਵਿੱਚ — ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਪੜ੍ਹੇ ਜਾ ਰਹੇ ਹਨ",
-  "Upload failed": "ਅਪਲੋਡ ਅਸਫਲ"
+  "Upload failed": "ਅਪਲੋਡ ਅਸਫਲ",
+  "Overview": "ਸੰਖੇਪ",
+  "Buying": "ਖ਼ਰੀਦ",
+  "Selling": "ਵਿਕਰੀ",
+  "Catalog": "ਕੈਟਾਲਾਗ",
+  "Finance": "ਵਿੱਤ",
+  "System": "ਸਿਸਟਮ"
 }

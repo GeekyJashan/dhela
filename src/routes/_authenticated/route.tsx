@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } 
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -18,20 +19,33 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/invoices", label: "Purchases", icon: Files },
-  { to: "/upload", label: "Upload invoice", icon: FileUp },
-  { to: "/sales", label: "Sales", icon: Receipt },
-  { to: "/orders", label: "Orders", icon: ClipboardList },
-  { to: "/returns", label: "Returns", icon: Undo2 },
-  { to: "/payments", label: "Payments", icon: IndianRupee },
-  { to: "/retailers", label: "Retailers", icon: Store },
-  { to: "/products", label: "Products", icon: Package },
-  { to: "/pricing", label: "Pricing", icon: Tag },
-  { to: "/suppliers", label: "Suppliers", icon: Users },
-  { to: "/billing", label: "Billing", icon: CreditCard },
-] as const;
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavGroup = { label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  { label: "Overview", items: [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  ]},
+  { label: "Buying", items: [
+    { to: "/upload", label: "Upload invoice", icon: FileUp },
+    { to: "/invoices", label: "Purchases", icon: Files },
+    { to: "/suppliers", label: "Suppliers", icon: Users },
+  ]},
+  { label: "Selling", items: [
+    { to: "/sales", label: "Sales", icon: Receipt },
+    { to: "/orders", label: "Orders", icon: ClipboardList },
+    { to: "/returns", label: "Returns", icon: Undo2 },
+    { to: "/retailers", label: "Retailers", icon: Store },
+  ]},
+  { label: "Catalog", items: [
+    { to: "/products", label: "Products", icon: Package },
+    { to: "/pricing", label: "Pricing", icon: Tag },
+  ]},
+  { label: "Finance", items: [
+    { to: "/payments", label: "Payments", icon: IndianRupee },
+    { to: "/billing", label: "Billing", icon: CreditCard },
+  ]},
+];
 
 function AuthedLayout() {
   const { t, i18n } = useTranslation();
@@ -40,7 +54,9 @@ function AuthedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = Route.useRouteContext();
   const isAdmin = (user?.app_metadata as { platform_admin?: boolean } | undefined)?.platform_admin === true;
-  const nav = isAdmin ? [...NAV, { to: "/admin", label: "Admin", icon: ShieldCheck }] : [...NAV];
+  const groups: NavGroup[] = isAdmin
+    ? [...NAV_GROUPS, { label: "System", items: [{ to: "/admin", label: "Admin", icon: ShieldCheck }] }]
+    : NAV_GROUPS;
 
   const signOut = async () => {
     await qc.cancelQueries();
@@ -55,18 +71,37 @@ function AuthedLayout() {
         <Link to="/dashboard" className="flex items-center gap-2 px-5 py-5 text-lg font-semibold border-b border-sidebar-border shrink-0">
           <Sparkles className="h-5 w-5 text-accent" /> Ledgerly
         </Link>
-        <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1">
-          {nav.map(({ to, label, icon: Icon }) => {
-            const active = pathname === to || pathname.startsWith(to + "/");
-            return (
-              <Link key={to} to={to}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition ${
-                  active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
-                }`}>
-                <Icon className="h-4 w-4" /> {t(label)}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-4">
+          {groups.map((group, gi) => (
+            <div key={group.label} className="space-y-0.5 animate-in fade-in slide-in-from-left-2 fill-mode-both"
+              style={{ animationDelay: `${gi * 60}ms`, animationDuration: "400ms" }}>
+              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+                {t(group.label)}
+              </p>
+              {group.items.map(({ to, label, icon: Icon }) => {
+                const active = pathname === to || pathname.startsWith(to + "/");
+                return (
+                  <Link key={to} to={to}
+                    className={cn(
+                      "group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:translate-x-0.5",
+                    )}>
+                    <span className={cn(
+                      "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full bg-accent transition-all duration-300",
+                      active ? "h-5 opacity-100" : "h-0 opacity-0",
+                    )} />
+                    <Icon className={cn(
+                      "h-4 w-4 shrink-0 transition-transform duration-200",
+                      active ? "text-accent" : "group-hover:scale-110",
+                    )} />
+                    {t(label)}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border space-y-2 shrink-0">
           <Select value={i18n.language} onValueChange={setLanguage}>
