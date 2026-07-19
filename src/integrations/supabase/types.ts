@@ -652,6 +652,10 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null
+          bank_account_no: string | null
+          bank_branch: string | null
+          bank_ifsc: string | null
+          bank_name: string | null
           created_at: string
           created_by: string
           default_margin_pct: number | null
@@ -662,10 +666,17 @@ export type Database = {
           phone: string | null
           plan: string
           plan_valid_till: string | null
+          signatory_name: string | null
+          signature_image: string | null
           state_code: string | null
+          upi_id: string | null
         }
         Insert: {
           address?: string | null
+          bank_account_no?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           created_at?: string
           created_by: string
           default_margin_pct?: number | null
@@ -676,10 +687,17 @@ export type Database = {
           phone?: string | null
           plan?: string
           plan_valid_till?: string | null
+          signatory_name?: string | null
+          signature_image?: string | null
           state_code?: string | null
+          upi_id?: string | null
         }
         Update: {
           address?: string | null
+          bank_account_no?: string | null
+          bank_branch?: string | null
+          bank_ifsc?: string | null
+          bank_name?: string | null
           created_at?: string
           created_by?: string
           default_margin_pct?: number | null
@@ -690,7 +708,10 @@ export type Database = {
           phone?: string | null
           plan?: string
           plan_valid_till?: string | null
+          signatory_name?: string | null
+          signature_image?: string | null
           state_code?: string | null
+          upi_id?: string | null
         }
         Relationships: []
       }

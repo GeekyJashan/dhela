@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, IndianRupee, Send } from "lucide-react";
+import { Plus, IndianRupee, Send, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -148,7 +148,13 @@ function SalesList() {
                   <TableCell className="text-right tabular-nums text-success">₹ {Number(i.total_profit ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell><Badge className={statusColor(i.status)} variant="secondary">{t(i.status)}</Badge></TableCell>
                   <TableCell><Badge variant="outline">{t(i.payment_status)}</Badge></TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
+                    {i.status !== "cancelled" && (
+                      <Button size="sm" variant="ghost" title={t("Edit")} className="mr-1"
+                        onClick={(e) => { e.stopPropagation(); navigate({ to: "/sales/new", search: { edit: i.id } }); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {isDraft ? (
                       <Button size="sm" variant="outline" title={t("Issue invoice")} onClick={(e) => { e.stopPropagation(); doIssue(i.id); }}>
                         <Send className="h-3.5 w-3.5 mr-1" /> {t("Issue")}

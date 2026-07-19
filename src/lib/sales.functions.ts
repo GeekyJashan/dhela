@@ -69,6 +69,14 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
 
     let invoiceId = id;
     let invoiceNumber: string | null = null;
+    // Track the prior status so we only deduct stock on the first issue, not
+    // on later edits of an already-issued invoice.
+    let prevStatus: string | null = null;
+    if (invoiceId) {
+      const { data: prev } = await supabase.from("sales_invoices")
+        .select("status").eq("id", invoiceId).single();
+      prevStatus = prev?.status ?? null;
+    }
 
     if (!invoiceId) {
       // generate invoice number
@@ -113,8 +121,10 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
     const { error: linesErr } = await supabase.from("sales_invoice_lines").insert(linePayload);
     if (linesErr) throw new Error(linesErr.message);
 
-    // If invoice is 'issued', deduct stock from products.
-    if (data.status === "issued") {
+    // Deduct stock only when an invoice is first issued (create, or a draft
+    // becoming issued) — never on edits of an already-issued invoice.
+    const firstIssue = data.status === "issued" && prevStatus !== "issued" && prevStatus !== "paid";
+    if (firstIssue) {
       for (const l of lines) {
         if (!l.product_id) continue;
         const { data: p } = await supabase.from("products")
@@ -125,7 +135,7 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
     }
 
     // If issued against an order, record fulfilled quantities and roll up order status.
-    if (data.status === "issued" && data.order_id) {
+    if (firstIssue && data.order_id) {
       const { data: orderLines, error: olErr } = await supabase.from("order_lines")
         .select("id, product_id, quantity, fulfilled_quantity")
         .eq("order_id", data.order_id);

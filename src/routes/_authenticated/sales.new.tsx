@@ -24,8 +24,10 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
   head: () => ({ meta: [{ title: "New sales invoice — Ledgerly" }] }),
-  validateSearch: (s: Record<string, unknown>): { orderId?: string } =>
-    typeof s.orderId === "string" ? { orderId: s.orderId } : {},
+  validateSearch: (s: Record<string, unknown>): { orderId?: string; edit?: string } => ({
+    ...(typeof s.orderId === "string" ? { orderId: s.orderId } : {}),
+    ...(typeof s.edit === "string" ? { edit: s.edit } : {}),
+  }),
   component: NewSalesInvoice,
 });
 
@@ -53,7 +55,7 @@ const blankRow = (): RowDraft => ({
 function NewSalesInvoice() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { orderId } = Route.useSearch();
+  const { orderId, edit: editId } = Route.useSearch();
   const save = useServerFn(saveSalesInvoice);
   const getOrg = useServerFn(getCurrentOrg);
 
@@ -65,6 +67,36 @@ function NewSalesInvoice() {
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<RowDraft[]>([blankRow()]);
   const [saving, setSaving] = useState(false);
+  const prevRetailerRef = useRef("");
+
+  // Edit mode: load the existing invoice + lines once.
+  const editLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!editId || editLoadedRef.current) return;
+    editLoadedRef.current = true;
+    (async () => {
+      const [{ data: invRow }, { data: lineRows }] = await Promise.all([
+        supabase.from("sales_invoices").select("*").eq("id", editId).single(),
+        supabase.from("sales_invoice_lines").select("*").eq("sales_invoice_id", editId).order("line_no"),
+      ]);
+      if (!invRow) { toast.error(t("Invoice not found")); return; }
+      setRetailerId(invRow.retailer_id);
+      prevRetailerRef.current = invRow.retailer_id;
+      setInvoiceDate(invRow.invoice_date);
+      setDueDate(invRow.due_date ?? "");
+      setNotes(invRow.notes ?? "");
+      setRows((lineRows ?? []).map(l => ({
+        key: crypto.randomUUID(),
+        product_id: l.product_id, description: l.description, hsn: l.hsn,
+        batch: l.batch, expiry_date: l.expiry_date,
+        quantity: Number(l.quantity), free_quantity: Number(l.free_quantity ?? 0),
+        unit: l.unit, mrp: l.mrp != null ? Number(l.mrp) : null,
+        rate: Number(l.rate), discount_pct: Number(l.discount_pct ?? 0),
+        gst_rate: Number(l.gst_rate ?? 0), cost_price: l.cost_price != null ? Number(l.cost_price) : null,
+      })));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
 
   useEffect(() => {
     (async () => {
@@ -166,7 +198,6 @@ function NewSalesInvoice() {
 
   // Re-resolve rates/discounts on the rows when the retailer changes —
   // category discounts and dealer overrides differ per retailer.
-  const prevRetailerRef = useRef("");
   useEffect(() => {
     if (retailerId === prevRetailerRef.current) return;
     if (!retailer) return;
@@ -182,7 +213,7 @@ function NewSalesInvoice() {
   // pending lines with qty capped at available stock.
   const prefilledRef = useRef(false);
   useEffect(() => {
-    if (prefilledRef.current) return;
+    if (prefilledRef.current || editId) return;
     if (!orderId || !order || !products || !retailers || !stockGroups || !overrides) return;
     prefilledRef.current = true;
     prevRetailerRef.current = order.retailer_id;
@@ -214,6 +245,7 @@ function NewSalesInvoice() {
     setSaving(true);
     try {
       const payload = {
+        ...(editId ? { id: editId } : {}),
         order_id: orderId ?? null,
         retailer_id: retailerId,
         invoice_date: invoiceDate,
@@ -231,7 +263,9 @@ function NewSalesInvoice() {
           }),
       };
       const res = await save({ data: payload });
-      toast.success(status === "issued" ? t("Invoice {{n}} issued", { n: res.invoice_number }) : t("Invoice {{n}} saved as draft", { n: res.invoice_number }));
+      toast.success(editId ? t("Invoice {{n}} updated", { n: res.invoice_number })
+        : status === "issued" ? t("Invoice {{n}} issued", { n: res.invoice_number })
+        : t("Invoice {{n}} saved as draft", { n: res.invoice_number }));
       navigate({ to: "/sales/$id", params: { id: res.id! } });
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
@@ -241,7 +275,7 @@ function NewSalesInvoice() {
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">{t("New sales invoice")}</h1>
+          <h1 className="font-display text-4xl">{editId ? t("Edit sales invoice") : t("New sales invoice")}</h1>
           <p className="text-muted-foreground mt-1">
             {order ? `${t("Against order")} ${order.order_number} · ` : ""}
             {isInterstate ? t("Inter-state (IGST)") : t("Intra-state (CGST + SGST)")}
