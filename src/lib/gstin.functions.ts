@@ -71,10 +71,60 @@ type SupabaseAdmin = Awaited<
   typeof import("@/integrations/supabase/client.server")
 >["supabaseAdmin"];
 
+/** Raw provider response, or null if the provider errored/returned nothing. */
+type ProviderResult = Record<string, unknown> | null;
+
+/** Tally's free public GSTIN tool — POST gstin=<value>, no auth. */
+async function fetchTally(gstin: string): Promise<ProviderResult> {
+  try {
+    const resp = await fetch("https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://tallysolutions.com/business-tools-templates/gstin-verification-search/",
+      },
+      body: `gstin=${encodeURIComponent(gstin)}`,
+    });
+    if (!resp.ok) { log.error("verifyGstin:tally_http", { status: resp.status }); return null; }
+    const text = await resp.text();
+    let json: Record<string, unknown>;
+    try { json = JSON.parse(text); } catch { log.error("verifyGstin:tally_parse", { body: text.slice(0, 200) }); return null; }
+    if (Number(json.status) !== 1) { log.info("verifyGstin:tally_invalid", { msg: String(json.message ?? "") }); return null; }
+    return json;
+  } catch (e) { log.error("verifyGstin:tally_fetch_failed", { err: (e as Error).message }); return null; }
+}
+
+/** Appyflow paid API — needs GST_API_KEY. */
+async function fetchAppyflow(gstin: string, apiKey: string): Promise<ProviderResult> {
+  try {
+    const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return null; }
+    const json = await resp.json();
+    if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return null; }
+    return json;
+  } catch (e) { log.error("verifyGstin:appyflow_fetch_failed", { err: (e as Error).message }); return null; }
+}
+
+/** Generic GSP endpoint — GST_API_URL (+ {gstin} placeholder) with GST_API_KEY. */
+async function fetchGeneric(gstin: string, url: string, apiKey: string): Promise<ProviderResult> {
+  try {
+    const target = url.includes("{gstin}") ? url.replace("{gstin}", gstin) : `${url}${gstin}`;
+    const resp = await fetch(target, {
+      headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
+    });
+    if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return null; }
+    return await resp.json();
+  } catch (e) { log.error("verifyGstin:generic_fetch_failed", { err: (e as Error).message }); return null; }
+}
+
 /**
- * Fetch a GSTIN from the configured provider (default: Tally's free tool) and
- * upsert it into the permanent registry. Returns the taxpayer fields, or null
- * if the provider couldn't return trustworthy data. Never throws.
+ * Fetch a GSTIN and upsert it into the permanent registry. Tries providers in
+ * order (default: Tally's free tool first, then the paid API as a fallback if a
+ * key is configured) until one returns trustworthy data. Returns the taxpayer
+ * fields, or null if every provider failed. Never throws.
  */
 async function fetchAndStore(
   gstin: string,
@@ -84,38 +134,22 @@ async function fetchAndStore(
   const apiKey = process.env.GST_API_KEY;
   const genericUrl = process.env.GST_API_URL;
 
-  try {
-    let json: Record<string, unknown>;
-    if (provider === "appyflow" && apiKey) {
-      const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
-      const resp = await fetch(url);
-      if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return null; }
-      json = await resp.json();
-      if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return null; }
-    } else if (genericUrl && apiKey) {
-      const url = genericUrl.includes("{gstin}") ? genericUrl.replace("{gstin}", gstin) : `${genericUrl}${gstin}`;
-      const resp = await fetch(url, {
-        headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
-      });
-      if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return null; }
-      json = await resp.json();
-    } else {
-      // Default: Tally's free public GSTIN tool — POST gstin=<value>, no auth.
-      const resp = await fetch("https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Requested-With": "XMLHttpRequest",
-          "User-Agent": "Mozilla/5.0",
-          "Referer": "https://tallysolutions.com/business-tools-templates/gstin-verification-search/",
-        },
-        body: `gstin=${encodeURIComponent(gstin)}`,
-      });
-      if (!resp.ok) { log.error("verifyGstin:tally_http", { status: resp.status }); return null; }
-      const text = await resp.text();
-      try { json = JSON.parse(text); } catch { log.error("verifyGstin:tally_parse", { body: text.slice(0, 200) }); return null; }
-      if (Number(json.status) !== 1) { log.info("verifyGstin:tally_invalid", { msg: String(json.message ?? "") }); return null; }
-    }
+  // Build the attempt chain. Free Tally is the default primary; a configured
+  // paid provider becomes the fallback (or the primary if GST_PROVIDER names
+  // it). Each entry is tried in order until one passes the mismatch guard.
+  const tally = () => fetchTally(gstin);
+  const appyflow = apiKey ? () => fetchAppyflow(gstin, apiKey) : null;
+  const generic = genericUrl && apiKey ? () => fetchGeneric(gstin, genericUrl, apiKey) : null;
+  const paid = appyflow ?? generic;
+
+  const chain: Array<() => Promise<ProviderResult>> = [];
+  if (provider === "appyflow" && appyflow) { chain.push(appyflow); if (tally) chain.push(tally); }
+  else if (provider === "generic" && generic) { chain.push(generic); chain.push(tally); }
+  else { chain.push(tally); if (paid) chain.push(paid); } // default: free first, paid fallback
+
+  for (const attempt of chain) {
+    const json = await attempt();
+    if (!json) continue;
 
     // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
     // it's a demo/unauthenticated response (invalid key) — never trust it.
@@ -123,7 +157,7 @@ async function fetchAndStore(
     const returned = String(merged.gstin ?? merged.gstno ?? merged.gstNo ?? "").toUpperCase();
     if (returned && returned !== gstin) {
       log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
-      return null;
+      continue; // try the next provider
     }
 
     const tp = extractTaxpayer(json);
@@ -137,10 +171,9 @@ async function fetchAndStore(
     }, { onConflict: "gstin" });
 
     return tp;
-  } catch (e) {
-    log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
-    return null;
   }
+
+  return null;
 }
 
 /** Extract taxpayer fields from a provider response (Appyflow/GSP shapes). */
