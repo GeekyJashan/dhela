@@ -272,6 +272,8 @@ export type Database = {
           fetched_at: string
           filer_rating: string | null
           gstin: string
+          hit_count: number
+          last_accessed_at: string | null
           legal_name: string | null
           pincode: string | null
           raw: Json | null
@@ -287,6 +289,8 @@ export type Database = {
           fetched_at?: string
           filer_rating?: string | null
           gstin: string
+          hit_count?: number
+          last_accessed_at?: string | null
           legal_name?: string | null
           pincode?: string | null
           raw?: Json | null
@@ -302,6 +306,8 @@ export type Database = {
           fetched_at?: string
           filer_rating?: string | null
           gstin?: string
+          hit_count?: number
+          last_accessed_at?: string | null
           legal_name?: string | null
           pincode?: string | null
           raw?: Json | null
@@ -1458,6 +1464,7 @@ export type Database = {
       }
     }
     Functions: {
+      bump_gstin_hit: { Args: { _gstin: string }; Returns: undefined }
       has_org_role: {
         Args: { _org: string; _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean

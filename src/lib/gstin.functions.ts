@@ -61,6 +61,88 @@ type Taxpayer = {
   address: string | null; city: string | null; pincode: string | null; filerRating: string | null;
 };
 
+// Once a GSTIN is in our registry we serve it forever (fast + free). But a
+// business's GST *status* can change (Active → Cancelled), so rows older than
+// this get a best-effort background refresh on the next lookup — the caller is
+// never blocked on it.
+const REFRESH_AFTER_DAYS = 90;
+
+type SupabaseAdmin = Awaited<
+  typeof import("@/integrations/supabase/client.server")
+>["supabaseAdmin"];
+
+/**
+ * Fetch a GSTIN from the configured provider (default: Tally's free tool) and
+ * upsert it into the permanent registry. Returns the taxpayer fields, or null
+ * if the provider couldn't return trustworthy data. Never throws.
+ */
+async function fetchAndStore(
+  gstin: string,
+  supabaseAdmin: SupabaseAdmin,
+): Promise<Taxpayer | null> {
+  const provider = (process.env.GST_PROVIDER ?? "tally").toLowerCase();
+  const apiKey = process.env.GST_API_KEY;
+  const genericUrl = process.env.GST_API_URL;
+
+  try {
+    let json: Record<string, unknown>;
+    if (provider === "appyflow" && apiKey) {
+      const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
+      const resp = await fetch(url);
+      if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return null; }
+      json = await resp.json();
+      if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return null; }
+    } else if (genericUrl && apiKey) {
+      const url = genericUrl.includes("{gstin}") ? genericUrl.replace("{gstin}", gstin) : `${genericUrl}${gstin}`;
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
+      });
+      if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return null; }
+      json = await resp.json();
+    } else {
+      // Default: Tally's free public GSTIN tool — POST gstin=<value>, no auth.
+      const resp = await fetch("https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "XMLHttpRequest",
+          "User-Agent": "Mozilla/5.0",
+          "Referer": "https://tallysolutions.com/business-tools-templates/gstin-verification-search/",
+        },
+        body: `gstin=${encodeURIComponent(gstin)}`,
+      });
+      if (!resp.ok) { log.error("verifyGstin:tally_http", { status: resp.status }); return null; }
+      const text = await resp.text();
+      try { json = JSON.parse(text); } catch { log.error("verifyGstin:tally_parse", { body: text.slice(0, 200) }); return null; }
+      if (Number(json.status) !== 1) { log.info("verifyGstin:tally_invalid", { msg: String(json.message ?? "") }); return null; }
+    }
+
+    // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
+    // it's a demo/unauthenticated response (invalid key) — never trust it.
+    const merged = { ...json, ...(json.data ?? {}), ...(json.taxpayerInfo ?? {}) } as Record<string, unknown>;
+    const returned = String(merged.gstin ?? merged.gstno ?? merged.gstNo ?? "").toUpperCase();
+    if (returned && returned !== gstin) {
+      log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
+      return null;
+    }
+
+    const tp = extractTaxpayer(json);
+
+    // Persist to the permanent, platform-wide registry.
+    await supabaseAdmin.from("gstin_cache").upsert({
+      gstin, legal_name: tp.legalName, trade_name: tp.tradeName, status: tp.status,
+      filer_rating: tp.filerRating, constitution: tp.constitution, taxpayer_type: tp.taxpayerType,
+      registration_date: tp.registrationDate, address: tp.address, city: tp.city, pincode: tp.pincode,
+      raw: json as never, fetched_at: new Date().toISOString(),
+    }, { onConflict: "gstin" });
+
+    return tp;
+  } catch (e) {
+    log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
+    return null;
+  }
+}
+
 /** Extract taxpayer fields from a provider response (Appyflow/GSP shapes). */
 function extractTaxpayer(json: Record<string, unknown>): Taxpayer {
   const info = (json.taxpayerInfo ?? {}) as Record<string, unknown>;
@@ -119,87 +201,31 @@ export const verifyGstin = createServerFn({ method: "POST" })
     };
     if (!checksumOk) return base;
 
-    // Provider selection. Default: Tally's free public tool (no key, real data).
-    // Set GST_PROVIDER=appyflow (with GST_API_KEY) or GST_API_URL for a GSP.
-    const provider = (process.env.GST_PROVIDER ?? "tally").toLowerCase();
-    const apiKey = process.env.GST_API_KEY;
-    const genericUrl = process.env.GST_API_URL;
-
-    // Serve from the shared cache if we looked this GSTIN up recently.
-    const CACHE_TTL_DAYS = 30;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1) Permanent, platform-wide registry. Once we've seen a GSTIN we serve it
+    //    forever — instant and free, and it keeps growing into our own dataset.
     const { data: cached } = await supabaseAdmin.from("gstin_cache")
       .select("legal_name, trade_name, status, filer_rating, constitution, taxpayer_type, registration_date, address, city, pincode, fetched_at")
       .eq("gstin", gstin).maybeSingle();
     if (cached) {
+      // Track usage (atomic) and, if the row is old, refresh it in the
+      // background so status/rating self-heal — without blocking this response.
+      void supabaseAdmin.rpc("bump_gstin_hit", { _gstin: gstin });
       const ageDays = (Date.now() - new Date(cached.fetched_at).getTime()) / 86_400_000;
-      if (ageDays < CACHE_TTL_DAYS) {
-        return {
-          ...base,
-          legalName: cached.legal_name, tradeName: cached.trade_name, status: cached.status,
-          filerRating: cached.filer_rating, constitution: cached.constitution,
-          taxpayerType: cached.taxpayer_type, registrationDate: cached.registration_date,
-          address: cached.address, city: cached.city, pincode: cached.pincode,
-          source: "api" as const,
-        };
-      }
+      if (ageDays >= REFRESH_AFTER_DAYS) void fetchAndStore(gstin, supabaseAdmin);
+      return {
+        ...base,
+        legalName: cached.legal_name, tradeName: cached.trade_name, status: cached.status,
+        filerRating: cached.filer_rating, constitution: cached.constitution,
+        taxpayerType: cached.taxpayer_type, registrationDate: cached.registration_date,
+        address: cached.address, city: cached.city, pincode: cached.pincode,
+        source: "api" as const,
+      };
     }
 
-    try {
-      let json: Record<string, unknown>;
-      if (provider === "appyflow" && apiKey) {
-        const url = `https://appyflow.in/api/verifyGST?gstNo=${gstin}&key_secret=${encodeURIComponent(apiKey)}`;
-        const resp = await fetch(url);
-        if (!resp.ok) { log.error("verifyGstin:appyflow_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
-        json = await resp.json();
-        if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return { ...base, lookupUnavailable: true }; }
-      } else if (genericUrl && apiKey) {
-        const url = genericUrl.includes("{gstin}") ? genericUrl.replace("{gstin}", gstin) : `${genericUrl}${gstin}`;
-        const resp = await fetch(url, {
-          headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey, "Content-Type": "application/json" },
-        });
-        if (!resp.ok) { log.error("verifyGstin:api_error", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
-        json = await resp.json();
-      } else {
-        // Default: Tally's free public GSTIN tool — POST gstin=<value>, no auth.
-        const resp = await fetch("https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": "Mozilla/5.0",
-            "Referer": "https://tallysolutions.com/business-tools-templates/gstin-verification-search/",
-          },
-          body: `gstin=${encodeURIComponent(gstin)}`,
-        });
-        if (!resp.ok) { log.error("verifyGstin:tally_http", { status: resp.status }); return { ...base, lookupUnavailable: true }; }
-        const text = await resp.text();
-        try { json = JSON.parse(text); } catch { log.error("verifyGstin:tally_parse", { body: text.slice(0, 200) }); return { ...base, lookupUnavailable: true }; }
-        if (Number(json.status) !== 1) { log.info("verifyGstin:tally_invalid", { msg: String(json.message ?? "") }); return { ...base, lookupUnavailable: true }; }
-      }
-
-      // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
-      // it's a demo/unauthenticated response (invalid key) — never trust it.
-      const merged = { ...json, ...(json.data ?? {}), ...(json.taxpayerInfo ?? {}) } as Record<string, unknown>;
-      const returned = String(merged.gstin ?? merged.gstno ?? merged.gstNo ?? "").toUpperCase();
-      if (returned && returned !== gstin) {
-        log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
-        return { ...base, lookupUnavailable: true };
-      }
-
-      const tp = extractTaxpayer(json);
-
-      // Cache the result so future lookups of this GSTIN are free.
-      await supabaseAdmin.from("gstin_cache").upsert({
-        gstin, legal_name: tp.legalName, trade_name: tp.tradeName, status: tp.status,
-        filer_rating: tp.filerRating, constitution: tp.constitution, taxpayer_type: tp.taxpayerType,
-        registration_date: tp.registrationDate, address: tp.address, city: tp.city, pincode: tp.pincode,
-        raw: json as never, fetched_at: new Date().toISOString(),
-      }, { onConflict: "gstin" });
-
-      return { ...base, ...tp, source: "api" as const };
-    } catch (e) {
-      log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
-      return { ...base, lookupUnavailable: true };
-    }
+    // 2) First time we've seen this GSTIN — fetch from the provider and store it.
+    const tp = await fetchAndStore(gstin, supabaseAdmin);
+    if (!tp) return { ...base, lookupUnavailable: true };
+    return { ...base, ...tp, source: "api" as const };
   });
