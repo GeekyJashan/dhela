@@ -46,7 +46,7 @@ GEMINI_ENDPOINT = (
 # Provider selection: Anthropic (Claude) by default, Gemini kept as fallback.
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic").lower()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 
 
 def _use_anthropic() -> bool:

@@ -10,7 +10,7 @@ export function aiProvider(): AiProvider {
 }
 
 export function anthropicModel(): string {
-  return process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8";
+  return process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
 }
 
 export function geminiModel(): string {
