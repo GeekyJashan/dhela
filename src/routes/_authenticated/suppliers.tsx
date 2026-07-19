@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/suppliers")({
 type GstInfo = {
   valid: boolean; formatOk: boolean; state: string | null; stateCode: string;
   legalName: string | null; tradeName: string | null;
-  status: string | null; filerRating: string | null; source: "format" | "api";
+  status: string | null; filerRating: string | null; source: "format" | "api"; proRequired?: boolean;
 };
 
 function Suppliers() {
@@ -123,6 +123,7 @@ function Suppliers() {
                           {gst.legalName || gst.tradeName ? ` · ${gst.tradeName ?? gst.legalName}` : ""}
                           {gst.status ? ` · ${gst.status}` : ""}
                           {gst.filerRating && gst.filerRating !== "Unrated" ? ` · ${t("Filer")}: ${gst.filerRating}` : ""}
+                          {gst.proRequired ? <> · <Link to="/billing" className="text-primary hover:underline">{t("Get business name + filer rating on Pro")}</Link></> : null}
                         </span>
                       </>
                     ) : (

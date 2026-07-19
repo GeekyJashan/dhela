@@ -120,6 +120,10 @@ function BillingPage() {
                       {t("AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.")}
                     </span>
                   </li>
+                  {id === "pro" && (
+                    <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      {t("Live GSTIN lookup — auto-fill business name + GST filer/defaulter rating for retailers & suppliers")}</li>
+                  )}
                 </ul>
                 {!current && id !== "free" && (
                   <a href={href} target="_blank" rel="noreferrer" className="block">

@@ -511,5 +511,7 @@
   "Upload a scan/photo of the signature on white background. Saved on your organization.": "सफ़ेद बैकग्राउंड पर हस्ताक्षर की स्कैन/फोटो अपलोड करें। संगठन पर सहेजा जाता है।",
   "Remove image": "छवि हटाएं",
   "Image too large — use a smaller PNG (< 300 KB)": "छवि बहुत बड़ी — छोटा PNG (< 300 KB) उपयोग करें",
-  "Saved": "सहेजा गया"
+  "Saved": "सहेजा गया",
+  "Get business name + filer rating on Pro": "बिज़नेस नाम + फाइलर रेटिंग Pro पर पाएं",
+  "Live GSTIN lookup — auto-fill business name + GST filer/defaulter rating for retailers & suppliers": "लाइव GSTIN लुकअप — रिटेलर और सप्लायर के लिए बिज़नेस नाम और GST फाइलर/डिफॉल्टर रेटिंग अपने आप भरें"
 }

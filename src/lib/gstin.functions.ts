@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
+import { effectivePlan } from "./plans";
 
 const log = createLogger("gstin.functions");
 
@@ -58,7 +59,8 @@ function deriveFilerRating(status: string | null, api: Record<string, unknown> |
 export const verifyGstin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ gstin: z.string() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
     const gstin = data.gstin.trim().toUpperCase();
     const formatOk = GSTIN_RE.test(gstin);
     const checksumOk = formatOk && checksumValid(gstin);
@@ -74,8 +76,17 @@ export const verifyGstin = createServerFn({ method: "POST" })
       status: null as string | null,
       filerRating: null as string | null,
       source: "format" as "format" | "api",
+      proRequired: false,
     };
     if (!checksumOk) return base;
+
+    // Live business-name + filer lookup is a Pro-plan feature.
+    const { data: mem } = await supabase.from("memberships")
+      .select("organization:organizations(plan, plan_valid_till)")
+      .eq("user_id", userId).limit(1).maybeSingle();
+    const orgPlan = mem?.organization as { plan?: string; plan_valid_till?: string } | null;
+    const plan = effectivePlan(orgPlan?.plan, orgPlan?.plan_valid_till);
+    if (plan !== "pro") return { ...base, proRequired: true };
 
     // Live lookup. Default provider is Appyflow (key_secret param). A generic
     // Bearer provider can be used instead by setting GST_API_URL.
