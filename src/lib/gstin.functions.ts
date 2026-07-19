@@ -56,6 +56,38 @@ function deriveFilerRating(status: string | null, api: Record<string, unknown> |
   return "Unrated";
 }
 
+type Taxpayer = {
+  legalName: string | null; tradeName: string | null; status: string | null;
+  constitution: string | null; taxpayerType: string | null; registrationDate: string | null;
+  address: string | null; city: string | null; pincode: string | null; filerRating: string | null;
+};
+
+/** Extract taxpayer fields from a provider response (Appyflow/GSP shapes). */
+function extractTaxpayer(json: Record<string, unknown>): Taxpayer {
+  const info = (json.taxpayerInfo ?? {}) as Record<string, unknown>;
+  const wrap = (json.data ?? json.result ?? {}) as Record<string, unknown>;
+  const d = { ...json, ...wrap, ...info } as Record<string, unknown>;
+
+  const pradr = (d.pradr ?? {}) as Record<string, unknown>;
+  const addr = (pradr.addr ?? d.addr ?? {}) as Record<string, string>;
+  const parts = [addr.bno, addr.flno, addr.bnm, addr.st, addr.loc, addr.landMark]
+    .map(x => (x ?? "").trim()).filter(Boolean);
+  const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
+
+  return {
+    legalName: (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null,
+    tradeName: (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null,
+    status,
+    constitution: (d.ctb ?? d.constitution ?? d.constitutionOfBusiness ?? null) as string | null,
+    taxpayerType: (d.dty ?? d.taxpayerType ?? d.taxPayerType ?? null) as string | null,
+    registrationDate: (d.rgdt ?? d.registrationDate ?? d.rgdate ?? null) as string | null,
+    address: parts.length ? parts.join(", ") : null,
+    city: ((addr.city || addr.dst) ?? null) as string | null,
+    pincode: (addr.pncd ?? null) as string | null,
+    filerRating: deriveFilerRating(status, d),
+  };
+}
+
 export const verifyGstin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ gstin: z.string() }).parse(d))
@@ -75,6 +107,12 @@ export const verifyGstin = createServerFn({ method: "POST" })
       tradeName: null as string | null,
       status: null as string | null,
       filerRating: null as string | null,
+      constitution: null as string | null,
+      taxpayerType: null as string | null,
+      registrationDate: null as string | null,
+      address: null as string | null,
+      city: null as string | null,
+      pincode: null as string | null,
       source: "format" as "format" | "api",
       proRequired: false,
       lookupUnavailable: false,  // Pro, but the API couldn't return real data (no credits / bad key)
@@ -99,17 +137,17 @@ export const verifyGstin = createServerFn({ method: "POST" })
     const CACHE_TTL_DAYS = 30;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: cached } = await supabaseAdmin.from("gstin_cache")
-      .select("legal_name, trade_name, status, filer_rating, fetched_at")
+      .select("legal_name, trade_name, status, filer_rating, constitution, taxpayer_type, registration_date, address, city, pincode, fetched_at")
       .eq("gstin", gstin).maybeSingle();
     if (cached) {
       const ageDays = (Date.now() - new Date(cached.fetched_at).getTime()) / 86_400_000;
       if (ageDays < CACHE_TTL_DAYS) {
         return {
           ...base,
-          legalName: cached.legal_name,
-          tradeName: cached.trade_name,
-          status: cached.status,
-          filerRating: cached.filer_rating,
+          legalName: cached.legal_name, tradeName: cached.trade_name, status: cached.status,
+          filerRating: cached.filer_rating, constitution: cached.constitution,
+          taxpayerType: cached.taxpayer_type, registrationDate: cached.registration_date,
+          address: cached.address, city: cached.city, pincode: cached.pincode,
           source: "api" as const,
         };
       }
@@ -133,33 +171,26 @@ export const verifyGstin = createServerFn({ method: "POST" })
         if (json.error) { log.info("verifyGstin:appyflow_error", { msg: String(json.message ?? json.error) }); return { ...base, lookupUnavailable: true }; }
       }
 
-      // Merge possible response wrappers so field lookup works across shapes.
-      const info = (json.taxpayerInfo ?? {}) as Record<string, unknown>;
-      const wrap = (json.data ?? json.result ?? {}) as Record<string, unknown>;
-      const d = { ...json, ...wrap, ...info } as Record<string, unknown>;
-
       // Guard: if the provider echoes a GSTIN that isn't the one we asked for,
       // it's a demo/unauthenticated response (invalid key) — never trust it.
-      const returned = String(d.gstin ?? d.gstno ?? d.gstNo ?? "").toUpperCase();
+      const merged = { ...json, ...(json.data ?? {}), ...(json.taxpayerInfo ?? {}) } as Record<string, unknown>;
+      const returned = String(merged.gstin ?? merged.gstno ?? merged.gstNo ?? "").toUpperCase();
       if (returned && returned !== gstin) {
-        // Sandbox/unauthenticated response (e.g. Appyflow free credits return
-        // their own demo GSTIN). Never trust it as the business name.
         log.error("verifyGstin:gstin_mismatch", { asked: gstin, got: returned });
         return { ...base, lookupUnavailable: true };
       }
 
-      const legalName = (d.legal_name ?? d.lgnm ?? d.legalName ?? d.name ?? null) as string | null;
-      const tradeName = (d.trade_name ?? d.tradeNam ?? d.tradeName ?? null) as string | null;
-      const status = (d.status ?? d.sts ?? d.gstin_status ?? null) as string | null;
-      const filerRating = deriveFilerRating(status, d);
+      const tp = extractTaxpayer(json);
 
       // Cache the result so future lookups of this GSTIN are free.
       await supabaseAdmin.from("gstin_cache").upsert({
-        gstin, legal_name: legalName, trade_name: tradeName,
-        status, filer_rating: filerRating, raw: json as never, fetched_at: new Date().toISOString(),
+        gstin, legal_name: tp.legalName, trade_name: tp.tradeName, status: tp.status,
+        filer_rating: tp.filerRating, constitution: tp.constitution, taxpayer_type: tp.taxpayerType,
+        registration_date: tp.registrationDate, address: tp.address, city: tp.city, pincode: tp.pincode,
+        raw: json as never, fetched_at: new Date().toISOString(),
       }, { onConflict: "gstin" });
 
-      return { ...base, legalName, tradeName, status, filerRating, source: "api" as const };
+      return { ...base, ...tp, source: "api" as const };
     } catch (e) {
       log.error("verifyGstin:fetch_failed", { err: (e as Error).message });
       return { ...base, lookupUnavailable: true };

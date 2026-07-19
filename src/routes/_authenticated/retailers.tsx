@@ -30,6 +30,8 @@ type Retailer = {
   credit_limit: number | null; outstanding_balance: number | null;
   address: string | null; pincode: string | null; notes: string | null;
   gst_status: string | null; gst_filer_rating: string | null;
+  gst_legal_name: string | null; gst_constitution: string | null;
+  gst_taxpayer_type: string | null; gst_registration_date: string | null;
 };
 
 const empty = {
@@ -37,12 +39,16 @@ const empty = {
   state_code: "", pincode: "", category: "C" as "A" | "B" | "C",
   default_discount_pct: "", credit_limit: "", notes: "",
   gst_status: "", gst_filer_rating: "",
+  gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "",
 };
 
 type GstInfo = {
   valid: boolean; formatOk: boolean; state: string | null; stateCode: string;
   legalName: string | null; tradeName: string | null;
-  status: string | null; filerRating: string | null; source: "format" | "api"; proRequired?: boolean; lookupUnavailable?: boolean;
+  status: string | null; filerRating: string | null;
+  constitution: string | null; taxpayerType: string | null; registrationDate: string | null;
+  address: string | null; city: string | null; pincode: string | null;
+  source: "format" | "api"; proRequired?: boolean; lookupUnavailable?: boolean;
 };
 
 function RetailersPage() {
@@ -68,12 +74,18 @@ function RetailersPage() {
         setGst(info);
         setForm(f => {
           const next = { ...f };
-          // Auto-fill state code and business name (only if blank).
           if (info.stateCode) next.state_code = info.stateCode;
           const apiName = info.tradeName || info.legalName;
           if (apiName && !f.name.trim()) next.name = apiName;
+          if (info.address && !f.address.trim()) next.address = info.address;
+          if (info.city && !f.city.trim()) next.city = info.city;
+          if (info.pincode && !f.pincode.trim()) next.pincode = info.pincode;
           next.gst_status = info.status ?? "";
           next.gst_filer_rating = info.filerRating ?? "";
+          next.gst_legal_name = info.legalName ?? "";
+          next.gst_constitution = info.constitution ?? "";
+          next.gst_taxpayer_type = info.taxpayerType ?? "";
+          next.gst_registration_date = info.registrationDate ?? "";
           return next;
         });
       } catch { setGst(null); }
@@ -114,6 +126,8 @@ function RetailersPage() {
       default_discount_pct: r.default_discount_pct != null ? String(r.default_discount_pct) : "",
       credit_limit: r.credit_limit != null ? String(r.credit_limit) : "", notes: r.notes ?? "",
       gst_status: r.gst_status ?? "", gst_filer_rating: r.gst_filer_rating ?? "",
+      gst_legal_name: r.gst_legal_name ?? "", gst_constitution: r.gst_constitution ?? "",
+      gst_taxpayer_type: r.gst_taxpayer_type ?? "", gst_registration_date: r.gst_registration_date ?? "",
     });
     setOpen(true);
   };
@@ -136,6 +150,10 @@ function RetailersPage() {
         notes: form.notes || null,
         gst_status: form.gst_status || null,
         gst_filer_rating: form.gst_filer_rating || null,
+        gst_legal_name: form.gst_legal_name || null,
+        gst_constitution: form.gst_constitution || null,
+        gst_taxpayer_type: form.gst_taxpayer_type || null,
+        gst_registration_date: form.gst_registration_date || null,
       }});
       toast.success(editing ? t("Retailer updated") : t("Retailer added"));
       setOpen(false);
@@ -193,6 +211,13 @@ function RetailersPage() {
                     )
                   ) : null}
                 </div>
+                {gst?.valid && (gst.constitution || gst.taxpayerType || gst.registrationDate) && (
+                  <div className="text-xs text-muted-foreground mt-1 space-x-2">
+                    {gst.constitution && <span>{gst.constitution}</span>}
+                    {gst.taxpayerType && <span>· {gst.taxpayerType}</span>}
+                    {gst.registrationDate && <span>· {t("Reg")}: {gst.registrationDate}</span>}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">{t("State code")}</label>

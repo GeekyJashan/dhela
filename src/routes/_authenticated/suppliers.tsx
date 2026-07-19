@@ -23,7 +23,10 @@ export const Route = createFileRoute("/_authenticated/suppliers")({
 type GstInfo = {
   valid: boolean; formatOk: boolean; state: string | null; stateCode: string;
   legalName: string | null; tradeName: string | null;
-  status: string | null; filerRating: string | null; source: "format" | "api"; proRequired?: boolean; lookupUnavailable?: boolean;
+  status: string | null; filerRating: string | null;
+  constitution: string | null; taxpayerType: string | null; registrationDate: string | null;
+  address: string | null; city: string | null; pincode: string | null;
+  source: "format" | "api"; proRequired?: boolean; lookupUnavailable?: boolean;
 };
 
 function Suppliers() {
@@ -32,7 +35,7 @@ function Suppliers() {
   const getOrg = useServerFn(getCurrentOrg);
   const checkGstin = useServerFn(verifyGstin);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "" });
+  const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
 
@@ -49,8 +52,13 @@ function Suppliers() {
           return {
             ...f,
             name: apiName && !f.name.trim() ? apiName : f.name,
+            address: info.address && !f.address.trim() ? info.address : f.address,
             gst_status: info.status ?? "",
             gst_filer_rating: info.filerRating ?? "",
+            gst_legal_name: info.legalName ?? "",
+            gst_constitution: info.constitution ?? "",
+            gst_taxpayer_type: info.taxpayerType ?? "",
+            gst_registration_date: info.registrationDate ?? "",
           };
         });
       } catch { setGst(null); }
@@ -86,11 +94,13 @@ function Suppliers() {
         org_id: orgId,
         name: form.name, gstin: form.gstin || null, contact: form.contact || null, address: form.address || null,
         gst_status: form.gst_status || null, gst_filer_rating: form.gst_filer_rating || null,
+        gst_legal_name: form.gst_legal_name || null, gst_constitution: form.gst_constitution || null,
+        gst_taxpayer_type: form.gst_taxpayer_type || null, gst_registration_date: form.gst_registration_date || null,
       });
       if (error) throw error;
       toast.success(t("Supplier added"));
       setOpen(false);
-      setForm({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "" });
+      setForm({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
       setGst(null);
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -132,6 +142,13 @@ function Suppliers() {
                     )
                   ) : null}
                 </div>
+                {gst?.valid && (gst.constitution || gst.taxpayerType || gst.registrationDate) && (
+                  <div className="text-xs text-muted-foreground mt-1 space-x-2">
+                    {gst.constitution && <span>{gst.constitution}</span>}
+                    {gst.taxpayerType && <span>· {gst.taxpayerType}</span>}
+                    {gst.registrationDate && <span>· {t("Reg")}: {gst.registrationDate}</span>}
+                  </div>
+                )}
               </div>
               <Input placeholder={t("Contact")} value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
               <Input placeholder={t("Address")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />

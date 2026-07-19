@@ -266,30 +266,48 @@ export type Database = {
       }
       gstin_cache: {
         Row: {
+          address: string | null
+          city: string | null
+          constitution: string | null
           fetched_at: string
           filer_rating: string | null
           gstin: string
           legal_name: string | null
+          pincode: string | null
           raw: Json | null
+          registration_date: string | null
           status: string | null
+          taxpayer_type: string | null
           trade_name: string | null
         }
         Insert: {
+          address?: string | null
+          city?: string | null
+          constitution?: string | null
           fetched_at?: string
           filer_rating?: string | null
           gstin: string
           legal_name?: string | null
+          pincode?: string | null
           raw?: Json | null
+          registration_date?: string | null
           status?: string | null
+          taxpayer_type?: string | null
           trade_name?: string | null
         }
         Update: {
+          address?: string | null
+          city?: string | null
+          constitution?: string | null
           fetched_at?: string
           filer_rating?: string | null
           gstin?: string
           legal_name?: string | null
+          pincode?: string | null
           raw?: Json | null
+          registration_date?: string | null
           status?: string | null
+          taxpayer_type?: string | null
           trade_name?: string | null
         }
         Relationships: []
@@ -1002,8 +1020,12 @@ export type Database = {
           credit_limit: number | null
           default_discount_pct: number | null
           email: string | null
+          gst_constitution: string | null
           gst_filer_rating: string | null
+          gst_legal_name: string | null
+          gst_registration_date: string | null
           gst_status: string | null
+          gst_taxpayer_type: string | null
           gstin: string | null
           id: string
           name: string
@@ -1026,8 +1048,12 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          gst_constitution?: string | null
           gst_filer_rating?: string | null
+          gst_legal_name?: string | null
+          gst_registration_date?: string | null
           gst_status?: string | null
+          gst_taxpayer_type?: string | null
           gstin?: string | null
           id?: string
           name: string
@@ -1050,8 +1076,12 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          gst_constitution?: string | null
           gst_filer_rating?: string | null
+          gst_legal_name?: string | null
+          gst_registration_date?: string | null
           gst_status?: string | null
+          gst_taxpayer_type?: string | null
           gstin?: string | null
           id?: string
           name?: string
@@ -1343,8 +1373,12 @@ export type Database = {
           code: string | null
           contact: string | null
           created_at: string
+          gst_constitution: string | null
           gst_filer_rating: string | null
+          gst_legal_name: string | null
+          gst_registration_date: string | null
           gst_status: string | null
+          gst_taxpayer_type: string | null
           gstin: string | null
           id: string
           name: string
@@ -1356,8 +1390,12 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          gst_constitution?: string | null
           gst_filer_rating?: string | null
+          gst_legal_name?: string | null
+          gst_registration_date?: string | null
           gst_status?: string | null
+          gst_taxpayer_type?: string | null
           gstin?: string | null
           id?: string
           name: string
@@ -1369,8 +1407,12 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          gst_constitution?: string | null
           gst_filer_rating?: string | null
+          gst_legal_name?: string | null
+          gst_registration_date?: string | null
           gst_status?: string | null
+          gst_taxpayer_type?: string | null
           gstin?: string | null
           id?: string
           name?: string

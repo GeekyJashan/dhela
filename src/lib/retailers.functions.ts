@@ -22,6 +22,10 @@ const RetailerInput = z.object({
   notes: z.string().nullish(),
   gst_status: z.string().nullish(),
   gst_filer_rating: z.string().nullish(),
+  gst_legal_name: z.string().nullish(),
+  gst_constitution: z.string().nullish(),
+  gst_taxpayer_type: z.string().nullish(),
+  gst_registration_date: z.string().nullish(),
 });
 
 export const upsertRetailer = createServerFn({ method: "POST" })
