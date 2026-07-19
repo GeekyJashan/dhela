@@ -577,5 +577,9 @@
   "score": "स्कोर",
   "Slow — money is stuck with retailers.": "धीमा — पैसा रिटेलर के पास अटका है।",
   "Top retailers by outstanding — chase these.": "बकाया के अनुसार शीर्ष रिटेलर — इनसे वसूली करें।",
-  "Who owes you most": "आप पर सबसे ज़्यादा किसका बकाया"
+  "Who owes you most": "आप पर सबसे ज़्यादा किसका बकाया",
+  "Last month: {{v}}": "पिछला महीना: {{v}}",
+  "Tap to flip back": "वापस पलटने के लिए टैप करें",
+  "Tap the legend to toggle.": "टॉगल करने के लिए लेजेंड पर टैप करें।",
+  "Top retailers by outstanding — tap a bar to open the statement.": "बकाया के अनुसार शीर्ष रिटेलर — स्टेटमेंट खोलने के लिए बार पर टैप करें।"
 }
