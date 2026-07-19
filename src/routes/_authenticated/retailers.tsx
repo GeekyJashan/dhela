@@ -186,14 +186,14 @@ function RetailersPage() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>{editing ? t("Edit retailer") : t("Add retailer")}</DialogTitle></DialogHeader>
-            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
+            <form className="grid grid-cols-2 gap-3" onSubmit={e => { e.preventDefault(); if (form.name && gst?.valid) submit(); }}>
               <GstHint show={!editing && !form.gstin.trim()} className="col-span-2" />
               <div className="col-span-2">
                 <label className="text-xs text-muted-foreground">{t("Business name *")}</label>
                 <Input className={cn(flash && "field-flash")} placeholder={t("e.g. Sharma General Store")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">{t("GSTIN")}</label>
+                <label className="text-xs text-muted-foreground">{t("GSTIN *")}</label>
                 <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder={t("15-character GST number")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                 <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
                   {gstChecking ? (
@@ -272,7 +272,13 @@ function RetailersPage() {
                 <label className="text-xs text-muted-foreground">{t("Notes")}</label>
                 <Textarea placeholder={t("Anything worth remembering")} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
-              <DialogFooter className="col-span-2"><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
+              <DialogFooter className="col-span-2 items-center">
+                {!gst?.valid && form.gstin.trim().length > 0 && !gstChecking && (
+                  <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
+                )}
+                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid}
+                  title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{t("Save")}</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

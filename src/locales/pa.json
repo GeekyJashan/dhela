@@ -585,5 +585,8 @@
   "Replace signature image (PNG)": "ਦਸਤਖ਼ਤ ਤਸਵੀਰ ਬਦਲੋ (PNG)",
   "GST filer status": "GST ਫਾਈਲਰ ਸਥਿਤੀ",
   "Enter GSTIN to fetch": "ਜਾਣਕਾਰੀ ਲਿਆਉਣ ਲਈ GSTIN ਭਰੋ",
-  "Tip: enter the GSTIN first — business name, address, city, state & GST status fill in automatically.": "ਸੁਝਾਅ: ਪਹਿਲਾਂ GSTIN ਭਰੋ — ਕਾਰੋਬਾਰ ਦਾ ਨਾਮ, ਪਤਾ, ਸ਼ਹਿਰ, ਰਾਜ ਅਤੇ GST ਸਥਿਤੀ ਆਪੇ ਭਰ ਜਾਣਗੇ।"
+  "Tip: enter the GSTIN first — business name, address, city, state & GST status fill in automatically.": "ਸੁਝਾਅ: ਪਹਿਲਾਂ GSTIN ਭਰੋ — ਕਾਰੋਬਾਰ ਦਾ ਨਾਮ, ਪਤਾ, ਸ਼ਹਿਰ, ਰਾਜ ਅਤੇ GST ਸਥਿਤੀ ਆਪੇ ਭਰ ਜਾਣਗੇ।",
+  "GSTIN *": "GSTIN *",
+  "Enter a valid GSTIN to save": "ਸੇਵ ਕਰਨ ਲਈ ਵੈਧ GSTIN ਭਰੋ",
+  "A valid GSTIN is required": "ਵੈਧ GSTIN ਲਾਜ਼ਮੀ ਹੈ"
 }

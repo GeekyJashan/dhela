@@ -125,11 +125,11 @@ function Suppliers() {
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> {t("New supplier")}</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{t("Add supplier")}</DialogTitle></DialogHeader>
-            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name) submit(); }}>
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (form.name && gst?.valid) submit(); }}>
               <GstHint show={!form.gstin.trim()} />
               <Input className={cn(flash && "field-flash")} placeholder={t("Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               <div>
-                <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder="GSTIN" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
+                <Input className={cn(!form.gstin.trim() && "gstin-attract")} placeholder={t("GSTIN *")} value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value.toUpperCase() })} />
                 <div className="text-xs mt-1 min-h-[16px] flex items-center gap-1.5">
                   {gstChecking ? (
                     <><Loader2 className="h-3 w-3 animate-spin" /><span className="text-muted-foreground">{t("Checking GSTIN…")}</span></>
@@ -167,7 +167,13 @@ function Suppliers() {
                 <Input className={cn(flash && "field-flash")} placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
                 <Input className={cn(flash && "field-flash")} placeholder={t("State code")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
               </div>
-              <DialogFooter><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
+              <DialogFooter className="items-center">
+                {!gst?.valid && form.gstin.trim().length > 0 && !gstChecking && (
+                  <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>
+                )}
+                <Button type="submit" disabled={!form.name || gstChecking || !gst?.valid}
+                  title={!gst?.valid ? t("A valid GSTIN is required") : undefined}>{t("Save")}</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
