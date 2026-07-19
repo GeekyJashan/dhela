@@ -592,5 +592,13 @@
   "Fix or clear the GSTIN to save": "सेव करने के लिए GSTIN ठीक करें या हटाएं",
   "Saving…": "सेव हो रहा है…",
   "A supplier with this GSTIN already exists": "इस GSTIN वाला सप्लायर पहले से मौजूद है",
-  "A supplier with this name already exists": "इस नाम का सप्लायर पहले से मौजूद है"
+  "A supplier with this name already exists": "इस नाम का सप्लायर पहले से मौजूद है",
+  "Drop one or many. A single file is read instantly and opens for review; larger batches process in the background (up to {{n}}).": "एक या कई डालें। एक फ़ाइल तुरंत पढ़ी जाती है और समीक्षा के लिए खुलती है; बड़े बैच बैकग्राउंड में प्रोसेस होते हैं (अधिकतम {{n}})।",
+  "Pick a retailer and at least one file": "एक रिटेलर और कम से कम एक फ़ाइल चुनें",
+  "{{n}} order(s) created from {{f}} file(s) — {{m}} product(s) matched": "{{f}} फ़ाइल(ों) से {{n}} ऑर्डर बने — {{m}} प्रोडक्ट मैच हुए",
+  "{{k}} couldn't be read": "{{k}} पढ़ी नहीं जा सकी",
+  "Order file(s) *": "ऑर्डर फ़ाइल(ें) *",
+  "{{n}} file(s) selected — one order each": "{{n}} फ़ाइल(ें) चुनी गईं — हर एक का अलग ऑर्डर",
+  "Pick one file, or several to create multiple orders at once.": "एक फ़ाइल चुनें, या एक साथ कई ऑर्डर बनाने के लिए कई चुनें।",
+  "Create {{n}} orders": "{{n}} ऑर्डर बनाएं"
 }

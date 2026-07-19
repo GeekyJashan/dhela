@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { FileUp, Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { getCurrentOrg } from "@/lib/org.functions";
-import { enqueueInvoices } from "@/lib/invoices.functions";
+import { enqueueInvoices, extractInvoice } from "@/lib/invoices.functions";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
@@ -53,6 +53,7 @@ function Upload() {
   const navigate = useNavigate();
   const getOrg = useServerFn(getCurrentOrg);
   const enqueue = useServerFn(enqueueInvoices);
+  const runExtract = useServerFn(extractInvoice);
   const [rows, setRows] = useState<Row[]>([]);
   const [engine, setEngine] = useState<Engine>("ai");
   const fetchBilling = useServerFn(getBillingInfo);
@@ -140,6 +141,21 @@ function Upload() {
       });
       uploaded.forEach((u, i) => patch(u.key, { status: "queued", invoiceId: ids[i] }));
 
+      // Fast path for a single file: extract inline and go straight to review,
+      // skipping the background queue + 3s polling latency. Batches (>1) still
+      // use the queue so many files process in parallel.
+      if (uploaded.length === 1) {
+        patch(uploaded[0].key, { status: "processing" });
+        try {
+          await runExtract({ data: { invoiceId: ids[0], engine } });
+          navigate({ to: "/invoices/$id", params: { id: ids[0] } });
+        } catch (e) {
+          patch(uploaded[0].key, { status: "failed", error: (e as Error).message });
+          toast.error((e as Error).message);
+        }
+        return;
+      }
+
       // Kick the worker immediately (fire-and-forget)
       fetch("/api/public/hooks/process-invoice-queue", {
         method: "POST",
@@ -205,7 +221,7 @@ function Upload() {
     <div className="p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
-        {t("Drop one or many. We'll process up to {{n}} at a time in the background.", { n: MAX_FILES })}
+        {t("Drop one or many. A single file is read instantly and opens for review; larger batches process in the background (up to {{n}}).", { n: MAX_FILES })}
       </p>
 
       <Card className="mb-6">

@@ -54,7 +54,7 @@ function OrdersPage() {
   const setStatus = useServerFn(setOrderStatus);
   const uploadOrder = useServerFn(createOrderFromUpload);
 
-  const [upl, setUpl] = useState<{ retailerId: string; engine: "ai" | "ocr"; file: File | null } | null>(null);
+  const [upl, setUpl] = useState<{ retailerId: string; engine: "ai" | "ocr"; files: File[] } | null>(null);
   const [uplBusy, setUplBusy] = useState(false);
 
   const [open, setOpen] = useState(false);
@@ -163,28 +163,35 @@ function OrdersPage() {
   };
 
   const submitUpload = async () => {
-    if (!upl || !upl.retailerId || !upl.file) { toast.error(t("Pick a retailer and a file")); return; }
+    if (!upl || !upl.retailerId || !upl.files.length) { toast.error(t("Pick a retailer and at least one file")); return; }
     setUplBusy(true);
     try {
-      const buf = await upl.file.arrayBuffer();
-      let bin = "";
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      const b64 = btoa(bin);
-      const res = await uploadOrder({ data: {
-        retailer_id: upl.retailerId,
-        order_date: new Date().toISOString().slice(0, 10),
-        file_base64: b64,
-        mime_type: upl.file.type || "application/octet-stream",
-        engine: upl.engine,
-      }});
-      if (!res.orderId) {
+      // One order per file (each file becomes its own order for this retailer).
+      let created = 0, failed = 0, matchedTotal = 0;
+      for (const file of upl.files) {
+        try {
+          const buf = await file.arrayBuffer();
+          let bin = "";
+          const bytes = new Uint8Array(buf);
+          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          const b64 = btoa(bin);
+          const res = await uploadOrder({ data: {
+            retailer_id: upl.retailerId,
+            order_date: new Date().toISOString().slice(0, 10),
+            file_base64: b64,
+            mime_type: file.type || "application/octet-stream",
+            engine: upl.engine,
+          }});
+          if (res.orderId) { created++; matchedTotal += res.matched; } else { failed++; }
+        } catch { failed++; }
+      }
+      if (created === 0) {
         toast.error(t("No products matched. Add them to your catalog first, or create the order manually."));
       } else {
-        toast.success(t("Order {{n}} created — {{m}} product(s) matched{{u}}", {
-          n: res.orderNumber, m: res.matched,
-          u: res.unmatched.length ? t(", {{k}} not matched", { k: res.unmatched.length }) : "",
-        }));
+        toast.success(
+          t("{{n}} order(s) created from {{f}} file(s) — {{m}} product(s) matched", { n: created, f: upl.files.length, m: matchedTotal })
+          + (failed ? ` · ${t("{{k}} couldn't be read", { k: failed })}` : ""),
+        );
         setUpl(null);
         qc.invalidateQueries({ queryKey: ["orders"] });
       }
@@ -222,7 +229,7 @@ function OrdersPage() {
           <p className="text-muted-foreground mt-1">{t("Retailer orders — turn them into invoices when you're ready to bill.")}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setUpl({ retailerId: "", engine: "ai", file: null })}>
+          <Button variant="outline" onClick={() => setUpl({ retailerId: "", engine: "ai", files: [] })}>
             <FileUp className="h-4 w-4 mr-2" /> {t("Upload order")}
           </Button>
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> {t("New order")}</Button>
@@ -247,9 +254,14 @@ function OrdersPage() {
                 </Select>
               </div>
               <div>
-                <Label>{t("Order file *")}</Label>
-                <Input type="file" accept="application/pdf,image/*"
-                  onChange={e => setUpl({ ...upl, file: e.target.files?.[0] ?? null })} />
+                <Label>{t("Order file(s) *")}</Label>
+                <Input type="file" accept="application/pdf,image/*" multiple
+                  onChange={e => setUpl({ ...upl, files: Array.from(e.target.files ?? []) })} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {upl.files.length > 0
+                    ? t("{{n}} file(s) selected — one order each", { n: upl.files.length })
+                    : t("Pick one file, or several to create multiple orders at once.")}
+                </p>
               </div>
               <div>
                 <Label>{t("Reader")}</Label>
@@ -264,9 +276,9 @@ function OrdersPage() {
             </div>
           )}
           <DialogFooter>
-            <Button onClick={submitUpload} disabled={uplBusy || !upl?.retailerId || !upl?.file}>
+            <Button onClick={submitUpload} disabled={uplBusy || !upl?.retailerId || !upl?.files.length}>
               {uplBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {uplBusy ? t("Reading…") : t("Create order")}
+              {uplBusy ? t("Reading…") : (upl && upl.files.length > 1 ? t("Create {{n}} orders", { n: upl.files.length }) : t("Create order"))}
             </Button>
           </DialogFooter>
         </DialogContent>
