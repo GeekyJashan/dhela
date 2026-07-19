@@ -107,6 +107,68 @@ async def _anthropic_json(system: str, schema: dict, blocks: list) -> dict:
             return data["result"] if wrap else data
     raise HTTPException(502, "Claude returned no structured output")
 
+
+# Web-search tool version matches the current Claude models (Sonnet 5 / Opus 4.x).
+ANTHROPIC_WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 3}
+
+
+def _find_record_input(content: list) -> Optional[dict]:
+    """Pull the `record` tool_use input out of a Claude response, if present."""
+    for block in content:
+        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "record":
+            return block.input
+    return None
+
+
+async def _anthropic_json_grounded(system: str, schema: dict, user_text: str) -> dict:
+    """Like _anthropic_json, but lets Claude use live web search to verify facts
+    (e.g. the current post-GST-2.0 rate) before recording structured output."""
+    import anthropic  # local import so the service starts without the package on Gemini-only setups
+
+    tool_schema = _gemini_schema_to_json_schema(schema)  # HSN_SCHEMA is already an object
+    record_tool = {
+        "name": "record",
+        "description": "Record the final HSN classification and its current GST rate.",
+        "input_schema": tool_schema,
+    }
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    grounded_hint = (
+        "\n\nIf you are not certain of the CURRENT (post-22-Sep-2025) GST rate for this item, "
+        "use the web_search tool to confirm it before answering — do not rely on possibly outdated "
+        "memory. Everyday items you are confident about need no search. When ready, call the `record` tool."
+    )
+    messages: list = [{"role": "user", "content": [{"type": "text", "text": user_text}]}]
+
+    # Server-side web search runs inside this single call; the model then emits
+    # a `record` tool_use with its final answer.
+    msg = await client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=2000,
+        system=system + grounded_hint,
+        tools=[ANTHROPIC_WEB_SEARCH_TOOL, record_tool],
+        messages=messages,
+    )
+    rec = _find_record_input(msg.content)
+    if rec is not None:
+        return rec
+
+    # Fallback: the model answered in prose (or only searched) without recording —
+    # force the record tool using everything gathered so far.
+    messages.append({"role": "assistant", "content": msg.content})
+    messages.append({"role": "user", "content": [{"type": "text", "text": "Record your final answer now via the record tool."}]})
+    msg2 = await client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=1000,
+        system=system,
+        tools=[record_tool],
+        tool_choice={"type": "tool", "name": "record"},
+        messages=messages,
+    )
+    rec = _find_record_input(msg2.content)
+    if rec is None:
+        raise HTTPException(502, "Claude returned no structured HSN output")
+    return rec
+
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()
 ]
@@ -259,7 +321,7 @@ HSN_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
     "properties": {
         "hsn": {"type": "STRING", "nullable": True, "description": "Indian HSN/SAC code, 4-8 digits"},
-        "gst_rate": {"type": "NUMBER", "nullable": True, "description": "GST % (0/5/12/18/28)"},
+        "gst_rate": {"type": "NUMBER", "nullable": True, "description": "Current Indian GST % under GST 2.0 (effective 22 Sep 2025): one of 0, 0.25, 3, 5, 18, 40. Never 12 or 28 (those slabs were removed)."},
         "description": {"type": "STRING", "nullable": True},
         "confidence": {"type": "NUMBER", "nullable": True, "description": "0-100"},
         "reasoning": {"type": "STRING", "nullable": True},
@@ -267,17 +329,22 @@ HSN_SCHEMA: dict[str, Any] = {
     "required": ["hsn", "gst_rate"],
 }
 
-HSN_SYSTEM_PROMPT = """You are an expert on the Indian GST HSN/SAC classification system.
-Given a product name (and optional context), return the single most appropriate HSN code
-and the standard Indian GST rate for that item.
+HSN_SYSTEM_PROMPT = """You are an expert on the Indian GST HSN/SAC classification system, fully up to date with the GST 2.0 rate rationalisation that took effect on 22 September 2025.
+
+Given a product name (and optional context), return the single most appropriate HSN/SAC code and the CURRENT Indian GST rate for that item.
+
+Current GST slabs (from 22 September 2025):
+- Standard slabs are 0% (exempt / nil-rated essentials), 5%, 18%, and 40%.
+- 40% is the demerit slab for luxury / sin goods — large cars and SUVs, tobacco and pan masala, aerated and sugary drinks, etc. There is no separate compensation cess anymore; it is folded into the 40% rate.
+- Special rates: 3% (gold, silver, other precious metals and jewellery) and 0.25% (rough diamonds).
+- The old 12% and 28% slabs have been REMOVED. Most former 12% items are now 5%, most former 28% items are now 18%, and former 28%-plus-cess luxury/sin items are now 40%.
 
 Rules:
-- HSN must be a real Indian HSN/SAC code (typically 4, 6 or 8 digits).
-- gst_rate must be one of 0, 5, 12, 18, 28.
+- HSN must be a real Indian HSN/SAC code (typically 4, 6 or 8 digits). For a passenger car or SUV use heading 8703 (transport of persons), NOT 8704 (goods vehicles).
+- gst_rate must reflect the CURRENT rate: one of 0, 0.25, 3, 5, 18, 40. Do NOT return 12 or 28.
 - If the product is clearly a service, use the appropriate SAC code.
 - If genuinely ambiguous, pick the most common classification for that product in Indian retail/distribution and lower the confidence.
-- Never invent codes. If you truly cannot classify, return null hsn with a short reasoning.
-Respond ONLY with valid JSON matching the schema."""
+- Never invent codes. If you truly cannot classify, return null hsn with a short reasoning."""
 
 
 @app.post("/suggest-hsn", response_model=HsnSuggestion)
@@ -291,8 +358,14 @@ async def suggest_hsn(req: HsnSuggestRequest) -> HsnSuggestion:
         user_text += f"\nContext: {req.context}"
 
     if _use_anthropic():
-        log.info("suggest-hsn: calling Claude name=%r", name)
-        parsed = await _anthropic_json(HSN_SYSTEM_PROMPT, HSN_SCHEMA, [{"type": "text", "text": user_text}])
+        log.info("suggest-hsn: calling Claude (web-grounded) name=%r", name)
+        try:
+            parsed = await _anthropic_json_grounded(HSN_SYSTEM_PROMPT, HSN_SCHEMA, user_text)
+        except Exception:
+            # Web search may be unavailable (e.g. older model / tool version) —
+            # degrade to a plain structured call, still on the GST 2.0 slabs.
+            log.exception("suggest-hsn: grounded call failed, falling back to plain")
+            parsed = await _anthropic_json(HSN_SYSTEM_PROMPT, HSN_SCHEMA, [{"type": "text", "text": user_text}])
         result = HsnSuggestion.model_validate(parsed)
         log.info("suggest-hsn(claude): → hsn=%s gst=%s", result.hsn, result.gst_rate)
         return result
