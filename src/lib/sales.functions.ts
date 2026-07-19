@@ -78,6 +78,32 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
       prevStatus = prev?.status ?? null;
     }
 
+    // Deduct stock and lock cost only when an invoice is first issued (create,
+    // or a draft becoming issued) — never on edits of an already-issued invoice.
+    const firstIssue = data.status === "issued" && prevStatus !== "issued" && prevStatus !== "paid";
+
+    // At issue, COGS/profit become authoritative: cost = the product's current
+    // weighted-average cost, applied to every unit shipped (billed + free), so
+    // reported profit reconciles with inventory. Drafts keep the client estimate.
+    let priced = lines;
+    const headerOut: typeof header = { ...header };
+    if (firstIssue) {
+      const ids = [...new Set(lines.map(l => l.product_id).filter(Boolean))] as string[];
+      const costMap = new Map<string, number>();
+      if (ids.length) {
+        const { data: prods } = await supabase.from("products").select("id, avg_cost").in("id", ids);
+        for (const p of prods ?? []) costMap.set(p.id, Number(p.avg_cost ?? 0));
+      }
+      priced = lines.map(l => {
+        if (!l.product_id) return l;
+        const avg = costMap.get(l.product_id) ?? Number(l.cost_price ?? 0);
+        const units = l.quantity + (l.free_quantity ?? 0);
+        return { ...l, cost_price: avg, profit: +(l.taxable_value - avg * units).toFixed(2) };
+      });
+      headerOut.total_cost = +priced.reduce((s, l) => s + Number(l.cost_price ?? 0) * (l.quantity + (l.free_quantity ?? 0)), 0).toFixed(2);
+      headerOut.total_profit = +priced.reduce((s, l) => s + Number(l.profit ?? 0), 0).toFixed(2);
+    }
+
     if (!invoiceId) {
       // generate invoice number
       const { data: numData, error: numErr } = await supabase
@@ -88,7 +114,7 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
 
       const { data: inv, error: insErr } = await supabase.from("sales_invoices")
         .insert({
-          ...header,
+          ...headerOut,
           org_id: orgId,
           created_by: userId,
           invoice_number: invoiceNumber,
@@ -100,7 +126,7 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
       invoiceNumber = inv.invoice_number;
     } else {
       const { error: updErr } = await supabase.from("sales_invoices")
-        .update(header).eq("id", invoiceId);
+        .update(headerOut).eq("id", invoiceId);
       if (updErr) throw new Error(updErr.message);
       const { data: existing } = await supabase.from("sales_invoices")
         .select("invoice_number").eq("id", invoiceId).single();
@@ -112,7 +138,7 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
       if (delErr) throw new Error(delErr.message);
     }
 
-    const linePayload = lines.map((l, i) => ({
+    const linePayload = priced.map((l, i) => ({
       ...l,
       org_id: orgId,
       sales_invoice_id: invoiceId,
@@ -121,9 +147,6 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
     const { error: linesErr } = await supabase.from("sales_invoice_lines").insert(linePayload);
     if (linesErr) throw new Error(linesErr.message);
 
-    // Deduct stock only when an invoice is first issued (create, or a draft
-    // becoming issued) — never on edits of an already-issued invoice.
-    const firstIssue = data.status === "issued" && prevStatus !== "issued" && prevStatus !== "paid";
     if (firstIssue) {
       for (const l of lines) {
         if (!l.product_id) continue;
@@ -183,15 +206,25 @@ export const issueSalesInvoice = createServerFn({ method: "POST" })
     if (inv.status !== "draft") return { ok: true };  // already issued/paid/cancelled — nothing to do
 
     const { data: lines } = await supabase.from("sales_invoice_lines")
-      .select("product_id, quantity, free_quantity").eq("sales_invoice_id", data.id);
+      .select("id, product_id, quantity, free_quantity, taxable_value").eq("sales_invoice_id", data.id);
 
-    // Deduct stock.
+    // Deduct stock and lock cost/profit from the current weighted-average cost,
+    // so this invoice's profit is authoritative and reconciles with inventory.
+    let totalCost = 0, totalProfit = 0;
     for (const l of lines ?? []) {
       if (!l.product_id) continue;
       const { data: p } = await supabase.from("products")
-        .select("current_stock").eq("id", l.product_id).single();
-      const newStock = Number(p?.current_stock ?? 0) - (Number(l.quantity) + Number(l.free_quantity ?? 0));
-      await supabase.from("products").update({ current_stock: newStock }).eq("id", l.product_id);
+        .select("current_stock, avg_cost").eq("id", l.product_id).single();
+      const units = Number(l.quantity) + Number(l.free_quantity ?? 0);
+      await supabase.from("products")
+        .update({ current_stock: Number(p?.current_stock ?? 0) - units }).eq("id", l.product_id);
+      const avg = Number(p?.avg_cost ?? 0);
+      const cost = +(avg * units).toFixed(2);
+      const profit = +(Number(l.taxable_value ?? 0) - cost).toFixed(2);
+      totalCost += cost;
+      totalProfit += profit;
+      await supabase.from("sales_invoice_lines")
+        .update({ cost_price: avg, profit }).eq("id", l.id);
     }
 
     // Fulfil the linked order, if any.
@@ -220,9 +253,11 @@ export const issueSalesInvoice = createServerFn({ method: "POST" })
       }
     }
 
-    const { error } = await supabase.from("sales_invoices").update({ status: "issued" }).eq("id", data.id);
+    const { error } = await supabase.from("sales_invoices")
+      .update({ status: "issued", total_cost: +totalCost.toFixed(2), total_profit: +totalProfit.toFixed(2) })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
-    log.info("issue:done", { invoiceId: data.id });
+    log.info("issue:done", { invoiceId: data.id, totalProfit });
     return { ok: true };
   });
 

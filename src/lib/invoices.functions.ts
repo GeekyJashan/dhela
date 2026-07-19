@@ -272,12 +272,26 @@ export const approveInvoice = createServerFn({ method: "POST" })
     for (const l of lines ?? []) {
       if (!l.matched_product_id) continue;
       const { data: p } = await supabase.from("products")
-        .select("current_stock").eq("id", l.matched_product_id).single();
-      const added = Number(l.quantity ?? 0) + Number(l.free_quantity ?? 0);
-      await supabase.from("products").update({
-        current_stock: Number(p?.current_stock ?? 0) + added,
-        last_purchase_rate: l.rate ?? undefined,
-      }).eq("id", l.matched_product_id);
+        .select("current_stock, avg_cost").eq("id", l.matched_product_id).single();
+      const qty = Number(l.quantity ?? 0);
+      const free = Number(l.free_quantity ?? 0);
+      const unitsIn = qty + free;
+      const curStock = Number(p?.current_stock ?? 0);
+      const update: { current_stock: number; last_purchase_rate?: number; avg_cost?: number } = { current_stock: curStock + unitsIn };
+      if (l.rate != null) {
+        update.last_purchase_rate = l.rate;
+        // Moving weighted-average cost. Free scheme units carry no spend, so
+        // they pull the effective per-unit cost down. Clamp negative (oversold)
+        // stock to 0 so a backorder receipt just prices at the purchase rate.
+        const oldStock = Math.max(0, curStock);
+        const oldAvg = Number(p?.avg_cost ?? 0);
+        const newUnits = oldStock + unitsIn;
+        if (newUnits > 0) {
+          const spend = qty * Number(l.rate);
+          update.avg_cost = +((oldStock * oldAvg + spend) / newUnits).toFixed(4);
+        }
+      }
+      await supabase.from("products").update(update).eq("id", l.matched_product_id);
     }
 
     const { error } = await supabase.from("invoices").update({

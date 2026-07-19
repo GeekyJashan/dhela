@@ -124,7 +124,7 @@ function NewSalesInvoice() {
     queryKey: ["products", "for-sale"],
     queryFn: async () => {
       const { data, error } = await supabase.from("products")
-        .select("id, name, sku, hsn, gst_rate, mrp, unit, selling_rate, purchase_rate, last_purchase_rate, default_margin_pct, current_stock, stock_group_id")
+        .select("id, name, sku, hsn, gst_rate, mrp, unit, selling_rate, purchase_rate, last_purchase_rate, avg_cost, default_margin_pct, current_stock, stock_group_id")
         .order("name");
       if (error) throw error;
       return data as Product[];
@@ -186,7 +186,7 @@ function NewSalesInvoice() {
       rate: s.rate,
       discount_pct: discount,
       gst_rate: Number(p.gst_rate ?? 0),
-      cost_price: Number(p.last_purchase_rate ?? p.purchase_rate ?? 0),
+      cost_price: Number(p.avg_cost ?? p.last_purchase_rate ?? p.purchase_rate ?? 0),
     };
   };
 

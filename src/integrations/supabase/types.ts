@@ -974,6 +974,7 @@ export type Database = {
       products: {
         Row: {
           aliases: string[] | null
+          avg_cost: number | null
           brand: string | null
           category: string | null
           created_at: string
@@ -995,6 +996,7 @@ export type Database = {
         }
         Insert: {
           aliases?: string[] | null
+          avg_cost?: number | null
           brand?: string | null
           category?: string | null
           created_at?: string
@@ -1016,6 +1018,7 @@ export type Database = {
         }
         Update: {
           aliases?: string[] | null
+          avg_cost?: number | null
           brand?: string | null
           category?: string | null
           created_at?: string

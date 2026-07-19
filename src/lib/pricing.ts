@@ -19,6 +19,7 @@ export type ProductForPricing = {
   selling_rate: number | null;
   last_purchase_rate: number | null;
   purchase_rate: number | null;
+  avg_cost: number | null;
   default_margin_pct: number | null;
   mrp: number | null;
   gst_rate: number | null;
@@ -119,7 +120,9 @@ export function computeLine(line: SalesLineDraft, isInterstate: boolean): LineTo
   const sgst_amount = isInterstate ? 0 : +(tax_amount - cgst_amount).toFixed(2);
   const igst_amount = isInterstate ? tax_amount : 0;
   const line_total = +(taxable_value + tax_amount).toFixed(2);
-  const cost = (line.cost_price ?? 0) * line.quantity;
+  // COGS covers every unit shipped, billed + free (free goods are a real cost
+  // with no revenue), matching stock deduction and the server-locked profit.
+  const cost = (line.cost_price ?? 0) * (line.quantity + (line.free_quantity || 0));
   const profit = +(taxable_value - cost).toFixed(2);
   return { discount_amount, taxable_value, cgst_amount, sgst_amount, igst_amount, tax_amount, line_total, profit };
 }
