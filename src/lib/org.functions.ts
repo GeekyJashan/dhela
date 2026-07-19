@@ -24,15 +24,20 @@ export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
     if (data.signature_image && data.signature_image.length > 400_000) {
       throw new Error("Signature image too large — use a smaller/cropped PNG");
     }
-    const { error } = await supabase.from("organizations").update({
-      bank_name: data.bank_name ?? null,
-      bank_account_no: data.bank_account_no ?? null,
-      bank_ifsc: data.bank_ifsc ?? null,
-      bank_branch: data.bank_branch ?? null,
-      upi_id: data.upi_id ?? null,
-      signatory_name: data.signatory_name ?? null,
-      signature_image: data.signature_image ?? null,
-    }).eq("id", mem.org_id);
+    // Partial update: only touch fields that were actually sent. This lets the
+    // bank dialog and the signature dialog save independently — saving one must
+    // never wipe the other. `undefined` = leave as-is; "" = explicit clear → null.
+    const fields = [
+      "bank_name", "bank_account_no", "bank_ifsc", "bank_branch", "upi_id",
+      "signatory_name", "signature_image",
+    ] as const;
+    const update: Partial<Record<(typeof fields)[number], string | null>> = {};
+    for (const f of fields) {
+      const v = data[f];
+      if (v !== undefined) update[f] = v === "" ? null : v;
+    }
+    if (Object.keys(update).length === 0) return { ok: true };
+    const { error } = await supabase.from("organizations").update(update).eq("id", mem.org_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

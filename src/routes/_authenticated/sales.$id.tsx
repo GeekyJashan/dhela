@@ -274,7 +274,7 @@ function SalesInvoiceView() {
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); persist(sign, () => setSignOpen(false)); }}>
             <div><Label>{t("Signatory name")}</Label><Input placeholder={t("e.g. Proprietor / Director name")} value={sign.signatory_name} onChange={e => setSign({ ...sign, signatory_name: e.target.value })} /></div>
             <div>
-              <Label>{t("Signature image (PNG)")}</Label>
+              <Label>{sign.signature_image ? t("Replace signature image (PNG)") : t("Signature image (PNG)")}</Label>
               <Input type="file" accept="image/png,image/jpeg" onChange={e => onSignatureFile(e.target.files?.[0] ?? null)} />
               {sign.signature_image && <img src={sign.signature_image} alt="preview" className="h-16 mt-2 object-contain border rounded" />}
             </div>
