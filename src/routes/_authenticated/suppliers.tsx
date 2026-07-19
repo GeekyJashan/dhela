@@ -35,7 +35,7 @@ function Suppliers() {
   const getOrg = useServerFn(getCurrentOrg);
   const checkGstin = useServerFn(verifyGstin);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
+  const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
 
@@ -53,6 +53,9 @@ function Suppliers() {
             ...f,
             name: apiName && !f.name.trim() ? apiName : f.name,
             address: info.address && !f.address.trim() ? info.address : f.address,
+            state_code: info.stateCode || f.state_code,
+            city: info.city && !f.city.trim() ? info.city : f.city,
+            pincode: info.pincode && !f.pincode.trim() ? info.pincode : f.pincode,
             gst_status: info.status ?? "",
             gst_filer_rating: info.filerRating ?? "",
             gst_legal_name: info.legalName ?? "",
@@ -93,6 +96,7 @@ function Suppliers() {
       const { error } = await supabase.from("suppliers").insert({
         org_id: orgId,
         name: form.name, gstin: form.gstin || null, contact: form.contact || null, address: form.address || null,
+        state_code: form.state_code || null, city: form.city || null, pincode: form.pincode || null,
         gst_status: form.gst_status || null, gst_filer_rating: form.gst_filer_rating || null,
         gst_legal_name: form.gst_legal_name || null, gst_constitution: form.gst_constitution || null,
         gst_taxpayer_type: form.gst_taxpayer_type || null, gst_registration_date: form.gst_registration_date || null,
@@ -100,7 +104,7 @@ function Suppliers() {
       if (error) throw error;
       toast.success(t("Supplier added"));
       setOpen(false);
-      setForm({ name: "", gstin: "", contact: "", address: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
+      setForm({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
       setGst(null);
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     } catch (e) { toast.error((e as Error).message); }
@@ -152,6 +156,11 @@ function Suppliers() {
               </div>
               <Input placeholder={t("Contact")} value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
               <Input placeholder={t("Address")} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+              <div className="grid grid-cols-3 gap-3">
+                <Input placeholder={t("City / town")} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+                <Input placeholder={t("6-digit PIN")} value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+                <Input placeholder={t("State code")} value={form.state_code} onChange={e => setForm({ ...form, state_code: e.target.value })} />
+              </div>
               <DialogFooter><Button type="submit" disabled={!form.name}>{t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>
@@ -174,7 +183,9 @@ function Suppliers() {
                   <TableCell className="font-mono text-xs">{s.gstin ?? "—"}</TableCell>
                   <TableCell><FilerBadge rating={s.gst_filer_rating} /></TableCell>
                   <TableCell>{s.contact}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.address}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {[s.address, [s.city, s.state_code].filter(Boolean).join(" / ")].filter(Boolean).join(" · ") || "—"}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">₹ {(balances.get(s.id) ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right">
                     <Link to="/statement" search={{ party: "supplier", id: s.id }}>

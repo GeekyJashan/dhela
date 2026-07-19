@@ -1415,6 +1415,7 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          city: string | null
           code: string | null
           contact: string | null
           created_at: string
@@ -1429,9 +1430,12 @@ export type Database = {
           name: string
           opening_balance: number
           org_id: string
+          pincode: string | null
+          state_code: string | null
         }
         Insert: {
           address?: string | null
+          city?: string | null
           code?: string | null
           contact?: string | null
           created_at?: string
@@ -1446,9 +1450,12 @@ export type Database = {
           name: string
           opening_balance?: number
           org_id: string
+          pincode?: string | null
+          state_code?: string | null
         }
         Update: {
           address?: string | null
+          city?: string | null
           code?: string | null
           contact?: string | null
           created_at?: string
@@ -1463,6 +1470,8 @@ export type Database = {
           name?: string
           opening_balance?: number
           org_id?: string
+          pincode?: string | null
+          state_code?: string | null
         }
         Relationships: [
           {
