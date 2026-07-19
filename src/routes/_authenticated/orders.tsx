@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { upsertOrder, deleteOrder, setOrderStatus, createOrderFromUpload } from "@/lib/orders.functions";
+import { upsertOrder, deleteOrder, setOrderStatus, enqueueOrderUploads } from "@/lib/orders.functions";
+import { getCurrentOrg } from "@/lib/org.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,8 @@ type Order = {
   id: string; order_number: string; order_date: string;
   status: "pending" | "partial" | "fulfilled" | "cancelled";
   notes: string | null;
+  upload_status: string | null;
+  error_message: string | null;
   retailer: { id: string; name: string } | null;
   order_lines: OrderLine[];
 };
@@ -52,7 +55,9 @@ function OrdersPage() {
   const save = useServerFn(upsertOrder);
   const remove = useServerFn(deleteOrder);
   const setStatus = useServerFn(setOrderStatus);
-  const uploadOrder = useServerFn(createOrderFromUpload);
+  const getOrg = useServerFn(getCurrentOrg);
+  const enqueueOrders = useServerFn(enqueueOrderUploads);
+  const pollRef = useRef<number | null>(null);
 
   const [upl, setUpl] = useState<{ retailerId: string; engine: "ai" | "ocr"; files: File[] } | null>(null);
   const [uplBusy, setUplBusy] = useState(false);
@@ -69,13 +74,30 @@ function OrdersPage() {
     queryKey: ["orders"],
     queryFn: async () => {
       const { data, error } = await supabase.from("orders")
-        .select("id, order_number, order_date, status, notes, retailer:retailers(id, name), order_lines(id, product_id, quantity, fulfilled_quantity, product:products(id, name, unit, current_stock))")
+        .select("id, order_number, order_date, status, notes, upload_status, error_message, retailer:retailers(id, name), order_lines(id, product_id, quantity, fulfilled_quantity, product:products(id, name, unit, current_stock))")
         .order("order_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as Order[];
     },
   });
+
+  // Poll while any uploaded order is still being read in the background.
+  useEffect(() => {
+    const active = (orders ?? []).some(o => o.upload_status === "queued" || o.upload_status === "processing");
+    if (!active) {
+      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    if (pollRef.current) return;
+    pollRef.current = window.setInterval(() => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      fetch("/api/public/hooks/process-order-queue", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 5 }),
+      }).catch(() => {});
+    }, 3000);
+    return () => { if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; } };
+  }, [orders, qc]);
 
   const { data: retailers } = useQuery({
     queryKey: ["retailers_min"],
@@ -166,35 +188,39 @@ function OrdersPage() {
     if (!upl || !upl.retailerId || !upl.files.length) { toast.error(t("Pick a retailer and at least one file")); return; }
     setUplBusy(true);
     try {
-      // One order per file (each file becomes its own order for this retailer).
-      let created = 0, failed = 0, matchedTotal = 0;
-      for (const file of upl.files) {
-        try {
-          const buf = await file.arrayBuffer();
-          let bin = "";
-          const bytes = new Uint8Array(buf);
-          for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-          const b64 = btoa(bin);
-          const res = await uploadOrder({ data: {
-            retailer_id: upl.retailerId,
-            order_date: new Date().toISOString().slice(0, 10),
-            file_base64: b64,
-            mime_type: file.type || "application/octet-stream",
-            engine: upl.engine,
-          }});
-          if (res.orderId) { created++; matchedTotal += res.matched; } else { failed++; }
-        } catch { failed++; }
-      }
-      if (created === 0) {
-        toast.error(t("No products matched. Add them to your catalog first, or create the order manually."));
-      } else {
-        toast.success(
-          t("{{n}} order(s) created from {{f}} file(s) — {{m}} product(s) matched", { n: created, f: upl.files.length, m: matchedTotal })
-          + (failed ? ` · ${t("{{k}} couldn't be read", { k: failed })}` : ""),
-        );
-        setUpl(null);
-        qc.invalidateQueries({ queryKey: ["orders"] });
-      }
+      const { orgId } = await getOrg();
+      // Upload files to storage (concurrency 3), then enqueue for background
+      // extraction — the worker reads + matches each in parallel.
+      const uploaded: Array<{ storagePath: string; mimeType: string }> = [];
+      const queue = [...upl.files];
+      const workers = Array.from({ length: 3 }, async () => {
+        while (queue.length) {
+          const file = queue.shift();
+          if (!file) return;
+          const path = `${orgId}/order-${crypto.randomUUID()}-${file.name}`;
+          const { error } = await supabase.storage.from("invoices").upload(path, file, { contentType: file.type, upsert: false });
+          if (!error) uploaded.push({ storagePath: path, mimeType: file.type || "application/octet-stream" });
+        }
+      });
+      await Promise.all(workers);
+      if (!uploaded.length) { toast.error(t("All uploads failed")); return; }
+
+      await enqueueOrders({ data: {
+        retailer_id: upl.retailerId,
+        order_date: new Date().toISOString().slice(0, 10),
+        engine: upl.engine,
+        items: uploaded,
+      }});
+
+      // Kick the worker immediately (fire-and-forget); polling picks up the rest.
+      fetch("/api/public/hooks/process-order-queue", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: Math.min(10, uploaded.length) }),
+      }).catch(() => {});
+
+      toast.success(t("{{n}} order(s) queued — reading in the background", { n: uploaded.length }));
+      setUpl(null);
+      qc.invalidateQueries({ queryKey: ["orders"] });
     } catch (e) { toast.error((e as Error).message); }
     finally { setUplBusy(false); }
   };
@@ -367,16 +393,28 @@ function OrdersPage() {
             <TableBody>
               {orders?.map(o => {
                 const { total, done } = progress(o);
-                const openOrder = o.status === "pending" || o.status === "partial";
+                const processing = o.upload_status === "queued" || o.upload_status === "processing";
+                const openOrder = (o.status === "pending" || o.status === "partial") && !processing;
                 return (
                   <TableRow key={o.id}>
                     <TableCell className="font-mono text-sm font-medium">{o.order_number}</TableCell>
                     <TableCell>{o.retailer?.name ?? "—"}</TableCell>
                     <TableCell>{o.order_date}</TableCell>
                     <TableCell>
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLE[o.status]}`}>
-                        {t(o.status)}
-                      </span>
+                      {processing ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                          <Loader2 className="h-3 w-3 animate-spin" /> {t("Reading…")}
+                        </span>
+                      ) : o.upload_status === "failed" ? (
+                        <span title={o.error_message ?? undefined}
+                          className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          {t("Upload failed")}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLE[o.status]}`}>
+                          {t(o.status)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {t("{{n}} products", { n: o.order_lines.length })}

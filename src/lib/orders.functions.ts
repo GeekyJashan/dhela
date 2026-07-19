@@ -130,6 +130,131 @@ export const deleteOrder = createServerFn({ method: "POST" })
   });
 
 /**
+ * Fill in an uploaded order row: download its file, extract line items, match
+ * them to catalog products, and write order_lines. Sets upload_status
+ * done/failed. Runs in the background worker (or inline). Never leaves the row
+ * stuck in 'processing'. `supabase` is a service-role or user client.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function runOrderExtraction(supabase: any, orderId: string): Promise<{ matched: number; unmatched: number }> {
+  const { data: ord, error } = await supabase.from("orders")
+    .select("id, org_id, storage_path, mime_type, extraction_engine").eq("id", orderId).single();
+  if (error || !ord) throw new Error(error?.message ?? "Order not found");
+  if (!ord.storage_path) throw new Error("Order has no uploaded file");
+
+  await supabase.from("orders").update({ upload_status: "processing", error_message: null }).eq("id", ord.id);
+  try {
+    const { data: fileBlob, error: dlErr } = await supabase.storage.from("invoices").download(ord.storage_path);
+    if (dlErr || !fileBlob) throw new Error(dlErr?.message ?? "Download failed");
+
+    const apiUrl = (process.env.EXTRACTION_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+    const engine = ord.extraction_engine === "ocr" ? "ocr" : "ai";
+    const endpoint = engine === "ocr" ? "/extract-ocr" : "/extract";
+    const mime = ord.mime_type ?? fileBlob.type ?? "application/octet-stream";
+    const form = new FormData();
+    form.append("file", fileBlob, ord.storage_path.split("/").pop() ?? "order");
+    form.append("mime_type", mime);
+    const resp = await fetch(`${apiUrl}${endpoint}`, { method: "POST", body: form });
+    if (!resp.ok) throw new Error(`Extraction failed (${resp.status})`);
+    const parsed = await resp.json() as { lines?: { raw_description?: string; hsn?: string | null; quantity?: number | null }[] };
+    const lines = parsed.lines ?? [];
+
+    const { data: products } = await supabase.from("products").select("id, name, hsn").eq("org_id", ord.org_id);
+    const catalog = (products ?? []) as MatchableProduct[];
+    const byProduct = new Map<string, number>();
+    const unmatched: string[] = [];
+    for (const l of lines) {
+      const desc = (l.raw_description ?? "").trim();
+      if (!desc) continue;
+      const m = matchLineToProduct(desc, l.hsn ?? null, catalog);
+      const qty = Number(l.quantity ?? 0) || 1;
+      if (m) byProduct.set(m.productId, (byProduct.get(m.productId) ?? 0) + qty);
+      else unmatched.push(desc);
+    }
+
+    await supabase.from("order_lines").delete().eq("order_id", ord.id);
+    if (byProduct.size) {
+      const linePayload = [...byProduct.entries()].map(([product_id, quantity]) => ({
+        org_id: ord.org_id, order_id: ord.id, product_id, quantity, fulfilled_quantity: 0,
+      }));
+      const { error: linesErr } = await supabase.from("order_lines").insert(linePayload);
+      if (linesErr) throw new Error(linesErr.message);
+    }
+
+    await supabase.from("orders").update({
+      upload_status: "done", status: "pending", error_message: null,
+      notes: byProduct.size
+        ? (unmatched.length ? `Uploaded — ${unmatched.length} item(s) not matched` : "Uploaded order")
+        : `Uploaded — 0 of ${lines.length} item(s) matched; add them manually`,
+    }).eq("id", ord.id);
+    log.info("orderExtract:done", { orderId: ord.id, matched: byProduct.size, unmatched: unmatched.length });
+    return { matched: byProduct.size, unmatched: unmatched.length };
+  } catch (e) {
+    const msg = (e as Error).message ?? "Extraction failed";
+    log.error("orderExtract:failed", { orderId: ord.id, err: msg });
+    await supabase.from("orders").update({ upload_status: "failed", error_message: msg }).eq("id", ord.id);
+    throw e;
+  }
+}
+
+/**
+ * Enqueue uploaded order files (already in storage). Creates one order shell
+ * per file with upload_status='queued'; the background worker fills them in.
+ */
+export const enqueueOrderUploads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      retailer_id: z.string().uuid(),
+      order_date: z.string(),
+      engine: z.enum(["ai", "ocr"]).default("ai"),
+      items: z.array(z.object({ storagePath: z.string(), mimeType: z.string().nullable().optional() })).min(1).max(50),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+    if (!mem) throw new Error("No organization");
+    const orgId = mem.org_id;
+
+    const ids: string[] = [];
+    for (const item of data.items) {
+      const { data: numData, error: numErr } = await supabase.rpc("next_order_number", { _org: orgId });
+      if (numErr) throw new Error(numErr.message);
+      const { data: ord, error: insErr } = await supabase.from("orders").insert({
+        org_id: orgId, retailer_id: data.retailer_id, order_number: numData as unknown as string,
+        order_date: data.order_date, status: "pending", created_by: userId,
+        storage_path: item.storagePath, mime_type: item.mimeType ?? null,
+        extraction_engine: data.engine, upload_status: "queued", notes: "Uploaded — reading…",
+      }).select("id").single();
+      if (insErr) throw new Error(insErr.message);
+      ids.push(ord.id);
+    }
+    log.info("enqueueOrders:ok", { count: ids.length, engine: data.engine });
+    return { ids };
+  });
+
+/** Worker: fill up to `limit` queued order uploads. Claims each atomically. */
+export const processOrderQueue = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ limit: z.number().int().min(1).max(20).default(5) }).parse(d ?? {}))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: candidates } = await supabaseAdmin.from("orders")
+      .select("id").eq("upload_status", "queued").order("created_at", { ascending: true }).limit(data.limit);
+    if (!candidates?.length) return { processed: 0 };
+    let processed = 0;
+    for (const row of candidates) {
+      const { data: claimed } = await supabaseAdmin.from("orders")
+        .update({ upload_status: "processing" }).eq("id", row.id).eq("upload_status", "queued").select("id").maybeSingle();
+      if (!claimed) continue;
+      try { await runOrderExtraction(supabaseAdmin, row.id); processed++; }
+      catch (e) { log.error("orderQueue:row_failed", { id: row.id, err: e }); }
+    }
+    return { processed };
+  });
+
+/**
  * Create an order from an uploaded document (photo/PDF of a retailer's order
  * list). Runs the same extraction service as purchase invoices, matches each
  * line to a catalog product, and creates the order from the matches.

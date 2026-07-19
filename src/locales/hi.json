@@ -600,5 +600,7 @@
   "Order file(s) *": "ऑर्डर फ़ाइल(ें) *",
   "{{n}} file(s) selected — one order each": "{{n}} फ़ाइल(ें) चुनी गईं — हर एक का अलग ऑर्डर",
   "Pick one file, or several to create multiple orders at once.": "एक फ़ाइल चुनें, या एक साथ कई ऑर्डर बनाने के लिए कई चुनें।",
-  "Create {{n}} orders": "{{n}} ऑर्डर बनाएं"
+  "Create {{n}} orders": "{{n}} ऑर्डर बनाएं",
+  "{{n}} order(s) queued — reading in the background": "{{n}} ऑर्डर कतार में — बैकग्राउंड में पढ़े जा रहे हैं",
+  "Upload failed": "अपलोड विफल"
 }

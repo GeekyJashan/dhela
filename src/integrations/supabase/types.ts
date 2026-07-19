@@ -659,38 +659,53 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          error_message: string | null
+          extraction_engine: string | null
           id: string
+          mime_type: string | null
           notes: string | null
           order_date: string
           order_number: string
           org_id: string
           retailer_id: string
           status: Database["public"]["Enums"]["order_status"]
+          storage_path: string | null
           updated_at: string
+          upload_status: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          error_message?: string | null
+          extraction_engine?: string | null
           id?: string
+          mime_type?: string | null
           notes?: string | null
           order_date?: string
           order_number: string
           org_id: string
           retailer_id: string
           status?: Database["public"]["Enums"]["order_status"]
+          storage_path?: string | null
           updated_at?: string
+          upload_status?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          error_message?: string | null
+          extraction_engine?: string | null
           id?: string
+          mime_type?: string | null
           notes?: string | null
           order_date?: string
           order_number?: string
           org_id?: string
           retailer_id?: string
           status?: Database["public"]["Enums"]["order_status"]
+          storage_path?: string | null
           updated_at?: string
+          upload_status?: string | null
         }
         Relationships: [
           {

@@ -29,6 +29,7 @@ import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedSalesNewRouteImport } from './routes/_authenticated/sales.new'
 import { Route as AuthenticatedSalesIdRouteImport } from './routes/_authenticated/sales.$id'
 import { Route as AuthenticatedInvoicesIdRouteImport } from './routes/_authenticated/invoices.$id'
+import { Route as ApiPublicHooksProcessOrderQueueRouteImport } from './routes/api/public/hooks/process-order-queue'
 import { Route as ApiPublicHooksProcessInvoiceQueueRouteImport } from './routes/api/public/hooks/process-invoice-queue'
 
 const AuthRoute = AuthRouteImport.update({
@@ -131,6 +132,12 @@ const AuthenticatedInvoicesIdRoute = AuthenticatedInvoicesIdRouteImport.update({
   path: '/invoices/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksProcessOrderQueueRoute =
+  ApiPublicHooksProcessOrderQueueRouteImport.update({
+    id: '/api/public/hooks/process-order-queue',
+    path: '/api/public/hooks/process-order-queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksProcessInvoiceQueueRoute =
   ApiPublicHooksProcessInvoiceQueueRouteImport.update({
     id: '/api/public/hooks/process-invoice-queue',
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/sales/': typeof AuthenticatedSalesIndexRoute
   '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
+  '/api/public/hooks/process-order-queue': typeof ApiPublicHooksProcessOrderQueueRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -181,6 +189,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/sales': typeof AuthenticatedSalesIndexRoute
   '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
+  '/api/public/hooks/process-order-queue': typeof ApiPublicHooksProcessOrderQueueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -205,6 +214,7 @@ export interface FileRoutesById {
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/sales/': typeof AuthenticatedSalesIndexRoute
   '/api/public/hooks/process-invoice-queue': typeof ApiPublicHooksProcessInvoiceQueueRoute
+  '/api/public/hooks/process-order-queue': typeof ApiPublicHooksProcessOrderQueueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/sales/'
     | '/api/public/hooks/process-invoice-queue'
+    | '/api/public/hooks/process-order-queue'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/sales'
     | '/api/public/hooks/process-invoice-queue'
+    | '/api/public/hooks/process-order-queue'
   id:
     | '__root__'
     | '/'
@@ -274,6 +286,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invoices/'
     | '/_authenticated/sales/'
     | '/api/public/hooks/process-invoice-queue'
+    | '/api/public/hooks/process-order-queue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -281,6 +294,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksProcessInvoiceQueueRoute: typeof ApiPublicHooksProcessInvoiceQueueRoute
+  ApiPublicHooksProcessOrderQueueRoute: typeof ApiPublicHooksProcessOrderQueueRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -425,6 +439,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInvoicesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/process-order-queue': {
+      id: '/api/public/hooks/process-order-queue'
+      path: '/api/public/hooks/process-order-queue'
+      fullPath: '/api/public/hooks/process-order-queue'
+      preLoaderRoute: typeof ApiPublicHooksProcessOrderQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-invoice-queue': {
       id: '/api/public/hooks/process-invoice-queue'
       path: '/api/public/hooks/process-invoice-queue'
@@ -484,6 +505,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicHooksProcessInvoiceQueueRoute:
     ApiPublicHooksProcessInvoiceQueueRoute,
+  ApiPublicHooksProcessOrderQueueRoute: ApiPublicHooksProcessOrderQueueRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
