@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { deletePurchaseInvoice } from "@/lib/invoices.functions";
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/invoices/")({
 function InvoicesList() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const removeInvoice = useServerFn(deletePurchaseInvoice);
   const del = async (id: string, approved: boolean) => {
     if (!confirm(approved ? t("Delete this approved purchase? The stock it added will be reversed.") : t("Delete this purchase invoice?"))) return;
@@ -57,19 +58,16 @@ function InvoicesList() {
           </TableHeader>
           <TableBody>
             {data?.map(inv => (
-              <TableRow key={inv.id} className="cursor-pointer">
-                <TableCell>
-                  <Link to="/invoices/$id" params={{ id: inv.id }} className="font-medium hover:underline">
-                    {inv.supplier_name ?? t("Unknown")}
-                  </Link>
-                </TableCell>
+              <TableRow key={inv.id} className="cursor-pointer hover:bg-muted/40"
+                onClick={() => navigate({ to: "/invoices/$id", params: { id: inv.id } })}>
+                <TableCell className="font-medium">{inv.supplier_name ?? t("Unknown")}</TableCell>
                 <TableCell>{inv.invoice_number ?? "—"}</TableCell>
                 <TableCell>{inv.invoice_date ?? new Date(inv.created_at).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right tabular-nums">₹ {Number(inv.grand_total ?? 0).toLocaleString("en-IN")}</TableCell>
                 <TableCell>{inv.confidence ? `${Number(inv.confidence).toFixed(0)}%` : "—"}</TableCell>
                 <TableCell><StatusBadge status={inv.status} /></TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" onClick={() => del(inv.id, inv.status === "approved")}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); del(inv.id, inv.status === "approved"); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </TableCell>
               </TableRow>
             ))}

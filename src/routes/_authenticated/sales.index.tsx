@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ const inr = (n: number) => `₹ ${Number(n).toLocaleString("en-IN", { maximumFra
 
 function SalesList() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const record = useServerFn(recordPayment);
 
@@ -126,12 +127,9 @@ function SalesList() {
             {data?.map((i) => {
               const canPay = i.status !== "cancelled" && i.payment_status !== "paid" && !!i.retailer;
               return (
-                <TableRow key={i.id} className="cursor-pointer">
-                  <TableCell>
-                    <Link to="/sales/$id" params={{ id: i.id }} className="font-medium hover:underline">
-                      {i.invoice_number}
-                    </Link>
-                  </TableCell>
+                <TableRow key={i.id} className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => navigate({ to: "/sales/$id", params: { id: i.id } })}>
+                  <TableCell className="font-medium">{i.invoice_number}</TableCell>
                   <TableCell>{i.invoice_date}</TableCell>
                   <TableCell>{i.retailer?.name ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">₹ {Number(i.grand_total ?? 0).toLocaleString("en-IN")}</TableCell>
@@ -140,7 +138,7 @@ function SalesList() {
                   <TableCell><Badge variant="outline">{t(i.payment_status)}</Badge></TableCell>
                   <TableCell className="text-right">
                     {canPay && (
-                      <Button size="sm" variant="outline" title={t("Record payment")} onClick={() => openPay(i)}>
+                      <Button size="sm" variant="outline" title={t("Record payment")} onClick={(e) => { e.stopPropagation(); openPay(i); }}>
                         <IndianRupee className="h-3.5 w-3.5 mr-1" /> {t("Record")}
                       </Button>
                     )}
