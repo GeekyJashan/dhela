@@ -1322,6 +1322,8 @@ export type Database = {
           code: string | null
           contact: string | null
           created_at: string
+          gst_filer_rating: string | null
+          gst_status: string | null
           gstin: string | null
           id: string
           name: string
@@ -1333,6 +1335,8 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          gst_filer_rating?: string | null
+          gst_status?: string | null
           gstin?: string | null
           id?: string
           name: string
@@ -1344,6 +1348,8 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          gst_filer_rating?: string | null
+          gst_status?: string | null
           gstin?: string | null
           id?: string
           name?: string
