@@ -647,5 +647,7 @@
   "No consignments above the threshold yet.": "अभी तक सीमा से ज़्यादा की कोई खेप नहीं है।",
   "Needs e-way bill": "ई-वे बिल ज़रूरी",
   "Expires soon": "जल्द खत्म होगा",
-  "Expired": "खत्म हो गया"
+  "Expired": "खत्म हो गया",
+  "How do I generate an e-way bill?": "मैं ई-वे बिल कैसे बनाऊं?",
+  "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.": "अपने इनवॉइस, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफे के बारे में कुछ भी पूछें — जवाब सीधे आपके डेटा से आएंगे। ऐप में कोई काम करने में अटक गए हैं? वो भी पूछें।"
 }

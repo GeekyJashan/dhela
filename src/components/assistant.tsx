@@ -66,6 +66,7 @@ export function Assistant() {
     t("How much do retailers owe me right now?"),
     t("Profit this month, product by product?"),
     t("Which invoices are unpaid for more than 30 days?"),
+    t("How do I generate an e-way bill?"),
   ];
 
   if (!open) {
@@ -106,7 +107,7 @@ export function Assistant() {
         {!messages.length && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              {t("Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data.")}
+              {t("Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.")}
             </p>
             {suggestions.map(s => (
               <button key={s} onClick={() => send(s)}
