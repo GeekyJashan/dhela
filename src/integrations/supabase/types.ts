@@ -1282,6 +1282,14 @@ export type Database = {
           created_by: string | null
           discount_total: number | null
           due_date: string | null
+          ewb_date: string | null
+          ewb_distance_km: number | null
+          ewb_no: string | null
+          ewb_transport_mode: string | null
+          ewb_transporter_id: string | null
+          ewb_transporter_name: string | null
+          ewb_valid_upto: string | null
+          ewb_vehicle_no: string | null
           grand_total: number | null
           id: string
           igst_total: number | null
@@ -1310,6 +1318,14 @@ export type Database = {
           created_by?: string | null
           discount_total?: number | null
           due_date?: string | null
+          ewb_date?: string | null
+          ewb_distance_km?: number | null
+          ewb_no?: string | null
+          ewb_transport_mode?: string | null
+          ewb_transporter_id?: string | null
+          ewb_transporter_name?: string | null
+          ewb_valid_upto?: string | null
+          ewb_vehicle_no?: string | null
           grand_total?: number | null
           id?: string
           igst_total?: number | null
@@ -1338,6 +1354,14 @@ export type Database = {
           created_by?: string | null
           discount_total?: number | null
           due_date?: string | null
+          ewb_date?: string | null
+          ewb_distance_km?: number | null
+          ewb_no?: string | null
+          ewb_transport_mode?: string | null
+          ewb_transporter_id?: string | null
+          ewb_transporter_name?: string | null
+          ewb_valid_upto?: string | null
+          ewb_vehicle_no?: string | null
           grand_total?: number | null
           id?: string
           igst_total?: number | null

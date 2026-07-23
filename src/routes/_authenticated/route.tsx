@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Sparkles, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,6 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
     { to: "/orders", label: "Orders", icon: ClipboardList },
     { to: "/returns", label: "Returns", icon: Undo2 },
     { to: "/retailers", label: "Retailers", icon: Store },
+    { to: "/eway", label: "E-way bills", icon: Truck },
   ]},
   { label: "Catalog", items: [
     { to: "/products", label: "Products", icon: Package },

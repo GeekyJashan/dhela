@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { updateOrgInvoiceProfile } from "@/lib/org.functions";
 import { amountInWords } from "@/lib/pricing";
+import { EwayBillButton, EwayBillStamp, type EwayInvoice } from "@/components/eway-bill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +106,8 @@ function SalesInvoiceView() {
           <Button variant="outline" onClick={() => navigate({ to: "/sales/new", search: { edit: id } })}>
             <Pencil className="h-4 w-4 mr-2" /> {t("Edit")}
           </Button>
+          <EwayBillButton invoice={inv as unknown as EwayInvoice}
+            onSaved={() => qc.invalidateQueries({ queryKey: ["sales_invoice", id] })} />
           {(inv.status === "issued" || inv.status === "paid") && (
             <Link to="/returns" search={{ invoiceId: id }}>
               <Button variant="outline"><Undo2 className="h-4 w-4 mr-2" /> {t("Return items")}</Button>
@@ -207,6 +210,10 @@ function SalesInvoiceView() {
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{t("Notes")}</p>
               <p className="text-sm whitespace-pre-line">{inv.notes}</p>
             </div>
+          )}
+
+          {(inv as unknown as EwayInvoice).ewb_no && (
+            <div className="max-w-xs"><EwayBillStamp invoice={inv as unknown as EwayInvoice} /></div>
           )}
 
           {/* Bank details + authorized signatory */}
