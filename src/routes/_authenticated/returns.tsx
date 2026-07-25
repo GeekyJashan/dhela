@@ -18,7 +18,7 @@ import { Plus, Trash2, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/returns")({
-  head: () => ({ meta: [{ title: "Returns — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Returns — Dhela" }] }),
   validateSearch: (s: Record<string, unknown>): { invoiceId?: string } =>
     typeof s.invoiceId === "string" ? { invoiceId: s.invoiceId } : {},
   component: ReturnsPage,

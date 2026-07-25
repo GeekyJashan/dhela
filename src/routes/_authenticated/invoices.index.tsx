@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
-  head: () => ({ meta: [{ title: "Invoices — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Invoices — Dhela" }] }),
   component: InvoicesList,
 });
 

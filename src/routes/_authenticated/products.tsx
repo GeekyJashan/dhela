@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 
 
 export const Route = createFileRoute("/_authenticated/products")({
-  head: () => ({ meta: [{ title: "Products — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Products — Dhela" }] }),
   component: Products,
 });
 

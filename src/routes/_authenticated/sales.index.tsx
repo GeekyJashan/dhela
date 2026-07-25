@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/sales/")({
-  head: () => ({ meta: [{ title: "Sales invoices — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Sales invoices — Dhela" }] }),
   component: SalesList,
 });
 

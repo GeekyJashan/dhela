@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Dhela" }] }),
   component: AuthPage,
 });
 
@@ -55,8 +55,8 @@ function AuthPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-12">
-        <Link to="/" className="flex items-center gap-2 text-lg font-semibold">
-          <Sparkles className="h-5 w-5 text-accent" /> Ledgerly
+        <Link to="/" className="flex items-center">
+          <Logo size={30} wordmarkClassName="dhela-word-gold" />
         </Link>
         <div className="space-y-4 max-w-md">
           <p className="font-display text-4xl leading-tight">
@@ -64,7 +64,7 @@ function AuthPage() {
           </p>
           <p className="text-sm text-sidebar-foreground/70">— Head of Ops, regional pharma distributor</p>
         </div>
-        <p className="text-xs text-sidebar-foreground/50">© Ledgerly 2026</p>
+        <p className="text-xs text-sidebar-foreground/50">© Dhela 2026 · {t("Every dhela accounted for.")}</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md">

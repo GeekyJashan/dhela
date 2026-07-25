@@ -13,7 +13,7 @@ import { Download, FileText, Truck, AlertTriangle, CheckCircle2, Clock } from "l
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/eway")({
-  head: () => ({ meta: [{ title: "E-way bills — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "E-way bills — Dhela" }] }),
   component: EwayPage,
 });
 

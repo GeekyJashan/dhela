@@ -15,7 +15,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/pricing")({
-  head: () => ({ meta: [{ title: "Pricing — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Pricing — Dhela" }] }),
   component: PricingPage,
 });
 

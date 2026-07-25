@@ -11,7 +11,7 @@ import { Printer, MessageCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/statement")({
-  head: () => ({ meta: [{ title: "Account statement — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Account statement — Dhela" }] }),
   validateSearch: (s: Record<string, unknown>): { party: "retailer" | "supplier"; id: string } => ({
     party: s.party === "supplier" ? "supplier" : "retailer",
     id: typeof s.id === "string" ? s.id : "",

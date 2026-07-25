@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { whatsappLink, supportPhoneDisplay, FOUNDER_EMAIL } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/billing")({
-  head: () => ({ meta: [{ title: "Billing — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Billing — Dhela" }] }),
   component: BillingPage,
 });
 
@@ -30,7 +30,7 @@ function BillingPage() {
     : 0;
 
   const upgradeHref = (plan: PlanId) =>
-    whatsappLink(`Hi! I want to upgrade my Ledgerly workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`);
+    whatsappLink(`Hi! I want to upgrade my Dhela workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`);
 
   const planOrder: PlanId[] = ["free", "standard", "pro"];
 
@@ -143,7 +143,7 @@ function BillingPage() {
           <p>2. {t("Pay by UPI or bank transfer.")}</p>
           <p>
             3. {t("Send the transaction screenshot to WhatsApp")}{" "}
-            <a href={whatsappLink(t("Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade."))}
+            <a href={whatsappLink(t("Hi Jashan! Here is my payment screenshot for the Dhela upgrade."))}
               target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
               {supportPhoneDisplay()}
             </a>{" "}

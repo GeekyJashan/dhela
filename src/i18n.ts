@@ -6,7 +6,9 @@ import { initReactI18next } from "react-i18next";
 import hi from "./locales/hi.json";
 import pa from "./locales/pa.json";
 
-export const LANG_STORAGE_KEY = "ledgerly.lang";
+export const LANG_STORAGE_KEY = "dhela.lang";
+/** Pre-rebrand key — read once so existing users keep their language. */
+const LEGACY_LANG_STORAGE_KEY = "ledgerly.lang";
 
 export const LANGUAGES = [
   { code: "en", label: "English" },
@@ -30,7 +32,10 @@ i18n.use(initReactI18next).init({
 /** Restore the saved language on the client (SSR always renders English). */
 export function applySavedLanguage() {
   if (typeof window === "undefined") return;
-  const saved = window.localStorage.getItem(LANG_STORAGE_KEY);
+  const saved =
+    window.localStorage.getItem(LANG_STORAGE_KEY) ??
+    window.localStorage.getItem(LEGACY_LANG_STORAGE_KEY);
+  if (saved) window.localStorage.setItem(LANG_STORAGE_KEY, saved);
   if (saved && saved !== i18n.language) void i18n.changeLanguage(saved);
   document.documentElement.lang = saved ?? "en";
 }

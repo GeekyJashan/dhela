@@ -1,4 +1,4 @@
-# Deploying Ledgerly (free tier)
+# Deploying Dhela (free tier)
 
 Three pieces: **Vercel** (web app), **Render** (FastAPI extraction service,
 Docker), **Supabase** (already cloud-hosted — nothing to deploy).

@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
-  head: () => ({ meta: [{ title: "Review invoice — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Review invoice — Dhela" }] }),
   component: InvoiceReview,
 });
 

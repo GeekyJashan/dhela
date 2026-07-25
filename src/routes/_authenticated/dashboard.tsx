@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Dhela" }] }),
   component: Dashboard,
 });
 

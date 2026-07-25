@@ -18,7 +18,7 @@ import { Plus, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
-  head: () => ({ meta: [{ title: "Suppliers — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Suppliers — Dhela" }] }),
   component: Suppliers,
 });
 

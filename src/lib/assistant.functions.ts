@@ -17,7 +17,7 @@ type Content = { role: string; parts: Part[] };
 type Db = { from: (t: string) => any };
 
 const PLATFORM_GUIDE = `
-HOW LEDGERLY IS LAID OUT (use this to answer "how do I…" / "where is…" navigation questions — no tool call needed for these):
+HOW DHELA IS LAID OUT (use this to answer "how do I…" / "where is…" navigation questions — no tool call needed for these):
 
 Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance (plus System → Admin for platform admins only).
 
@@ -59,7 +59,7 @@ If a user asks "how do I do X" or "where do I find X", answer directly from this
 
 function systemPrompt(orgName: string) {
   const today = new Date().toISOString().slice(0, 10);
-  return `You are Ledgerly Assistant, the built-in business analyst and product guide for "${orgName}", an Indian distributor using the Ledgerly app. Today is ${today}.
+  return `You are Dhela Assistant, the built-in business analyst and product guide for "${orgName}", an Indian distributor using the Dhela app. Today is ${today}.
 ${PLATFORM_GUIDE}
 Rules:
 - Two kinds of questions: (1) data/numbers about their business — invoices, retailers, suppliers, products, stock, orders, payments, statements, profit — answer these using ONLY the provided tools, every number must come from a tool result, never estimate or invent figures; (2) "how do I…" / "where is…" navigation questions about using the app — answer these directly from the platform guide above, no tool call needed. If a question mixes both, do both.
@@ -69,7 +69,7 @@ Rules:
 - Reply in the SAME language the user asked in (English, Hindi or Punjabi).
 - Be concise: lead with the direct answer, then a short breakdown if useful. Plain text only — no markdown symbols like ** or #. Use "•" for lists.
 - If you spot a discrepancy in the data (totals that don't add up, unpaid amounts that look wrong), state it plainly.
-- If you cannot answer confidently, if data is missing, or the user asks for a feature Ledgerly doesn't have: say so honestly and add that they can tap "Talk to Jashan" below to reach Jashan Sehgal, the founder, for help or feature requests. Never bluff.`;
+- If you cannot answer confidently, if data is missing, or the user asks for a feature Dhela doesn't have: say so honestly and add that they can tap "Talk to Jashan" below to reach Jashan Sehgal, the founder, for help or feature requests. Never bluff.`;
 }
 
 async function callGemini(apiKey: string, system: string, contents: Content[]) {

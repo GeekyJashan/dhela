@@ -23,7 +23,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
-  head: () => ({ meta: [{ title: "New sales invoice — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "New sales invoice — Dhela" }] }),
   validateSearch: (s: Record<string, unknown>): { orderId?: string; edit?: string } => ({
     ...(typeof s.orderId === "string" ? { orderId: s.orderId } : {}),
     ...(typeof s.edit === "string" ? { edit: s.edit } : {}),

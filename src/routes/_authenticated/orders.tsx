@@ -18,7 +18,7 @@ import { Plus, Pencil, Trash2, Receipt, Ban, FileUp, Loader2 } from "lucide-reac
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/orders")({
-  head: () => ({ meta: [{ title: "Orders — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Orders — Dhela" }] }),
   component: OrdersPage,
 });
 

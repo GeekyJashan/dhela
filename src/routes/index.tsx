@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Sparkles, FileUp, Zap, Shield, GitBranch, ArrowRight, CheckCircle2 } from "lucide-react";
+import { FileUp, Zap, Shield, GitBranch, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -11,9 +12,7 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-2 font-semibold">
-            <Sparkles className="h-5 w-5 text-primary" /> Ledgerly
-          </div>
+          <Logo size={26} />
           <div className="flex items-center gap-3">
             <Link to="/auth"><Button variant="ghost">Sign in</Button></Link>
             <Link to="/auth"><Button>Get started</Button></Link>
@@ -23,8 +22,15 @@ function Landing() {
 
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-grid opacity-40" />
-        <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
+        <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-20 text-center">
+          <div className="flex justify-center">
+            <Logo size={92} ambient withWordmark={false} />
+          </div>
+          <p className="mt-6 font-display text-3xl md:text-4xl text-primary">
+            हर ढेला, हिसाब में<span className="text-muted-foreground/50"> · </span>
+            <span className="text-foreground">Har dhela, hisaab mein.</span>
+          </p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" /> Built for FMCG, Pharma, Hardware & Grocery distributors
           </div>
           <h1 className="font-display text-6xl md:text-7xl leading-[1.02] mt-6">
@@ -32,7 +38,7 @@ function Landing() {
             <span className="text-primary">Start approving them.</span>
           </h1>
           <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ledgerly reads every supplier invoice — PDF, scan, photo — extracts products, matches your ERP catalog, validates GST, and posts inventory. Your operator just reviews.
+            Dhela reads every supplier invoice — PDF, scan, photo — extracts products, matches your ERP catalog, validates GST, and posts inventory. Your operator just reviews.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link to="/auth"><Button size="lg" className="h-12 px-6">
@@ -50,7 +56,7 @@ function Landing() {
 
       <section className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-3 gap-6">
         <Feature icon={<Zap />} title="Any invoice, any format"
-          body="PDF, scanned image, WhatsApp photo — Ledgerly's vision AI reads them all and understands the semantics." />
+          body="PDF, scanned image, WhatsApp photo — Dhela's vision AI reads them all and understands the semantics." />
         <Feature icon={<GitBranch />} title="Smart product matching"
           body="'MAGGI 70G' → 'MAGGI NOODLES 70 GM'. Semantic search, aliases and learned mappings resolve every supplier's naming quirks." />
         <Feature icon={<Shield />} title="Confidence you can trust"
@@ -89,8 +95,9 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        © 2026 Ledgerly. Built for distributors.
+      <footer className="border-t py-10 flex flex-col items-center gap-3 text-sm text-muted-foreground">
+        <Logo size={22} />
+        <p>© 2026 Dhela · dhela.in · Built for distributors.</p>
       </footer>
     </div>
   );

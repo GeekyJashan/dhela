@@ -1,4 +1,4 @@
-# Ledgerly (invoice-genie)
+# Dhela (invoice-genie)
 
 AI purchase-invoice automation for Indian distributors. Fully self-hosted — no
 Lovable dependency.

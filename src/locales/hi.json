@@ -429,8 +429,8 @@
   "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे किसी प्रोडक्ट पर दो तारीखों के बीच कितना मुनाफ़ा हुआ।",
   "Coming soon": "जल्द आ रहा है",
   "Ask AI": "AI से पूछें",
-  "Ask Ledgerly Assistant": "Ledgerly असिस्टेंट से पूछें",
-  "Ledgerly Assistant": "Ledgerly असिस्टेंट",
+  "Ask Dhela Assistant": "ढेला असिस्टेंट से पूछें",
+  "Dhela Assistant": "ढेला असिस्टेंट",
   "{{n}} AI questions/extractions left this month": "इस महीने {{n}} AI सवाल/एक्सट्रैक्शन बाकी",
   "Book a call": "कॉल बुक करें",
   "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data.": "अपने इनवॉइस, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफ़े के बारे में कुछ भी पूछें — जवाब सीधे आपके अपने डेटा से आते हैं।",
@@ -440,8 +440,8 @@
   "Checking your data…": "आपका डेटा देख रहे हैं…",
   "e.g. Profit on iphone from 1 July to today?": "जैसे: 1 जुलाई से आज तक iphone पर मुनाफ़ा?",
   "Wrong answer or missing feature? Talk to Jashan →": "गलत जवाब या कोई सुविधा चाहिए? Jashan से बात करें →",
-  "Hi Jashan! I'm using Ledgerly and would like to talk.": "Hi Jashan! मैं Ledgerly इस्तेमाल कर रहा/रही हूं और बात करना चाहता/चाहती हूं।",
-  "Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.": "Hi Jashan! मेरे Ledgerly सवाल के बारे में: \"{{q}}\" — जवाब सही नहीं लगा / मुझे एक सुविधा चाहिए।",
+  "Hi Jashan! I'm using Dhela and would like to talk.": "Hi Jashan! मैं ढेला इस्तेमाल कर रहा/रही हूं और बात करना चाहता/चाहती हूं।",
+  "Hi Jashan! About my Dhela question: \"{{q}}\" — the answer didn't look right / I have a feature request.": "Hi Jashan! मेरे ढेला सवाल के बारे में: \"{{q}}\" — जवाब सही नहीं लगा / मुझे एक सुविधा चाहिए।",
   "AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.": "AI असिस्टेंट — अपने इनवॉइस, रिटेलर, प्रोडक्ट और ऑर्डर के बारे में कुछ भी पूछें: गड़बड़ी पकड़ें, या जवाब पाएं जैसे दो तारीखों के बीच किसी प्रोडक्ट पर मुनाफ़ा। हर सवाल में 1 AI एक्सट्रैक्शन लगता है।",
   "Talk to Jashan": "Jashan से बात करें",
   "Upgrade now": "अभी अपग्रेड करें",
@@ -451,7 +451,7 @@
   "Send the transaction screenshot to WhatsApp": "लेनदेन का स्क्रीनशॉट WhatsApp पर भेजें",
   "or email": "या ईमेल करें",
   "your plan is activated the same day.": "आपका प्लान उसी दिन सक्रिय हो जाता है।",
-  "Hi Jashan! Here is my payment screenshot for the Ledgerly upgrade.": "Hi Jashan! Ledgerly अपग्रेड के लिए मेरा भुगतान स्क्रीनशॉट यह रहा।",
+  "Hi Jashan! Here is my payment screenshot for the Dhela upgrade.": "Hi Jashan! ढेला अपग्रेड के लिए मेरा भुगतान स्क्रीनशॉट यह रहा।",
   "Delete": "हटाएं",
   "Invoice details saved": "इनवॉइस विवरण सहेजा गया",
   "Purchase deleted": "खरीद हटा दी गई",
@@ -649,5 +649,6 @@
   "Expires soon": "जल्द खत्म होगा",
   "Expired": "खत्म हो गया",
   "How do I generate an e-way bill?": "मैं ई-वे बिल कैसे बनाऊं?",
-  "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.": "अपने इनवॉइस, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफे के बारे में कुछ भी पूछें — जवाब सीधे आपके डेटा से आएंगे। ऐप में कोई काम करने में अटक गए हैं? वो भी पूछें।"
+  "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.": "अपने इनवॉइस, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफे के बारे में कुछ भी पूछें — जवाब सीधे आपके डेटा से आएंगे। ऐप में कोई काम करने में अटक गए हैं? वो भी पूछें।",
+  "Every dhela accounted for.": "हर ढेला हिसाब में।"
 }

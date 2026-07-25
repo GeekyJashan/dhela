@@ -165,6 +165,93 @@
 }
 .tilt-3d { transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); transform-style: preserve-3d; will-change: transform; }
 
+/* --- Dhela brand mark --- */
+@keyframes coin-mint {
+  0%   { opacity: 0; transform: rotateY(-540deg) scale(0.5); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: rotateY(0deg) scale(1); }
+}
+/* rests flat for most of the cycle, then turns over once */
+@keyframes coin-turn {
+  0%, 84%  { transform: rotateY(0deg); }
+  100%     { transform: rotateY(360deg); }
+}
+@keyframes coin-sweep {
+  0%        { transform: translateX(-150%) rotate(20deg); }
+  55%, 100% { transform: translateX(260%) rotate(20deg); }
+}
+@keyframes coin-hover-flip {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+@keyframes brand-halo {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.7;  transform: scale(1.18); }
+}
+@keyframes brand-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+@keyframes wordmark-strike {
+  from { opacity: 0; transform: translateY(0.35em) rotate(7deg); filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.dhela-mark {
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dhela-logo:hover .dhela-mark { transform: scale(1.14); }
+.dhela-coin {
+  transform-style: preserve-3d;
+  animation: coin-mint 1s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+}
+.dhela-coin-idle {
+  animation: coin-mint 1s cubic-bezier(0.2, 0.85, 0.25, 1) both,
+             coin-turn 9s 1.4s cubic-bezier(0.55, 0, 0.2, 1) infinite;
+}
+/* hover hands the flip over to a single fast turn, so it never fights the idle loop */
+.dhela-logo:hover .dhela-coin,
+.dhela-mark:hover .dhela-coin {
+  animation: coin-hover-flip 0.7s cubic-bezier(0.55, 0, 0.2, 1);
+}
+.dhela-shine {
+  position: absolute; inset: 0;
+  border-radius: 9999px; overflow: hidden; pointer-events: none;
+}
+.dhela-shine::after {
+  content: ""; position: absolute; top: -45%; left: 0;
+  width: 42%; height: 190%;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.8), transparent);
+  animation: coin-sweep 4.2s ease-in-out infinite;
+}
+.dhela-glow {
+  position: absolute; inset: -55%;
+  border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(closest-side, oklch(0.82 0.145 68 / 0.55), transparent 72%);
+  filter: blur(10px);
+  animation: brand-halo 4.5s ease-in-out infinite;
+}
+.dhela-logo:has(.dhela-glow) .dhela-mark { animation: brand-float 6s ease-in-out infinite; }
+.dhela-word > span {
+  display: inline-block;
+  animation: wordmark-strike 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* gold-struck wordmark, for dark surfaces and the hero */
+.dhela-word-gold > span {
+  background: linear-gradient(100deg, oklch(0.93 0.09 90), oklch(0.82 0.145 68) 45%, oklch(0.95 0.07 92));
+  background-clip: text; -webkit-background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhela-coin, .dhela-coin-idle, .dhela-shine::after,
+  .dhela-glow, .dhela-word > span, .dhela-logo:has(.dhela-glow) .dhela-mark {
+    animation: none !important;
+  }
+  .dhela-coin, .dhela-word > span { opacity: 1; transform: none; filter: none; }
+}
+
 /* --- GSTIN auto-fill affordances --- */
 @keyframes gstin-attract {
   0%, 100% { box-shadow: 0 0 0 0 oklch(0.42 0.09 200 / 0); }

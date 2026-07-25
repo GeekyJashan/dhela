@@ -3,7 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { askAssistant, getAssistantHistory } from "@/lib/assistant.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, X, Send, Loader2, PhoneCall } from "lucide-react";
+import { X, Send, Loader2, PhoneCall } from "lucide-react";
+import { DhelaCoin } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 
 type Msg = { role: "user" | "assistant"; text: string };
@@ -60,7 +61,7 @@ export function Assistant() {
     }
   };
 
-  const callLink = founderLink(t("Hi Jashan! I'm using Ledgerly and would like to talk."));
+  const callLink = founderLink(t("Hi Jashan! I'm using Dhela and would like to talk."));
 
   const suggestions = [
     t("How much do retailers owe me right now?"),
@@ -73,10 +74,10 @@ export function Assistant() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 h-13 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 flex items-center gap-2 hover:opacity-90 transition print:hidden"
-        title={t("Ask Ledgerly Assistant")}
+        className="dhela-logo fixed bottom-5 right-5 z-40 h-13 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 flex items-center gap-2 hover:opacity-90 transition print:hidden"
+        title={t("Ask Dhela Assistant")}
       >
-        <Sparkles className="h-5 w-5" />
+        <DhelaCoin size={20} />
         <span className="text-sm font-medium">{t("Ask AI")}</span>
       </button>
     );
@@ -85,9 +86,9 @@ export function Assistant() {
   return (
     <div className="fixed bottom-5 right-5 z-40 w-[380px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-3rem)] bg-background border rounded-xl shadow-2xl flex flex-col print:hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b">
-        <Sparkles className="h-4 w-4 text-primary" />
+        <DhelaCoin size={18} />
         <div className="flex-1">
-          <div className="text-sm font-semibold leading-none">{t("Ledgerly Assistant")}</div>
+          <div className="text-sm font-semibold leading-none">{t("Dhela Assistant")}</div>
           {usage && (
             <div className="text-[11px] text-muted-foreground mt-0.5">
               {t("{{n}} AI questions/extractions left this month", { n: Math.max(0, usage.limit - usage.used) })}
@@ -128,7 +129,7 @@ export function Assistant() {
               {m.role === "assistant" && i === messages.length - 1 && !busy && (
                 <div className="mt-2 pt-2 border-t border-border/60">
                   <a
-                    href={founderLink(t("Hi Jashan! About my Ledgerly question: \"{{q}}\" — the answer didn't look right / I have a feature request.", { q: messages[i - 1]?.text?.slice(0, 150) ?? "" }))}
+                    href={founderLink(t("Hi Jashan! About my Dhela question: \"{{q}}\" — the answer didn't look right / I have a feature request.", { q: messages[i - 1]?.text?.slice(0, 150) ?? "" }))}
                     target="_blank" rel="noreferrer"
                     className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
                   >

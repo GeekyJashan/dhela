@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { KeyRound, Copy, ShieldCheck, ExternalLink } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Admin — Dhela" }] }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     const meta = data.user?.app_metadata as { platform_admin?: boolean } | undefined;

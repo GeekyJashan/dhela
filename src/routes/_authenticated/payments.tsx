@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { PaymentsAnalytics } from "@/components/payments-analytics";
 
 export const Route = createFileRoute("/_authenticated/payments")({
-  head: () => ({ meta: [{ title: "Payments — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Payments — Dhela" }] }),
   component: PaymentsPage,
 });
 

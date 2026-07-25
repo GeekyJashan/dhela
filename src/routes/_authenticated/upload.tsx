@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 const log = createLogger("upload");
 
 export const Route = createFileRoute("/_authenticated/upload")({
-  head: () => ({ meta: [{ title: "Upload invoices — Ledgerly" }] }),
+  head: () => ({ meta: [{ title: "Upload invoices — Dhela" }] }),
   component: Upload,
 });
 
