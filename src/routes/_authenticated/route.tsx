@@ -71,7 +71,7 @@ function AuthedLayout() {
     <div className="h-dvh flex bg-background overflow-hidden print:h-auto print:overflow-visible">
       <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-full print:hidden">
         <Link to="/dashboard" className="flex items-center px-5 py-5 border-b border-sidebar-border shrink-0">
-          <Logo size={26} wordmarkClassName="dhela-word-gold" />
+          <Logo size={30} wordmarkClassName="dhela-word-gold" />
         </Link>
         <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-4">
           {groups.map((group, gi) => (

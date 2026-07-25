@@ -45,6 +45,7 @@ export function DhelaCoin({ size = 24, ambient = false, idle = true }: {
   const uid = useId().replace(/:/g, "");
   const face = `dhela-face-${uid}`;
   const rim = `dhela-rim-${uid}`;
+  const compact = size < 24;
 
   return (
     <span className="dhela-mark relative inline-block shrink-0"
@@ -66,26 +67,41 @@ export function DhelaCoin({ size = 24, ambient = false, idle = true }: {
 
           {/* struck blank */}
           <circle cx="24" cy="24" r="22.5" fill={`url(#${face})`} />
-          {/* milled (reeded) edge — dashes on a thick stroke read as coin knurling */}
-          <circle cx="24" cy="24" r="21" fill="none" stroke={`url(#${rim})`}
-            strokeWidth="3.4" strokeDasharray="1.15 2.35" />
-          {/* recessed inner field */}
-          <circle cx="24" cy="24" r="17.4" fill="none"
-            stroke="oklch(0.34 0.07 200 / 0.45)" strokeWidth="1.15" />
 
-          {/* the die: serif D */}
-          <text x="24" y="31.6" textAnchor="middle"
-            fontFamily="'Instrument Serif', Georgia, serif"
-            fontSize="23" fill="oklch(0.24 0.045 200)">D</text>
-          {/* ledger rules struck under the letter */}
-          <path d="M16.6 35.4h14.8M18.9 38.1h10.2" stroke="oklch(0.24 0.045 200 / 0.55)"
-            strokeWidth="1.15" strokeLinecap="round" />
+          {compact ? (
+            <>
+              {/* below ~24px the milling and rules turn to mush, so the die
+                  simplifies to a solid rim and a D that fills the field */}
+              <circle cx="24" cy="24" r="20.5" fill="none" stroke={`url(#${rim})`} strokeWidth="3" />
+              <text x="24" y="35" textAnchor="middle"
+                fontFamily="'Instrument Serif', Georgia, serif"
+                fontSize="32" fill="oklch(0.2 0.04 200)">D</text>
+            </>
+          ) : (
+            <>
+              {/* milled (reeded) edge — dashes on a thick stroke read as coin knurling */}
+              <circle cx="24" cy="24" r="21" fill="none" stroke={`url(#${rim})`}
+                strokeWidth="3.4" strokeDasharray="1.15 2.35" />
+              {/* recessed inner field */}
+              <circle cx="24" cy="24" r="17.4" fill="none"
+                stroke="oklch(0.34 0.07 200 / 0.45)" strokeWidth="1.15" />
+              {/* the die: serif D */}
+              <text x="24" y="31.6" textAnchor="middle"
+                fontFamily="'Instrument Serif', Georgia, serif"
+                fontSize="23" fill="oklch(0.24 0.045 200)">D</text>
+              {/* ledger rules struck under the letter */}
+              <path d="M16.6 35.4h14.8M18.9 38.1h10.2" stroke="oklch(0.24 0.045 200 / 0.55)"
+                strokeWidth="1.15" strokeLinecap="round" />
+            </>
+          )}
 
           {/* specular highlight + contact shadow give it metal */}
           <path d="M9.6 17.4A16.4 16.4 0 0 1 22.6 7.8" fill="none"
-            stroke="oklch(1 0 0 / 0.5)" strokeWidth="2.1" strokeLinecap="round" />
-          <path d="M38.2 30.4A16 16 0 0 1 27.8 40" fill="none"
-            stroke="oklch(0.45 0.1 50 / 0.35)" strokeWidth="2.2" strokeLinecap="round" />
+            stroke="oklch(1 0 0 / 0.5)" strokeWidth={compact ? 2.6 : 2.1} strokeLinecap="round" />
+          {!compact && (
+            <path d="M38.2 30.4A16 16 0 0 1 27.8 40" fill="none"
+              stroke="oklch(0.45 0.1 50 / 0.35)" strokeWidth="2.2" strokeLinecap="round" />
+          )}
         </svg>
         <span aria-hidden className="dhela-shine" />
       </span>

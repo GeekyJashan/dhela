@@ -12,7 +12,7 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-          <Logo size={26} />
+          <Logo size={30} />
           <div className="flex items-center gap-3">
             <Link to="/auth"><Button variant="ghost">Sign in</Button></Link>
             <Link to="/auth"><Button>Get started</Button></Link>
@@ -24,13 +24,13 @@ function Landing() {
         <div className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-20 text-center">
           <div className="flex justify-center">
-            <Logo size={92} ambient withWordmark={false} />
+            <Logo size={78} ambient />
           </div>
-          <p className="mt-6 font-display text-3xl md:text-4xl text-primary">
-            हर ढेला, हिसाब में<span className="text-muted-foreground/50"> · </span>
-            <span className="text-foreground">Har dhela, hisaab mein.</span>
+          <p className="mt-5 font-display text-3xl md:text-4xl text-primary">हर ढेला, हिसाब में</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+            Har dhela, hisaab mein
           </p>
-          <div className="mt-6 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
+          <div className="mt-8 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" /> Built for FMCG, Pharma, Hardware & Grocery distributors
           </div>
           <h1 className="font-display text-6xl md:text-7xl leading-[1.02] mt-6">
