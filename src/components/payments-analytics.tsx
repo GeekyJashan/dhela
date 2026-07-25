@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Reveal, useInView } from "@/components/reveal";
 import { useTranslation } from "react-i18next";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, Area, AreaChart,
@@ -68,24 +69,6 @@ const tooltipStyle = {
 };
 
 /* --------------------------- interactions --------------------------- */
-
-/** Reveal children with a rise-in animation when scrolled into view. */
-function useInView() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") { setInView(true); return; }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setInView(true); io.disconnect(); } }, { threshold: 0.12 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return { ref, inView };
-}
-function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const { ref, inView } = useInView();
-  return <div ref={ref} className={cn("reveal", inView && "in", className)} style={{ animationDelay: `${delay}ms` }}>{children}</div>;
-}
 
 /** Cursor-tracking 3D tilt with a moving spotlight glare. */
 function Tilt({ children, className, max = 7, glare = true, radius = "rounded-xl" }: {
