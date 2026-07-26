@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Check, MessageCircle, Sparkles, ScanLine, Copy, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isMobileDevice } from "@/lib/device";
 import { useTranslation } from "react-i18next";
 import { whatsappLink, supportPhoneDisplay, emailLink, UPI_VPA, upiPayLink, FOUNDER_EMAIL } from "@/lib/support";
 
@@ -25,9 +26,7 @@ function BillingPage() {
   const fetchBilling = useServerFn(getBillingInfo);
   const [payPlan, setPayPlan] = useState<PlanId | null>(null);
   const [qrBroken, setQrBroken] = useState(false);
-  // The route is ssr:false, so touching navigator here is safe.
-  const isMobile = typeof navigator !== "undefined"
-    && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isMobile = isMobileDevice();
 
   const { data: billing } = useQuery({
     queryKey: ["billing_info"],

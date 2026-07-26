@@ -692,5 +692,10 @@
   "Questions about a plan?": "प्लान के बारे में सवाल?",
   "Hi Jashan! I have a question about Dhela plans.": "Hi Jashan! मुझे Dhela प्लान के बारे में एक सवाल है।",
   "{{n}} AI bill reads / month": "{{n}} AI बिल रीड / महीना",
-  "AI assistant — 1 read per question": "AI असिस्टेंट — हर सवाल पर 1 रीड"
+  "AI assistant — 1 read per question": "AI असिस्टेंट — हर सवाल पर 1 रीड",
+  "Take photo": "फोटो लें",
+  "Choose from phone": "फोन से चुनें",
+  "Photo": "फोटो",
+  "Keep tapping to add more — nothing uploads until you press Upload.": "और जोड़ने के लिए दबाते रहें — Upload दबाने तक कुछ भी अपलोड नहीं होगा।",
+  "Remove": "हटाएं"
 }

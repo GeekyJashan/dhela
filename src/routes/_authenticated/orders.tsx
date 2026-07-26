@@ -14,8 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Receipt, Ban, FileUp, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Receipt, Ban, FileUp, Loader2, X } from "lucide-react";
+import { CaptureInput } from "@/components/capture-input";
 import { useTranslation } from "react-i18next";
+
+const MAX_ORDER_FILES = 100;
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({ meta: [{ title: "Orders — Dhela" }] }),
@@ -281,9 +284,30 @@ function OrdersPage() {
               </div>
               <div>
                 <Label>{t("Order file(s) *")}</Label>
-                <Input type="file" accept="application/pdf,image/*" multiple
-                  onChange={e => setUpl({ ...upl, files: Array.from(e.target.files ?? []) })} />
-                <p className="text-xs text-muted-foreground mt-1">
+                <CaptureInput
+                  className="mt-1.5"
+                  photoCount={upl.files.filter(f => f.type.startsWith("image/")).length}
+                  onFiles={files => setUpl(u => u && ({
+                    ...u,
+                    files: [...u.files, ...files].slice(0, MAX_ORDER_FILES),
+                  }))}
+                />
+                {upl.files.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {upl.files.map((f, i) => (
+                      <div key={`${f.name}-${i}`} className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
+                        <span className="flex-1 truncate">{f.name}</span>
+                        <span className="text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
+                        <button type="button" aria-label={t("Remove")}
+                          onClick={() => setUpl(u => u && ({ ...u, files: u.files.filter((_, n) => n !== i) }))}
+                          className="text-muted-foreground hover:text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1.5">
                   {upl.files.length > 0
                     ? t("{{n}} file(s) selected — one order each", { n: upl.files.length })
                     : t("Pick one file, or several to create multiple orders at once.")}

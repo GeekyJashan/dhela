@@ -4,11 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { FileUp, Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { CaptureInput, previewUrl } from "@/components/capture-input";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices, extractInvoice } from "@/lib/invoices.functions";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
@@ -43,6 +43,8 @@ interface Row {
   error?: string;
   supplier?: string | null;
   total?: number | null;
+  /** Object URL for image files, so a blurry photo is caught before upload. */
+  preview?: string;
 }
 
 const MAX_FILES = 100;
@@ -63,9 +65,10 @@ function Upload() {
   });
   const aiRemaining = billing ? Math.max(0, billing.aiLimitPerMonth - billing.aiUsedThisMonth) : null;
   const [busy, setBusy] = useState(false);
+  const photoCount = rows.filter(r => r.file.type.startsWith("image/")).length;
   const pollRef = useRef<number | null>(null);
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = (files: File[] | FileList | null) => {
     if (!files) return;
     const next: Row[] = [];
     for (const f of Array.from(files)) {
@@ -73,12 +76,19 @@ function Upload() {
         toast.error(t("{{name}} exceeds {{mb}}MB", { name: f.name, mb: MAX_MB }));
         continue;
       }
-      next.push({ key: `${f.name}-${f.size}-${crypto.randomUUID()}`, file: f, status: "pending" });
+      next.push({
+        key: `${f.name}-${f.size}-${crypto.randomUUID()}`,
+        file: f,
+        status: "pending",
+        preview: previewUrl(f),
+      });
     }
     setRows((prev) => {
       const total = prev.length + next.length;
       if (total > MAX_FILES) {
         toast.error(t("Max {{n}} files per batch", { n: MAX_FILES }));
+        // Revoke the previews of anything we're dropping on the floor.
+        [...prev, ...next].slice(MAX_FILES).forEach(r => r.preview && URL.revokeObjectURL(r.preview));
         return [...prev, ...next].slice(0, MAX_FILES);
       }
       return [...prev, ...next];
@@ -86,7 +96,18 @@ function Upload() {
   };
 
   const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => r.key !== key || r.status === "processing"));
+    setRows((prev) => prev.filter((r) => {
+      const keep = r.key !== key || r.status === "processing";
+      if (!keep && r.preview) URL.revokeObjectURL(r.preview);
+      return keep;
+    }));
+
+  // Release every object URL when leaving the page.
+  const rowsRef = useRef<Row[]>([]);
+  rowsRef.current = rows;
+  useEffect(() => () => {
+    rowsRef.current.forEach(r => r.preview && URL.revokeObjectURL(r.preview));
+  }, []);
 
   const patch = useCallback((key: string, p: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...p } : r)));
@@ -269,21 +290,17 @@ function Upload() {
           <CardDescription>{t("PDF, JPG, PNG. Up to {{mb}}MB each, {{n}} per batch.", { mb: MAX_MB, n: MAX_FILES })}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <label className="block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer hover:bg-muted/40 transition"
-            onDragOver={(e) => { e.preventDefault(); }}
-            onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}>
-            <FileUp className="h-9 w-9 mx-auto text-muted-foreground" />
-            <p className="mt-3 font-medium">{t("Drop files here or click to select")}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t("Multiple files supported")}</p>
-            <Input type="file" accept="application/pdf,image/*" multiple className="hidden"
-              onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-          </label>
+          <CaptureInput onFiles={addFiles} photoCount={photoCount} disabled={busy} />
 
           {rows.length > 0 && (
             <div className="border rounded-lg divide-y">
               {rows.map((r) => (
                 <div key={r.key} className="px-4 py-3 flex items-center gap-3 text-sm">
                   <StatusIcon status={r.status} />
+                  {r.preview && (
+                    <img src={r.preview} alt=""
+                      className="h-10 w-10 shrink-0 rounded border object-cover" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="truncate font-medium">{r.file.name}</div>
                     <div className="text-xs text-muted-foreground flex gap-2">
