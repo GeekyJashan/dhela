@@ -23,6 +23,7 @@ Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance (plus System 
 
 Overview
 - Dashboard (/dashboard): home screen — recent purchase invoices and a quick snapshot of the business.
+- Insights (/insights): charts on how money is actually moving — collections over time, receivables ageing, payment modes, and which retailers and suppliers the business leans on most. Reporting only; nothing is recorded here.
 
 Buying (purchases from your suppliers)
 - Upload invoice (/upload): drop one or many supplier invoice PDFs/photos. Choose "AI" (Gemini — full extraction of supplier, header, line items, HSN, batch, expiry; uses the monthly AI quota) or "OCR" (free, heuristic, best on clean digital invoices — always review before approving). A single file is read instantly and opens for review; multiple files process in the background and appear in Purchases once done.
@@ -42,7 +43,7 @@ Catalog
 - Pricing (/pricing): stock-group-level discounts, plus per-product/per-retailer price overrides that take priority over the group discount.
 
 Finance
-- Payments (/payments): record a payment received from (or made to) a party, see receivables ageing, and full payment history. "Record payment" is also reachable directly from a sales invoice row.
+- Payments (/payments): record a payment received from (or made to) a party, see receivables ageing, and full payment history (filterable by All / Received / Paid out). "Record payment" is also reachable directly from a sales invoice row. The charts that used to sit here now live under Overview → Insights.
 - Billing (/billing): current plan, monthly AI-extraction usage meter, and how to upgrade (WhatsApp the founder with a screenshot of the payment — upgrades activate same day).
 - Account statement: not in the sidebar directly — open it from a retailer's or supplier's row ("Statement" action) on the Retailers/Suppliers page. Shows a running debit/credit ledger for that party over a chosen date range, printable.
 
