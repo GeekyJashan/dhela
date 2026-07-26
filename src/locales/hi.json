@@ -704,5 +704,9 @@
   "Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.": "बिल की फोटो में यह आम है। मंज़ूरी से पहले असली बिल से मिलाकर फ़ील्ड ठीक करें — मंज़ूरी देने पर ये आंकड़े स्टॉक और लागत में चले जाते हैं।",
   "Subtotal {{sub}} + tax {{tax}} = {{sum}}, but the grand total says {{grand}}.": "सबटोटल {{sub}} + टैक्स {{tax}} = {{sum}}, लेकिन ग्रैंड टोटल {{grand}} बता रहा है।",
   "Line items add up to {{sum}}, but the subtotal says {{sub}}.": "लाइन आइटम का जोड़ {{sum}} है, लेकिन सबटोटल {{sub}} बता रहा है।",
-  "The grand total is more than three times the subtotal — one of them was probably misread.": "ग्रैंड टोटल सबटोटल से तीन गुना से ज़्यादा है — इनमें से एक शायद ग़लत पढ़ा गया है।"
+  "The grand total is more than three times the subtotal — one of them was probably misread.": "ग्रैंड टोटल सबटोटल से तीन गुना से ज़्यादा है — इनमें से एक शायद ग़लत पढ़ा गया है।",
+  "You've used all your AI reads this month.": "इस महीने के आपके सारे AI रीड ख़त्म हो गए हैं।",
+  "{{pending}} files ready but only {{left}} AI read(s) left this month.": "{{pending}} फ़ाइलें तैयार हैं, लेकिन इस महीने सिर्फ़ {{left}} AI रीड बचे हैं।",
+  "Use free OCR instead": "इसके बजाय मुफ़्त OCR इस्तेमाल करें",
+  "OCR is unlimited and free, but reads clean printed bills far better than photos.": "OCR असीमित और मुफ़्त है, लेकिन यह फोटो के मुकाबले साफ़ छपे बिल कहीं बेहतर पढ़ता है।"
 }

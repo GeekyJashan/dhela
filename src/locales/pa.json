@@ -704,5 +704,9 @@
   "Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.": "ਬਿੱਲ ਦੀ ਫੋਟੋ ਵਿੱਚ ਇਹ ਆਮ ਹੈ। ਮਨਜ਼ੂਰੀ ਤੋਂ ਪਹਿਲਾਂ ਅਸਲ ਬਿੱਲ ਨਾਲ ਮਿਲਾ ਕੇ ਫੀਲਡ ਠੀਕ ਕਰੋ — ਮਨਜ਼ੂਰੀ ਦੇਣ 'ਤੇ ਇਹ ਅੰਕੜੇ ਸਟਾਕ ਅਤੇ ਲਾਗਤ ਵਿੱਚ ਚਲੇ ਜਾਂਦੇ ਹਨ।",
   "Subtotal {{sub}} + tax {{tax}} = {{sum}}, but the grand total says {{grand}}.": "ਸਬਟੋਟਲ {{sub}} + ਟੈਕਸ {{tax}} = {{sum}}, ਪਰ ਗ੍ਰੈਂਡ ਟੋਟਲ {{grand}} ਦੱਸ ਰਿਹਾ ਹੈ।",
   "Line items add up to {{sum}}, but the subtotal says {{sub}}.": "ਲਾਈਨ ਆਈਟਮਾਂ ਦਾ ਜੋੜ {{sum}} ਹੈ, ਪਰ ਸਬਟੋਟਲ {{sub}} ਦੱਸ ਰਿਹਾ ਹੈ।",
-  "The grand total is more than three times the subtotal — one of them was probably misread.": "ਗ੍ਰੈਂਡ ਟੋਟਲ ਸਬਟੋਟਲ ਤੋਂ ਤਿੰਨ ਗੁਣਾ ਤੋਂ ਵੱਧ ਹੈ — ਇਹਨਾਂ ਵਿੱਚੋਂ ਇੱਕ ਸ਼ਾਇਦ ਗ਼ਲਤ ਪੜ੍ਹਿਆ ਗਿਆ।"
+  "The grand total is more than three times the subtotal — one of them was probably misread.": "ਗ੍ਰੈਂਡ ਟੋਟਲ ਸਬਟੋਟਲ ਤੋਂ ਤਿੰਨ ਗੁਣਾ ਤੋਂ ਵੱਧ ਹੈ — ਇਹਨਾਂ ਵਿੱਚੋਂ ਇੱਕ ਸ਼ਾਇਦ ਗ਼ਲਤ ਪੜ੍ਹਿਆ ਗਿਆ।",
+  "You've used all your AI reads this month.": "ਇਸ ਮਹੀਨੇ ਦੇ ਤੁਹਾਡੇ ਸਾਰੇ AI ਰੀਡ ਖ਼ਤਮ ਹੋ ਗਏ ਹਨ।",
+  "{{pending}} files ready but only {{left}} AI read(s) left this month.": "{{pending}} ਫ਼ਾਈਲਾਂ ਤਿਆਰ ਹਨ, ਪਰ ਇਸ ਮਹੀਨੇ ਸਿਰਫ਼ {{left}} AI ਰੀਡ ਬਚੇ ਹਨ।",
+  "Use free OCR instead": "ਇਸ ਦੀ ਥਾਂ ਮੁਫ਼ਤ OCR ਵਰਤੋ",
+  "OCR is unlimited and free, but reads clean printed bills far better than photos.": "OCR ਅਸੀਮਤ ਅਤੇ ਮੁਫ਼ਤ ਹੈ, ਪਰ ਇਹ ਫੋਟੋ ਦੇ ਮੁਕਾਬਲੇ ਸਾਫ਼ ਛਪੇ ਬਿੱਲ ਕਿਤੇ ਬਿਹਤਰ ਪੜ੍ਹਦਾ ਹੈ।"
 }

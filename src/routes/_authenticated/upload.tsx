@@ -66,6 +66,8 @@ function Upload() {
   const aiRemaining = billing ? Math.max(0, billing.aiLimitPerMonth - billing.aiUsedThisMonth) : null;
   const [busy, setBusy] = useState(false);
   const photoCount = rows.filter(r => r.file.type.startsWith("image/")).length;
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+  const overQuota = aiRemaining != null && pendingCount > aiRemaining;
   const pollRef = useRef<number | null>(null);
 
   const addFiles = (files: File[] | FileList | null) => {
@@ -235,7 +237,6 @@ function Upload() {
     };
   }, [rows]);
 
-  const pendingCount = rows.filter((r) => r.status === "pending").length;
   const doneCount = rows.filter((r) => r.status === "review" || r.status === "approved").length;
 
   return (
@@ -291,6 +292,32 @@ function Upload() {
         </CardHeader>
         <CardContent className="space-y-5">
           <CaptureInput onFiles={addFiles} photoCount={photoCount} disabled={busy} />
+
+          {/* The engine picker is two cards up — off-screen on a phone by the
+              time you're shooting bills — so the quota has to be repeated here,
+              where the decision actually gets made. */}
+          {engine === "ai" && aiRemaining != null && overQuota && (
+            <div className="rounded-lg border border-amber-400/60 bg-warning/10 p-3 space-y-2">
+              <p className="text-sm">
+                {aiRemaining === 0
+                  ? t("You've used all your AI reads this month.")
+                  : t("{{pending}} files ready but only {{left}} AI read(s) left this month.", {
+                      pending: pendingCount, left: aiRemaining,
+                    })}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEngine("ocr")}>
+                  <ScanText className="h-3.5 w-3.5 mr-1.5" /> {t("Use free OCR instead")}
+                </Button>
+                <RouterLink to="/billing">
+                  <Button size="sm" variant="outline">{t("Upgrade")}</Button>
+                </RouterLink>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("OCR is unlimited and free, but reads clean printed bills far better than photos.")}
+              </p>
+            </div>
+          )}
 
           {rows.length > 0 && (
             <div className="border rounded-lg divide-y">
