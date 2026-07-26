@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import fs from "fs";
+import { SAMPLE_KEYS, LANG_SAMPLES } from "../src/lib/lang-samples";
 
 /**
  * Covers the flows built in this repo that had never been exercised by a
@@ -231,6 +233,20 @@ test.describe("account", () => {
 });
 
 test.describe("landing page", () => {
+  // The multilingual demo inlines its strings rather than importing the locale
+  // files, which would ship 1,572 keys to render five words. This is the guard
+  // that keeps the inlined copies honest.
+  test("multilingual demo strings still match the locale files", () => {
+    for (const code of ["hi", "pa"] as const) {
+      const dict = JSON.parse(fs.readFileSync(`src/locales/${code}.json`, "utf8"));
+      const shown = LANG_SAMPLES.find(l => l.code === code)!.rows;
+      SAMPLE_KEYS.forEach((key, i) => {
+        expect(shown[i], `landing demo ${code} "${key}" drifted from ${code}.json`)
+          .toBe(dict[key]);
+      });
+    }
+  });
+
   // AI crawlers and answer engines don't run JavaScript. Anything that only
   // appears after hydration is invisible to them — which is exactly how the
   // FAQ answers went missing when they lived in a JS accordion.

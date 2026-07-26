@@ -3,8 +3,6 @@
 // English instead of breaking.
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import hi from "./locales/hi.json";
-import pa from "./locales/pa.json";
 
 export const LANG_STORAGE_KEY = "dhela.lang";
 /** Pre-rebrand key — read once so existing users keep their language. */
@@ -16,11 +14,12 @@ export const LANGUAGES = [
   { code: "pa", label: "ਪੰਜਾਬੀ" },
 ] as const;
 
+// Resources start empty and each dictionary is fetched on demand. Importing
+// both statically put 1,572 translation keys (~40 KB gzipped) into the shared
+// chunk, so every visitor to the public marketing page — and every crawler —
+// downloaded Hindi and Punjabi for an app they had not signed into.
 i18n.use(initReactI18next).init({
-  resources: {
-    hi: { translation: hi },
-    pa: { translation: pa },
-  },
+  resources: {},
   lng: "en",
   fallbackLng: "en",
   keySeparator: false,
@@ -29,6 +28,19 @@ i18n.use(initReactI18next).init({
   returnEmptyString: false,
 });
 
+/** Fetch a dictionary once, on demand. English is the key language, so it needs none. */
+async function loadLocale(code: string): Promise<void> {
+  if (code === "en" || i18n.hasResourceBundle(code, "translation")) return;
+  try {
+    const mod = code === "hi"
+      ? await import("./locales/hi.json")
+      : code === "pa" ? await import("./locales/pa.json") : null;
+    if (mod) i18n.addResourceBundle(code, "translation", mod.default, true, true);
+  } catch {
+    // A failed fetch just leaves the UI in English, which is the fallback anyway.
+  }
+}
+
 /** Restore the saved language on the client (SSR always renders English). */
 export function applySavedLanguage() {
   if (typeof window === "undefined") return;
@@ -36,13 +48,15 @@ export function applySavedLanguage() {
     window.localStorage.getItem(LANG_STORAGE_KEY) ??
     window.localStorage.getItem(LEGACY_LANG_STORAGE_KEY);
   if (saved) window.localStorage.setItem(LANG_STORAGE_KEY, saved);
-  if (saved && saved !== i18n.language) void i18n.changeLanguage(saved);
+  if (saved && saved !== i18n.language) {
+    void loadLocale(saved).then(() => i18n.changeLanguage(saved));
+  }
   document.documentElement.lang = saved ?? "en";
 }
 
 export function setLanguage(code: string) {
   window.localStorage.setItem(LANG_STORAGE_KEY, code);
-  void i18n.changeLanguage(code);
+  void loadLocale(code).then(() => i18n.changeLanguage(code));
   document.documentElement.lang = code;
 }
 

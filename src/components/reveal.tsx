@@ -38,7 +38,11 @@ export function CountUp({ to, duration = 1400, decimals = 0, format = (n: string
   to: number; duration?: number; decimals?: number; format?: (n: string) => string;
 }) {
   const { ref, inView } = useInView(0.4);
-  const [value, setValue] = useState(0);
+  // Seeded with the final figure, not 0, so the server-rendered HTML carries
+  // the real number. Starting at 0 meant crawlers and AI answer engines read
+  // "0 → 0 min" as the actual claim. The client resets to 0 when the animation
+  // begins, which reads as the count starting rather than a glitch.
+  const [value, setValue] = useState(to);
 
   useEffect(() => {
     if (!inView) return;

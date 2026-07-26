@@ -5,9 +5,8 @@ import { Logo } from "@/components/logo";
 import { Reveal, CountUp, useInView } from "@/components/reveal";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { whatsappLink, supportPhoneDisplay, supportPhoneDigits, FOUNDER_EMAIL } from "@/lib/support";
-import hi from "@/locales/hi.json";
-import pa from "@/locales/pa.json";
 import { cn } from "@/lib/utils";
+import { LANG_SAMPLES } from "@/lib/lang-samples";
 import {
   FileUp, ArrowRight, CheckCircle2, Check, Moon, PhoneCall, TrendingDown, Truck,
   Package, Receipt, Store, Users, IndianRupee, ClipboardList, Undo2, FileText,
@@ -650,14 +649,6 @@ function AssistantSpotlight() {
 
 /* ----------------------------- multilingual ----------------------------- */
 
-// Read straight from the app's own locale files so the demo can never
-// drift from what a user actually sees after switching language.
-const SAMPLE_KEYS = ["Upload invoice", "Purchases", "Retailers", "Payments", "E-way bills"];
-const LANG_SAMPLES = [
-  { code: "en", label: "English", rows: SAMPLE_KEYS },
-  { code: "hi", label: "हिंदी", rows: SAMPLE_KEYS.map(k => (hi as Record<string, string>)[k] ?? k) },
-  { code: "pa", label: "ਪੰਜਾਬੀ", rows: SAMPLE_KEYS.map(k => (pa as Record<string, string>)[k] ?? k) },
-];
 
 function Multilingual() {
   const [lang, setLang] = useState(1);
