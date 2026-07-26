@@ -326,8 +326,8 @@ function OrdersPage() {
             </div>
           )}
           <DialogFooter>
-            <Button onClick={submitUpload} disabled={uplBusy || !upl?.retailerId || !upl?.files.length}>
-              {uplBusy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {/* Button spins by itself when onClick returns a promise. */}
+            <Button onClick={submitUpload} disabled={!upl?.retailerId || !upl?.files.length}>
               {uplBusy ? t("Reading…") : (upl && upl.files.length > 1 ? t("Create {{n}} orders", { n: upl.files.length }) : t("Create order"))}
             </Button>
           </DialogFooter>

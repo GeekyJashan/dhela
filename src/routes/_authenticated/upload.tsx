@@ -361,8 +361,9 @@ function Upload() {
                   {t("Go to invoices")}
                 </Button>
               )}
-              <Button size="lg" onClick={startBatch} disabled={!pendingCount || busy}>
-                {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {/* Button spins by itself when onClick returns a promise — an
+                  extra Loader2 here renders a second one beside it. */}
+              <Button size="lg" onClick={startBatch} disabled={!pendingCount}>
                 {busy ? t("Uploading…") : `${t("Upload & extract")}${pendingCount ? ` (${pendingCount})` : ""}`}
               </Button>
             </div>
