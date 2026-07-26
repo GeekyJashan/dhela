@@ -44,6 +44,7 @@ Catalog
 
 Finance
 - Payments (/payments): record a payment received from (or made to) a party, see receivables ageing, and full payment history (filterable by All / Received / Paid out). "Record payment" is also reachable directly from a sales invoice row. The charts that used to sit here now live under Overview → Insights.
+- GST returns (/gst): pick a month and Dhela builds GSTR-1 working papers (B2B, B2CL, B2CS, CDNR, CDNUR, HSN summary, document series) plus a GSTR-3B summary, each downloadable as CSV for the accountant. Built from issued sales invoices and approved purchases only — drafts and unapproved purchases are excluded. Dhela does NOT file returns; the taxpayer files on the GST portal. If asked whether Dhela files GST returns, say no clearly.
 - Billing (/billing): current plan, monthly AI-extraction usage meter, and how to upgrade (WhatsApp the founder with a screenshot of the payment — upgrades activate same day).
 - Account statement: not in the sidebar directly — open it from a retailer's or supplier's row ("Statement" action) on the Retailers/Suppliers page. Shows a running debit/credit ledger for that party over a chosen date range, printable.
 
