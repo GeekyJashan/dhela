@@ -289,6 +289,44 @@
   .chat-in { opacity: 1; transform: none; }
 }
 
+/* --- product tour --- */
+@keyframes shot-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+.shot-in { animation: shot-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Light sweeping across the frame as a screen swaps — reads as the app
+   refreshing rather than a picture being replaced. */
+@keyframes shot-sweep {
+  0%   { transform: translateX(-120%) skewX(-12deg); opacity: 0; }
+  35%  { opacity: 1; }
+  100% { transform: translateX(320%) skewX(-12deg); opacity: 0; }
+}
+.shot-sweep::after {
+  content: ""; position: absolute; inset: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.35), transparent);
+  animation: shot-sweep 0.9s ease-out; pointer-events: none;
+}
+
+/* Cursor-tracked tilt on the browser frame. */
+.tour-frame {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+  transform-style: preserve-3d; will-change: transform;
+}
+
+@keyframes phone-float {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50%      { transform: translateY(-10px) rotate(-1.5deg); }
+}
+.phone-float { animation: phone-float 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shot-in, .shot-sweep::after, .phone-float { animation: none !important; }
+  .shot-in { opacity: 1; transform: none; filter: none; }
+  .tour-frame { transition: none !important; transform: none !important; }
+}
+
 /* --- GSTIN auto-fill affordances --- */
 @keyframes gstin-attract {
   0%, 100% { box-shadow: 0 0 0 0 oklch(0.42 0.09 200 / 0); }

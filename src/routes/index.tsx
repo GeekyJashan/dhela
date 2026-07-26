@@ -364,6 +364,9 @@ function Pain() {
 /* ------------------------------ product tour ------------------------------ */
 
 const TOUR: { id: string; label: string; caption: string; img: string; alt: string }[] = [
+  { id: "upload", label: "Drop the whole pile", img: "/shots/bulk.jpg",
+    caption: "Throw the whole pile in at once — up to 100 a batch. Each one queues with a thumbnail so you can spot a blurred photo before it's read, and the batch processes in the background while you carry on.",
+    alt: "Dhela bulk upload screen with fourteen supplier bills queued as thumbnails, each marked Ready, and an Upload and extract button showing 14 files" },
   { id: "review", label: "Read a bill", img: "/shots/review.jpg",
     caption: "Supplier, GSTIN, HSN, quantities, rates and GST — pulled off the bill with a confidence score. You check the flagged fields and approve.",
     alt: "Dhela purchase review screen showing a supplier invoice extracted into editable fields with line items, HSN codes and a 92% extraction accuracy score" },
@@ -378,12 +381,13 @@ const TOUR: { id: string; label: string; caption: string; img: string; alt: stri
     alt: "Dhela payments screen showing receivables ageing by retailer and full payment history" },
 ];
 
-const TOUR_MS = 6000;
+const TOUR_MS = 6500;
 
 function ProductTour() {
   const [active, setActive] = useState(0);
   const { ref, inView } = useInView(0.2);
   const paused = useRef(false);
+  const frame = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!inView) return;
@@ -393,11 +397,40 @@ function ProductTour() {
     return () => clearInterval(id);
   }, [inView]);
 
+  // Arrow keys once the tour is on screen — it behaves like a control, so it
+  // should answer like one.
+  useEffect(() => {
+    if (!inView) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") setActive(a => (a + 1) % TOUR.length);
+      if (e.key === "ArrowLeft") setActive(a => (a - 1 + TOUR.length) % TOUR.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inView]);
+
+  // Cursor-tracked tilt. Small angles only — past a few degrees a screenshot
+  // stops reading as a screen and starts reading as a gimmick.
+  const tilt = (e: React.MouseEvent) => {
+    const el = frame.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform =
+      `perspective(1400px) rotateY(${px * 4}deg) rotateX(${-py * 3}deg) scale(1.012)`;
+  };
+  const untilt = () => {
+    if (frame.current) frame.current.style.transform = "perspective(1400px)";
+  };
+
   const shot = TOUR[active];
 
   return (
     <section id="tour" className="relative overflow-hidden border-y bg-muted/30 py-24 scroll-mt-16">
       <div className="blob h-80 w-80 -top-20 left-1/4 bg-primary/15" />
+      <div className="blob h-72 w-72 bottom-0 right-10 bg-accent/20" style={{ animationDelay: "-9s" }} />
+
       <div ref={ref} className="relative max-w-6xl mx-auto px-6">
         <Reveal className="text-center max-w-2xl mx-auto">
           <h2 className="font-display text-4xl md:text-5xl">Look inside</h2>
@@ -412,53 +445,62 @@ function ProductTour() {
           {TOUR.map((t, i) => (
             <button key={t.id} onClick={() => setActive(i)} aria-current={i === active}
               className={cn(
-                "relative overflow-hidden rounded-full border px-4 py-2 text-sm transition-all",
+                "relative overflow-hidden rounded-full border px-4 py-2 text-sm transition-all duration-300",
                 i === active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-muted-foreground",
+                  ? "border-primary bg-primary text-primary-foreground shadow-md scale-105"
+                  : "hover:bg-muted hover:border-primary/40 text-muted-foreground",
               )}>
               {t.label}
               {i === active && (
-                <span key={active} className="step-timer absolute bottom-0 left-0 h-0.5 w-full bg-accent/70"
+                <span key={active} className="step-timer absolute bottom-0 left-0 h-0.5 w-full bg-accent"
                   style={{ animationDuration: `${TOUR_MS}ms` }} />
               )}
             </button>
           ))}
         </div>
 
-        <div className="mt-8 grid lg:grid-cols-[1.55fr_1fr] gap-6 items-start"
+        <div className="mt-8 grid lg:grid-cols-[1.55fr_1fr] gap-8 items-start"
           onMouseEnter={() => { paused.current = true; }}
           onMouseLeave={() => { paused.current = false; }}>
-          {/* Browser chrome so the screenshot reads as software, not a picture. */}
-          <Reveal className="rounded-xl border bg-card shadow-2xl overflow-hidden">
-            <div className="flex items-center gap-1.5 border-b bg-muted/60 px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-destructive/40" />
-              <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-              <span className="h-2.5 w-2.5 rounded-full bg-success/40" />
-              <span className="ml-3 rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-                dhela.in/{shot.id}
-              </span>
+          <Reveal>
+            <div ref={frame} onMouseMove={tilt} onMouseLeave={untilt}
+              className="tour-frame rounded-xl border bg-card shadow-2xl overflow-hidden">
+              <div className="flex items-center gap-1.5 border-b bg-muted/60 px-4 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-destructive/40" />
+                <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+                <span className="h-2.5 w-2.5 rounded-full bg-success/40" />
+                <span className="ml-3 rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground transition-all">
+                  dhela.in/{shot.id}
+                </span>
+              </div>
+              <div key={shot.id} className="shot-sweep relative overflow-hidden">
+                <img src={shot.img} alt={shot.alt}
+                  width={1600} height={1003} loading="lazy" decoding="async"
+                  className="shot-in block w-full" />
+              </div>
             </div>
-            <img key={shot.id} src={shot.img} alt={shot.alt}
-              width={1600} height={1003} loading="lazy" decoding="async"
-              className="chat-in block w-full" />
+            <div className="mt-4 flex justify-center gap-1.5 lg:hidden">
+              {TOUR.map((t, i) => (
+                <button key={t.id} onClick={() => setActive(i)} aria-label={t.label}
+                  className={cn("h-1.5 rounded-full transition-all",
+                    i === active ? "w-6 bg-primary" : "w-1.5 bg-border")} />
+              ))}
+            </div>
           </Reveal>
 
-          <div className="space-y-5">
-            <Reveal key={`c${active}`} className="chat-in">
+          <div className="space-y-6">
+            <div key={`c${active}`} className="shot-in">
               <p className="font-display text-2xl">{shot.label}</p>
               <p className="mt-2 text-muted-foreground">{shot.caption}</p>
-            </Reveal>
-            {/* Phone frame — the camera flow is the story for a distributor
-                standing at the godown door. */}
+            </div>
             <Reveal delay={80} className="hidden lg:block">
-              <div className="mx-auto w-[210px] rounded-[1.6rem] border-4 border-foreground/80 bg-foreground/80 shadow-xl overflow-hidden">
+              <div className="phone-float mx-auto w-[206px] rounded-[1.7rem] border-[6px] border-foreground/85 bg-foreground/85 shadow-2xl overflow-hidden">
                 <img src="/shots/mobile-upload.jpg" width={380} height={780} loading="lazy" decoding="async"
                   alt="Dhela upload screen on a phone, showing a Take photo button that opens the camera to capture supplier bills"
-                  className="block w-full rounded-[1.25rem]" />
+                  className="block w-full rounded-[1.2rem]" />
               </div>
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Shoot bills straight from your phone
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                Or shoot them straight from your phone
               </p>
             </Reveal>
           </div>

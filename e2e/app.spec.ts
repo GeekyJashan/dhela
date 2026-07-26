@@ -301,7 +301,7 @@ test.describe("landing page", () => {
   });
 
   test("every product screenshot actually resolves", async ({ request }) => {
-    for (const f of ["review", "insights", "gst", "payments", "mobile-upload"]) {
+    for (const f of ["bulk", "review", "insights", "gst", "payments", "mobile-upload"]) {
       const r = await request.get(`/shots/${f}.jpg`);
       expect(r.status(), `/shots/${f}.jpg`).toBe(200);
       expect(Number(r.headers()["content-length"] ?? 0)).toBeGreaterThan(5_000);
