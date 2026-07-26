@@ -85,9 +85,13 @@ function BillingPage() {
         {planOrder.map(id => {
           const p = PLANS[id];
           const current = billing?.plan === id;
-          // Only what differs between plans — the shared list sits below the
-          // grid, so three near-identical columns don't bury the difference.
-          const extras = [
+          const features = [
+            t("{{n}} AI bill reads / month", { n: p.aiExtractionsPerMonth }),
+            t("Unlimited invoices, orders & payments"),
+            t("Unlimited free OCR extraction"),
+            t("E-way bills, statements & receivables ageing"),
+            t("Stock and true weighted-average cost"),
+            t("English, हिंदी & ਪੰਜਾਬੀ"),
             ...(id !== "free" ? [t("Priority support")] : []),
             ...(id === "pro" ? [t("Live GSTIN lookup + GST filer rating")] : []),
           ];
@@ -116,24 +120,17 @@ function BillingPage() {
               </CardHeader>
 
               <CardContent className="flex flex-1 flex-col gap-4">
-                <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-3 text-center">
-                  <div className="font-display text-3xl text-primary leading-none">
-                    {p.aiExtractionsPerMonth}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1.5">
-                    {t("AI bill reads / month")}
-                  </div>
-                </div>
-
-                {extras.length > 0 && (
-                  <ul className="space-y-1.5 text-sm">
-                    {extras.map(f => (
-                      <li key={f} className="flex gap-2">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <ul className="space-y-2 text-sm">
+                  {features.map(f => (
+                    <li key={f} className="flex gap-2">
+                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}
+                    </li>
+                  ))}
+                  <li className="flex gap-2">
+                    <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                    {t("AI assistant — 1 read per question")}
+                  </li>
+                </ul>
 
                 <div className="mt-auto pt-1">
                   {current ? (
@@ -155,31 +152,6 @@ function BillingPage() {
           );
         })}
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("On every plan, including Free")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="grid gap-2 text-sm sm:grid-cols-2">
-            {[
-              t("Unlimited invoices, orders & payments"),
-              t("Unlimited free OCR extraction"),
-              t("E-way bills, statements & receivables ageing"),
-              t("Stock and true weighted-average cost"),
-              t("English, हिंदी & ਪੰਜਾਬੀ"),
-            ].map(f => (
-              <li key={f} className="flex gap-2">
-                <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}
-              </li>
-            ))}
-            <li className="flex gap-2">
-              <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-              {t("AI assistant — ask your own data anything. 1 read per question.")}
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
 
       <Dialog open={!!payPlan} onOpenChange={o => !o && setPayPlan(null)}>
         <DialogContent className="max-w-sm">
