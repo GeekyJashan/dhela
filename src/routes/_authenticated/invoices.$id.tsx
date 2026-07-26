@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, createProductsForUnmatchedLines, updatePurchaseInvoice, deletePurchaseInvoice } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,6 +87,47 @@ function InvoiceReview() {
     });
   }, [inv?.id]);
 
+  /**
+   * Cross-check the extracted figures against each other. The per-field
+   * confidence score says how sure the model was, not whether the result is
+   * arithmetically possible — a photo of a bill can come back "90% High" with
+   * a subtotal and a grand total that can't both be true. Approving posts
+   * these into stock and weighted-average cost, so it's worth saying so.
+   *
+   * Tolerance is 1% or ₹1, whichever is larger, to allow for round-off lines.
+   */
+  const arithmeticIssues = useMemo(() => {
+    const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
+    const fmt = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
+    const off = (a: number, b: number) => Math.abs(a - b) > Math.max(1, Math.abs(b) * 0.01);
+    const issues: string[] = [];
+
+    const sub = num(inv?.subtotal), tax = num(inv?.tax_total), grand = num(inv?.grand_total);
+    if (sub != null && tax != null && grand != null && off(sub + tax, grand)) {
+      issues.push(t("Subtotal {{sub}} + tax {{tax}} = {{sum}}, but the grand total says {{grand}}.", {
+        sub: fmt(sub), tax: fmt(tax), sum: fmt(sub + tax), grand: fmt(grand),
+      }));
+    }
+
+    const taxables = (lines ?? [])
+      .map(l => num(l.taxable_value) ?? (num(l.quantity) != null && num(l.rate) != null
+        ? num(l.quantity)! * num(l.rate)! : null))
+      .filter((v): v is number => v != null);
+    if (sub != null && taxables.length === (lines?.length ?? 0) && taxables.length > 0) {
+      const lineSum = taxables.reduce((a, b) => a + b, 0);
+      if (off(lineSum, sub)) {
+        issues.push(t("Line items add up to {{sum}}, but the subtotal says {{sub}}.", {
+          sum: fmt(lineSum), sub: fmt(sub),
+        }));
+      }
+    }
+
+    if (grand != null && grand > 0 && sub != null && sub > 0 && grand > sub * 3) {
+      issues.push(t("The grand total is more than three times the subtotal — one of them was probably misread."));
+    }
+    return issues;
+  }, [inv?.subtotal, inv?.tax_total, inv?.grand_total, lines, t]);
+
   if (!inv) return <div className="p-4 sm:p-8">{t("Loading…")}</div>;
 
   const saveHeader = async () => {
@@ -120,6 +161,7 @@ function InvoiceReview() {
   };
 
   const unlinkedCount = (lines ?? []).filter(l => !l.matched_product_id).length;
+
 
   const doApprove = async () => {
     if (unlinkedCount > 0 && !confirm(
@@ -208,6 +250,23 @@ function InvoiceReview() {
           </Button>
         </div>
       </div>
+
+      {arithmeticIssues.length > 0 && inv.status !== "approved" && (
+        <Card className="border-amber-400/60 bg-warning/10">
+          <CardContent className="pt-6 flex gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0">
+              <p className="font-medium">{t("These numbers don't add up")}</p>
+              <ul className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                {arithmeticIssues.map(i => <li key={i}>· {i}</li>)}
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t("Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {inv.status === "failed" && (
         <Card className="border-destructive/40 bg-destructive/5">

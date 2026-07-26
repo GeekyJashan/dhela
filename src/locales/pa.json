@@ -699,5 +699,10 @@
   "Keep tapping to add more — nothing uploads until you press Upload.": "ਹੋਰ ਜੋੜਨ ਲਈ ਦਬਾਉਂਦੇ ਰਹੋ — Upload ਦਬਾਉਣ ਤੱਕ ਕੁਝ ਵੀ ਅੱਪਲੋਡ ਨਹੀਂ ਹੋਵੇਗਾ।",
   "Remove": "ਹਟਾਓ",
   "Not read off the bill — calculated from quantity, rate and GST": "ਬਿੱਲ ਤੋਂ ਨਹੀਂ ਪੜ੍ਹਿਆ ਗਿਆ — ਮਾਤਰਾ, ਦਰ ਅਤੇ GST ਤੋਂ ਗਿਣਿਆ ਗਿਆ",
-  "Approve": "ਮਨਜ਼ੂਰ ਕਰੋ"
+  "Approve": "ਮਨਜ਼ੂਰ ਕਰੋ",
+  "These numbers don't add up": "ਇਹ ਅੰਕੜੇ ਮੇਲ ਨਹੀਂ ਖਾਂਦੇ",
+  "Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.": "ਬਿੱਲ ਦੀ ਫੋਟੋ ਵਿੱਚ ਇਹ ਆਮ ਹੈ। ਮਨਜ਼ੂਰੀ ਤੋਂ ਪਹਿਲਾਂ ਅਸਲ ਬਿੱਲ ਨਾਲ ਮਿਲਾ ਕੇ ਫੀਲਡ ਠੀਕ ਕਰੋ — ਮਨਜ਼ੂਰੀ ਦੇਣ 'ਤੇ ਇਹ ਅੰਕੜੇ ਸਟਾਕ ਅਤੇ ਲਾਗਤ ਵਿੱਚ ਚਲੇ ਜਾਂਦੇ ਹਨ।",
+  "Subtotal {{sub}} + tax {{tax}} = {{sum}}, but the grand total says {{grand}}.": "ਸਬਟੋਟਲ {{sub}} + ਟੈਕਸ {{tax}} = {{sum}}, ਪਰ ਗ੍ਰੈਂਡ ਟੋਟਲ {{grand}} ਦੱਸ ਰਿਹਾ ਹੈ।",
+  "Line items add up to {{sum}}, but the subtotal says {{sub}}.": "ਲਾਈਨ ਆਈਟਮਾਂ ਦਾ ਜੋੜ {{sum}} ਹੈ, ਪਰ ਸਬਟੋਟਲ {{sub}} ਦੱਸ ਰਿਹਾ ਹੈ।",
+  "The grand total is more than three times the subtotal — one of them was probably misread.": "ਗ੍ਰੈਂਡ ਟੋਟਲ ਸਬਟੋਟਲ ਤੋਂ ਤਿੰਨ ਗੁਣਾ ਤੋਂ ਵੱਧ ਹੈ — ਇਹਨਾਂ ਵਿੱਚੋਂ ਇੱਕ ਸ਼ਾਇਦ ਗ਼ਲਤ ਪੜ੍ਹਿਆ ਗਿਆ।"
 }

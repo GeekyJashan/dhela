@@ -699,5 +699,10 @@
   "Keep tapping to add more — nothing uploads until you press Upload.": "और जोड़ने के लिए दबाते रहें — Upload दबाने तक कुछ भी अपलोड नहीं होगा।",
   "Remove": "हटाएं",
   "Not read off the bill — calculated from quantity, rate and GST": "बिल से नहीं पढ़ा गया — मात्रा, दर और GST से गणना किया गया",
-  "Approve": "मंज़ूर करें"
+  "Approve": "मंज़ूर करें",
+  "These numbers don't add up": "ये आंकड़े मेल नहीं खाते",
+  "Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.": "बिल की फोटो में यह आम है। मंज़ूरी से पहले असली बिल से मिलाकर फ़ील्ड ठीक करें — मंज़ूरी देने पर ये आंकड़े स्टॉक और लागत में चले जाते हैं।",
+  "Subtotal {{sub}} + tax {{tax}} = {{sum}}, but the grand total says {{grand}}.": "सबटोटल {{sub}} + टैक्स {{tax}} = {{sum}}, लेकिन ग्रैंड टोटल {{grand}} बता रहा है।",
+  "Line items add up to {{sum}}, but the subtotal says {{sub}}.": "लाइन आइटम का जोड़ {{sum}} है, लेकिन सबटोटल {{sub}} बता रहा है।",
+  "The grand total is more than three times the subtotal — one of them was probably misread.": "ग्रैंड टोटल सबटोटल से तीन गुना से ज़्यादा है — इनमें से एक शायद ग़लत पढ़ा गया है।"
 }
