@@ -3,17 +3,17 @@
 **Audited:** 2026-07-27 · **Business type: SaaS** (pricing page, sign-up, free plan,
 `/features`-equivalent sections) · single public page
 
-## SEO Health Score: 71 → 79/100 (re-audit, 2026-07-27, fixes now live)
+## SEO Health Score: 71 → 79 → 88/100 (round 3)
 
 | Category | Weight | Score | Note |
 |---|---|---|---|
-| Technical SEO | 22% | 78 | HSTS + clean redirects; security headers thin |
-| Content quality | 23% | 70 | Strong copy, no author/date/E-E-A-T signals |
+| Technical SEO | 22% | 90 | HSTS, clean redirects, full security header set |
+| Content quality | 23% | 88 | Named author, credentials, LinkedIn, stated update date |
 | On-page SEO | 20% | 85 | One H1, clean hierarchy, no generic anchors |
-| Schema | 10% | 90 | Organization + SoftwareApplication + FAQPage added |
+| Schema | 10% | 95 | Organization, SoftwareApplication, FAQPage, Person, WebPage |
 | Performance (CWV) | 10% | 80 | Excellent LCP/CLS; JS still heavy for a marketing page |
 | AI search readiness | 10% | 72 | See `GEO-ANALYSIS.md` |
-| Images | 5% | 25 | Zero raster images on the page |
+| Images | 5% | 90 | Five real product screenshots, all with alt text and dimensions |
 
 > **Re-audit.** The previous round is deployed and verified live: JSON-LD,
 > og:image, FAQ answers in HTML, robots.txt and sitemap.xml all returning 200.
@@ -124,7 +124,20 @@ Radix Accordion unmounted collapsed content. Replaced with `<details>`.
 
 ## Medium
 
-### 4. No images on the page at all
+### 4. No images on the page at all — **fixed [R3]**
+Five real screenshots of the running app, captured through Playwright against a
+logged-in session with seeded demo data, now ship in a "Look inside" product
+tour: the purchase review screen, the insights dashboard, GST working papers,
+receivables ageing, and the camera upload flow in a phone frame. Every image
+carries descriptive alt text and explicit dimensions, and the section is a real
+tour — tabs, auto-advance, pause on hover.
+
+One capture detail worth recording: the first mobile shot was taken by resizing
+the viewport, which does **not** change the user agent, so `isMobileDevice()`
+returned false and the camera button never rendered. The caption claimed
+something the picture didn't show. Re-shot with a real Pixel 7 device profile.
+
+*Original finding, kept for context:*
 `document.querySelectorAll("img").length === 0`. Every visual is inline SVG.
 Consequences: nothing for Google Images, no `alt` text as a relevance signal,
 and multi-modal content correlates with materially higher AI citation rates.
@@ -144,7 +157,15 @@ Absent: `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options` /
 Not a ranking factor, but cheap and it's a trust surface for a product asking
 distributors for their ledger. Add via `vercel.json` headers.
 
-### 6. No E-E-A-T signals
+### 6. No E-E-A-T signals — **fixed [R3]**
+Founder card on the closing CTA: Jashan Sehgal, Founder · NIT alumnus, with a
+LinkedIn link and a first-person line about why the product exists. Footer
+carries a byline and a machine-readable `<time>` last-updated date. Schema gains
+`Person` (with `alumniOf` and `sameAs`) and `WebPage` (with `author`,
+`datePublished`, `dateModified`), and `Organization.sameAs` now points at the
+founder's LinkedIn — it was the one empty required-ish field last round.
+
+*Original finding, kept for context:*
 No author, no organisation credentials, no publication or updated date, no
 `sameAs` links (nothing exists to link to yet). Content under three months old
 is roughly 3× more likely to be cited by AI answers, and there is currently no

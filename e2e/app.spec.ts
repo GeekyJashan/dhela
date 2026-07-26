@@ -274,6 +274,40 @@ test.describe("landing page", () => {
     );
   });
 
+  test("product tour images and author signals are in the raw HTML", async ({ request }) => {
+    const html = await (await request.get("/")).text();
+
+    // Images were the weakest category in the audit: the page had none at all.
+    const imgs = [...html.matchAll(/<img [^>]*>/g)].map(m => m[0]);
+    expect(imgs.length, "landing page should ship real product images").toBeGreaterThanOrEqual(2);
+    for (const tag of imgs) {
+      expect(tag, `img without alt: ${tag}`).toMatch(/alt="[^"]+"/);
+      // Explicit dimensions keep CLS down while the screenshots load.
+      expect(tag, `img without width: ${tag}`).toMatch(/width="\d+"/);
+    }
+
+    // E-E-A-T: a named author with a real profile, and a stated update date.
+    expect(html).toContain("Jashan Sehgal");
+    expect(html).toContain("linkedin.com/in/jashan-sehgal");
+    expect(html).toMatch(/dateTime="\d{4}-\d{2}-\d{2}"/);
+
+    const graph = JSON.parse(
+      html.match(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/s)![1],
+    )["@graph"] as Record<string, unknown>[];
+    expect(graph.map(n => n["@type"])).toEqual(
+      expect.arrayContaining(["Organization", "Person", "WebPage"]));
+    expect(graph.find(n => n["@type"] === "Organization")!.sameAs).toBeTruthy();
+    expect(graph.find(n => n["@type"] === "WebPage")!.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("every product screenshot actually resolves", async ({ request }) => {
+    for (const f of ["review", "insights", "gst", "payments", "mobile-upload"]) {
+      const r = await request.get(`/shots/${f}.jpg`);
+      expect(r.status(), `/shots/${f}.jpg`).toBe(200);
+      expect(Number(r.headers()["content-length"] ?? 0)).toBeGreaterThan(5_000);
+    }
+  });
+
   test("social preview image and crawler files resolve", async ({ request }) => {
     const og = await request.get("/og-image.png");
     expect(og.status()).toBe(200);

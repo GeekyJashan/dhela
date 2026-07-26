@@ -200,6 +200,25 @@ export async function seed(orgId, userId) {
     })));
   }
 
+  // Payments so receivables ageing and the Insights charts have something to
+  // show. Two collections from retailers, one payment out to a supplier.
+  const [saleA] = await rest(
+    `sales_invoices?select=id,retailer_id,grand_total&org_id=eq.${orgId}&invoice_number=eq.S-9`);
+  // PostgREST rejects a bulk insert whose objects don't share a key set, so
+  // every row carries both party columns with one of them null.
+  const payment = (o) => ({
+    org_id: orgId, retailer_id: null, supplier_id: null, reference: null,
+    discount_amount: 0, created_by: userId, ...o,
+  });
+  await insert("payments", [
+    payment({ party_type: "retailer", retailer_id: saleA.retailer_id,
+      payment_date: "2026-07-21", amount: 25000, mode: "upi", reference: "UTR2026072100194" }),
+    payment({ party_type: "retailer", retailer_id: retailers[1].id,
+      payment_date: "2026-07-23", amount: 12000, mode: "cash" }),
+    payment({ party_type: "supplier", supplier_id: suppliers[0].id,
+      payment_date: "2026-07-19", amount: 40000, mode: "bank", reference: "NEFT-88213" }),
+  ]);
+
   // A credit note against the no-GSTIN intrastate sale. This is the case that
   // must NOT land in CDNUR (which only accepts B2CL/EXPWP/EXPWOP) and must
   // instead net down the B2CS bucket.
@@ -223,7 +242,7 @@ export async function seed(orgId, userId) {
   }]);
 
   return { products: products.length, suppliers: suppliers.length, retailers: retailers.length,
-    purchases: purchases.length, sales: sales.length, creditNotes: 1,
+    purchases: purchases.length, sales: sales.length, creditNotes: 1, payments: 3,
     // Exact figures the e2e assertions check against.
     expect: {
       b2csTaxable: round(round(cnRate * 3) - cnTaxable),

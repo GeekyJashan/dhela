@@ -10,7 +10,7 @@ import { LANG_SAMPLES } from "@/lib/lang-samples";
 import {
   FileUp, ArrowRight, CheckCircle2, Check, Moon, PhoneCall, TrendingDown, Truck,
   Package, Receipt, Store, Users, IndianRupee, ClipboardList, Undo2, FileText,
-  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw, Menu, ChevronDown,
+  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw, Menu, ChevronDown, Linkedin,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -41,6 +41,8 @@ function structuredData() {
         image: "https://dhela.in/og-image.png",
         description: "Invoice and inventory software for Indian distributors.",
         areaServed: { "@type": "Country", name: "India" },
+        founder: { "@id": "https://dhela.in/#founder" },
+        sameAs: [LINKEDIN],
         contactPoint: [{
           "@type": "ContactPoint",
           contactType: "sales",
@@ -48,6 +50,32 @@ function structuredData() {
           email: FOUNDER_EMAIL,
           availableLanguage: ["English", "Hindi", "Punjabi"],
         }],
+      },
+      {
+        "@type": "Person",
+        "@id": "https://dhela.in/#founder",
+        name: "Jashan Sehgal",
+        jobTitle: "Founder",
+        description:
+          "Founder of Dhela. NIT alumnus; builds invoice and inventory software for "
+          + "Indian distributors.",
+        alumniOf: { "@type": "CollegeOrUniversity", name: "National Institute of Technology" },
+        worksFor: { "@id": "https://dhela.in/#organization" },
+        url: LINKEDIN,
+        sameAs: [LINKEDIN],
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://dhela.in/#webpage",
+        url: "https://dhela.in/",
+        name: "Dhela — Invoice & Inventory Software for Indian Distributors",
+        isPartOf: { "@id": "https://dhela.in/#organization" },
+        about: { "@id": "https://dhela.in/#software" },
+        author: { "@id": "https://dhela.in/#founder" },
+        primaryImageOfPage: "https://dhela.in/og-image.png",
+        datePublished: PUBLISHED,
+        dateModified: UPDATED,
+        inLanguage: "en-IN",
       },
       {
         "@type": "SoftwareApplication",
@@ -86,6 +114,11 @@ function structuredData() {
 }
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const LINKEDIN = "https://www.linkedin.com/in/jashan-sehgal-b11a19226/";
+// Freshness is a real citation signal, so these are stated rather than implied.
+// Bump UPDATED when the page's substance changes, not on every deploy.
+const PUBLISHED = "2026-07-13";
+const UPDATED = "2026-07-27";
 const DEMO_WA = whatsappLink("Hi Jashan! I saw Dhela and want to know more for my distribution business.");
 
 function Landing() {
@@ -95,6 +128,7 @@ function Landing() {
       <Hero />
       <FormatMarquee />
       <Pain />
+      <ProductTour />
       <HowItWorks />
       <Features />
       <AssistantSpotlight />
@@ -321,6 +355,114 @@ function Pain() {
             </div>
           </Reveal>
         ))}
+      </div>
+    </section>
+  );
+}
+
+
+/* ------------------------------ product tour ------------------------------ */
+
+const TOUR: { id: string; label: string; caption: string; img: string; alt: string }[] = [
+  { id: "review", label: "Read a bill", img: "/shots/review.jpg",
+    caption: "Supplier, GSTIN, HSN, quantities, rates and GST — pulled off the bill with a confidence score. You check the flagged fields and approve.",
+    alt: "Dhela purchase review screen showing a supplier invoice extracted into editable fields with line items, HSN codes and a 92% extraction accuracy score" },
+  { id: "insights", label: "See the money", img: "/shots/insights.jpg",
+    caption: "Net sales, real margin, what's collected, what's still outstanding, and how long your money sits with retailers.",
+    alt: "Dhela insights dashboard showing business health score, net sales, profit margin, collections and outstanding receivables" },
+  { id: "gst", label: "File your GST", img: "/shots/gst.jpg",
+    caption: "GSTR-1 working papers — B2B, B2CS, credit notes, HSN summary — and a GSTR-3B summary, each downloadable for your accountant.",
+    alt: "Dhela GST returns screen showing GSTR-1 working papers and a GSTR-3B summary for a selected month" },
+  { id: "payments", label: "Chase what's owed", img: "/shots/payments.jpg",
+    caption: "Receivables ageing by retailer, every payment in and out, and a printable statement for anyone who asks.",
+    alt: "Dhela payments screen showing receivables ageing by retailer and full payment history" },
+];
+
+const TOUR_MS = 6000;
+
+function ProductTour() {
+  const [active, setActive] = useState(0);
+  const { ref, inView } = useInView(0.2);
+  const paused = useRef(false);
+
+  useEffect(() => {
+    if (!inView) return;
+    const id = setInterval(() => {
+      if (!paused.current) setActive(a => (a + 1) % TOUR.length);
+    }, TOUR_MS);
+    return () => clearInterval(id);
+  }, [inView]);
+
+  const shot = TOUR[active];
+
+  return (
+    <section id="tour" className="relative overflow-hidden border-y bg-muted/30 py-24 scroll-mt-16">
+      <div className="blob h-80 w-80 -top-20 left-1/4 bg-primary/15" />
+      <div ref={ref} className="relative max-w-6xl mx-auto px-6">
+        <Reveal className="text-center max-w-2xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl">Look inside</h2>
+          <p className="mt-3 text-muted-foreground">
+            Real screens, real numbers — not mock-ups. This is the actual app.
+          </p>
+        </Reveal>
+
+        <div className="mt-10 flex flex-wrap justify-center gap-2"
+          onMouseEnter={() => { paused.current = true; }}
+          onMouseLeave={() => { paused.current = false; }}>
+          {TOUR.map((t, i) => (
+            <button key={t.id} onClick={() => setActive(i)} aria-current={i === active}
+              className={cn(
+                "relative overflow-hidden rounded-full border px-4 py-2 text-sm transition-all",
+                i === active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground",
+              )}>
+              {t.label}
+              {i === active && (
+                <span key={active} className="step-timer absolute bottom-0 left-0 h-0.5 w-full bg-accent/70"
+                  style={{ animationDuration: `${TOUR_MS}ms` }} />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-8 grid lg:grid-cols-[1.55fr_1fr] gap-6 items-start"
+          onMouseEnter={() => { paused.current = true; }}
+          onMouseLeave={() => { paused.current = false; }}>
+          {/* Browser chrome so the screenshot reads as software, not a picture. */}
+          <Reveal className="rounded-xl border bg-card shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-1.5 border-b bg-muted/60 px-4 py-2.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-destructive/40" />
+              <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+              <span className="h-2.5 w-2.5 rounded-full bg-success/40" />
+              <span className="ml-3 rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+                dhela.in/{shot.id}
+              </span>
+            </div>
+            <img key={shot.id} src={shot.img} alt={shot.alt}
+              width={1600} height={1003} loading="lazy" decoding="async"
+              className="chat-in block w-full" />
+          </Reveal>
+
+          <div className="space-y-5">
+            <Reveal key={`c${active}`} className="chat-in">
+              <p className="font-display text-2xl">{shot.label}</p>
+              <p className="mt-2 text-muted-foreground">{shot.caption}</p>
+            </Reveal>
+            {/* Phone frame — the camera flow is the story for a distributor
+                standing at the godown door. */}
+            <Reveal delay={80} className="hidden lg:block">
+              <div className="mx-auto w-[210px] rounded-[1.6rem] border-4 border-foreground/80 bg-foreground/80 shadow-xl overflow-hidden">
+                <img src="/shots/mobile-upload.jpg" width={380} height={780} loading="lazy" decoding="async"
+                  alt="Dhela upload screen on a phone, showing a Take photo button that opens the camera to capture supplier bills"
+                  className="block w-full rounded-[1.25rem]" />
+              </div>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                Shoot bills straight from your phone
+              </p>
+            </Reveal>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -926,10 +1068,26 @@ function FounderCta() {
               </Button>
             </a>
           </div>
-          <p className="mt-6 text-sm text-sidebar-foreground/60">
-            Dhela is built by Jashan Sehgal. Message him directly — you'll get the person who
-            wrote the software, not a ticket number.
-          </p>
+          <div className="mt-10 mx-auto max-w-lg rounded-2xl border border-sidebar-border bg-sidebar-accent/30 p-5 text-left">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent font-display text-xl text-accent-foreground">
+                JS
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium">Jashan Sehgal</p>
+                <p className="text-sm text-sidebar-foreground/60">Founder · NIT alumnus</p>
+                <p className="mt-2 text-sm text-sidebar-foreground/75">
+                  I built Dhela after watching distributors lose entire evenings to typing
+                  purchase bills. Message me directly — you get the person who wrote the
+                  software, not a ticket number.
+                </p>
+                <a href={LINKEDIN} target="_blank" rel="noreferrer noopener"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent hover:underline">
+                  <Linkedin className="h-4 w-4" /> Connect on LinkedIn
+                </a>
+              </div>
+            </div>
+          </div>
         </Reveal>
       </div>
     </section>
@@ -955,6 +1113,15 @@ function SiteFooter() {
           Isolated workspace per distributor · GST-aware · full audit trail
         </p>
         <p className="text-xs">© 2026 Dhela · dhela.in · Built for distributors.</p>
+        <p className="text-xs">
+          Written by{" "}
+          <a href={LINKEDIN} target="_blank" rel="noreferrer noopener"
+            className="font-medium hover:text-foreground transition-colors">Jashan Sehgal</a>
+          {" · "}Last updated{" "}
+          <time dateTime={UPDATED}>
+            {new Date(UPDATED).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+          </time>
+        </p>
       </div>
     </footer>
   );
