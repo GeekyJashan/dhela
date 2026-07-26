@@ -672,5 +672,12 @@
   "I've paid — send screenshot": "भुगतान हो गया — स्क्रीनशॉट भेजें",
   "Send the screenshot and your plan is activated the same day.": "स्क्रीनशॉट भेजें, आपका प्लान उसी दिन चालू हो जाएगा।",
   "Tap \"Upgrade now\" on a plan and scan the UPI QR.": "किसी प्लान पर \"अभी अपग्रेड करें\" दबाएं और UPI QR स्कैन करें।",
-  "QR unavailable — please pay to the UPI number below.": "QR उपलब्ध नहीं — कृपया नीचे दिए UPI नंबर पर भुगतान करें।"
+  "QR unavailable — please pay to the UPI number below.": "QR उपलब्ध नहीं — कृपया नीचे दिए UPI नंबर पर भुगतान करें।",
+  "UPI ID copied": "UPI आईडी कॉपी हो गई",
+  "Pay {{amt}} in your UPI app": "अपने UPI ऐप में {{amt}} का भुगतान करें",
+  "Scan with any UPI app and enter {{amt}}.": "किसी भी UPI ऐप से स्कैन करें और {{amt}} डालें।",
+  "After paying, send the transaction screenshot": "भुगतान के बाद ट्रांज़ैक्शन स्क्रीनशॉट भेजें",
+  "WhatsApp": "WhatsApp",
+  "Your plan is activated the same day.": "आपका प्लान उसी दिन चालू हो जाएगा।",
+  "QR unavailable — please pay to the UPI ID below.": "QR उपलब्ध नहीं — कृपया नीचे दी UPI आईडी पर भुगतान करें।"
 }

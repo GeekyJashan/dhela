@@ -24,3 +24,20 @@ export function whatsappLink(text: string): string {
 export function emailLink(subject: string, body: string): string {
   return `mailto:${FOUNDER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+/** UPI handle for plan payments — the same one encoded in public/upi-qr.png. */
+export const UPI_VPA = "jsehgal2003@okaxis";
+const UPI_PAYEE = "Jashan Sehgal";
+
+/**
+ * Deep link that opens a UPI app with payee and amount already filled.
+ * Only does anything on a phone with a UPI app installed, so callers
+ * should keep the QR available as the desktop path.
+ *
+ * The VPA is left unencoded: "@" is a legal sub-delimiter in a query and
+ * some UPI apps mishandle it percent-encoded.
+ */
+export function upiPayLink(amount: number, note: string): string {
+  return `upi://pay?pa=${UPI_VPA}&pn=${encodeURIComponent(UPI_PAYEE)}`
+    + `&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+}

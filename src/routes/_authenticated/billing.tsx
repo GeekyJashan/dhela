@@ -7,10 +7,10 @@ import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, MessageCircle, Sparkles, ScanLine, Copy } from "lucide-react";
+import { Check, MessageCircle, Sparkles, ScanLine, Copy, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { whatsappLink, supportPhoneDisplay, supportPhoneDigits, FOUNDER_EMAIL } from "@/lib/support";
+import { whatsappLink, supportPhoneDisplay, emailLink, UPI_VPA, upiPayLink, FOUNDER_EMAIL } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/billing")({
   head: () => ({ meta: [{ title: "Billing — Dhela" }] }),
@@ -24,6 +24,9 @@ function BillingPage() {
   const fetchBilling = useServerFn(getBillingInfo);
   const [payPlan, setPayPlan] = useState<PlanId | null>(null);
   const [qrBroken, setQrBroken] = useState(false);
+  // The route is ssr:false, so touching navigator here is safe.
+  const isMobile = typeof navigator !== "undefined"
+    && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const { data: billing } = useQuery({
     queryKey: ["billing_info"],
@@ -157,43 +160,75 @@ function BillingPage() {
               {/* Static QR exported from the founder's own UPI app — it
                   encodes the real VPA, which a phone number alone cannot. */}
               {qrBroken ? (
-                <div className="mx-auto flex h-[220px] w-[220px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center">
+                <div className="mx-auto flex h-[230px] w-[230px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center">
                   <ScanLine className="h-6 w-6 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">
-                    {t("QR unavailable — please pay to the UPI number below.")}
+                    {t("QR unavailable — please pay to the UPI ID below.")}
                   </p>
                 </div>
               ) : (
                 <div className="mx-auto rounded-xl border bg-white p-3">
-                  <img src="/upi-qr.png" alt={t("UPI QR code")} width={220} height={220}
+                  <img src="/upi-qr.png" alt={t("UPI QR code")} width={795} height={900}
                     onError={() => setQrBroken(true)}
-                    className="h-[220px] w-[220px] object-contain" />
+                    className="w-[230px] h-auto" />
                 </div>
               )}
 
               <div className="rounded-lg bg-muted/60 px-3 py-2 text-center">
-                <p className="text-xs text-muted-foreground">{t("Or pay to this UPI number")}</p>
+                <p className="text-xs text-muted-foreground">{t("UPI ID")}</p>
                 <button
                   onClick={() => {
-                    navigator.clipboard?.writeText(supportPhoneDigits().replace(/^91/, ""));
-                    toast.success(t("Number copied"));
+                    navigator.clipboard?.writeText(UPI_VPA);
+                    toast.success(t("UPI ID copied"));
                   }}
                   className="mt-0.5 inline-flex items-center gap-1.5 font-medium hover:text-primary transition-colors">
-                  {supportPhoneDisplay()} <Copy className="h-3.5 w-3.5" />
+                  {UPI_VPA} <Copy className="h-3.5 w-3.5" />
                 </button>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                {t("The QR doesn't carry the amount — type {{amt}} yourself before paying.", { amt: inr(PLANS[payPlan].priceYearly) })}
-              </p>
+              {/* Deep link only does anything on a phone with a UPI app, so
+                  the QR stays the desktop path. */}
+              {isMobile ? (
+                <a href={upiPayLink(PLANS[payPlan].priceYearly, `Dhela ${PLANS[payPlan].name} plan`)}
+                  className="block">
+                  <Button className="w-full" size="lg">
+                    {t("Pay {{amt}} in your UPI app", { amt: inr(PLANS[payPlan].priceYearly) })}
+                  </Button>
+                </a>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center">
+                  {t("Scan with any UPI app and enter {{amt}}.", { amt: inr(PLANS[payPlan].priceYearly) })}
+                </p>
+              )}
 
-              <a href={upgradeHref(payPlan)} target="_blank" rel="noreferrer" className="block">
-                <Button className="w-full">
-                  <MessageCircle className="h-4 w-4 mr-2" />{t("I've paid — send screenshot")}
-                </Button>
-              </a>
+              <div className="rounded-lg border border-dashed p-3 space-y-2">
+                <p className="text-xs font-medium text-center">
+                  {t("After paying, send the transaction screenshot")}
+                </p>
+                <div className="flex gap-2">
+                  <a href={upgradeHref(payPlan)} target="_blank" rel="noreferrer" className="flex-1">
+                    <Button variant="outline" className="w-full" size="sm">
+                      <MessageCircle className="h-4 w-4 mr-1.5" />{t("WhatsApp")}
+                    </Button>
+                  </a>
+                  <a
+                    href={emailLink(
+                      `Dhela ${PLANS[payPlan].name} plan payment`,
+                      `Hi Jashan,\n\nI have paid ${inr(PLANS[payPlan].priceYearly)} for the ${PLANS[payPlan].name} plan. Screenshot attached.\n\nWorkspace: `,
+                    )}
+                    className="flex-1">
+                    <Button variant="outline" className="w-full" size="sm">
+                      <Mail className="h-4 w-4 mr-1.5" />{t("Email")}
+                    </Button>
+                  </a>
+                </div>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  {supportPhoneDisplay()} · {FOUNDER_EMAIL}
+                </p>
+              </div>
+
               <p className="text-xs text-muted-foreground text-center">
-                {t("Send the screenshot and your plan is activated the same day.")}
+                {t("Your plan is activated the same day.")}
               </p>
             </>
           )}
