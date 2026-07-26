@@ -769,5 +769,20 @@
   "Every business record in this workspace will be permanently deleted.": "ਇਸ ਵਰਕਸਪੇਸ ਦਾ ਹਰ ਕਾਰੋਬਾਰੀ ਰਿਕਾਰਡ ਹਮੇਸ਼ਾ ਲਈ ਮਿਟ ਜਾਵੇਗਾ।",
   "Type the workspace name to confirm:": "ਪੁਸ਼ਟੀ ਲਈ ਵਰਕਸਪੇਸ ਦਾ ਨਾਮ ਟਾਈਪ ਕਰੋ:",
   "Delete everything": "ਸਭ ਕੁਝ ਮਿਟਾ ਦਿਓ",
-  "Workspace cleared — {{n}} tables emptied": "ਵਰਕਸਪੇਸ ਖਾਲੀ ਹੋ ਗਿਆ — {{n}} ਟੇਬਲ ਸਾਫ਼"
+  "Workspace cleared — {{n}} tables emptied": "ਵਰਕਸਪੇਸ ਖਾਲੀ ਹੋ ਗਿਆ — {{n}} ਟੇਬਲ ਸਾਫ਼",
+  "Nil rated & exempt": "ਜ਼ੀਰੋ ਦਰ ਅਤੇ ਛੋਟ",
+  "Table 8 — supplies at 0%": "ਟੇਬਲ 8 — 0% 'ਤੇ ਸਪਲਾਈ",
+  "3.1(c) Other outward supplies (nil rated, exempted)": "3.1(c) ਹੋਰ ਬਾਹਰੀ ਸਪਲਾਈ (ਜ਼ੀਰੋ ਦਰ, ਛੋਟ)",
+  "Nil rated / exempt": "ਜ਼ੀਰੋ ਦਰ / ਛੋਟ",
+  "Not covered here": "ਇੱਥੇ ਸ਼ਾਮਲ ਨਹੀਂ",
+  "Table 11 (advances)": "ਟੇਬਲ 11 (ਪੇਸ਼ਗੀ)",
+  "not applicable to you. Suppliers of goods don't pay GST on advances (Notification 66/2017) — the liability arises when you issue the invoice, which is already counted above.": "ਤੁਹਾਡੇ 'ਤੇ ਲਾਗੂ ਨਹੀਂ। ਸਮਾਨ ਵੇਚਣ ਵਾਲਿਆਂ ਨੂੰ ਪੇਸ਼ਗੀ 'ਤੇ GST ਨਹੀਂ ਦੇਣਾ ਹੁੰਦਾ (ਨੋਟੀਫਿਕੇਸ਼ਨ 66/2017) — ਦੇਣਦਾਰੀ ਉਦੋਂ ਬਣਦੀ ਹੈ ਜਦੋਂ ਤੁਸੀਂ ਇਨਵੌਇਸ ਜਾਰੀ ਕਰਦੇ ਹੋ, ਜੋ ਉੱਪਰ ਪਹਿਲਾਂ ਹੀ ਗਿਣਿਆ ਜਾ ਚੁੱਕਾ ਹੈ।",
+  "Tables 6A/6B (exports, SEZ)": "ਟੇਬਲ 6A/6B (ਨਿਰਯਾਤ, SEZ)",
+  "not produced. Dhela doesn't record shipping bill numbers, port codes or export type, so these can't be derived. If you export, your accountant must add them by hand.": "ਨਹੀਂ ਬਣਾਇਆ ਗਿਆ। Dhela ਸ਼ਿਪਿੰਗ ਬਿੱਲ ਨੰਬਰ, ਪੋਰਟ ਕੋਡ ਜਾਂ ਨਿਰਯਾਤ ਕਿਸਮ ਦਰਜ ਨਹੀਂ ਕਰਦਾ, ਇਸ ਲਈ ਇਹ ਨਹੀਂ ਕੱਢੇ ਜਾ ਸਕਦੇ। ਜੇ ਤੁਸੀਂ ਨਿਰਯਾਤ ਕਰਦੇ ਹੋ ਤਾਂ ਤੁਹਾਡੇ ਅਕਾਊਂਟੈਂਟ ਨੂੰ ਇਹ ਹੱਥ ਨਾਲ ਜੋੜਨੇ ਪੈਣਗੇ।",
+  "Exempt vs non-GST": "ਛੋਟ ਬਨਾਮ ਗੈਰ-GST",
+  "everything at 0% is reported as nil rated, because only the GST rate is recorded. Reclassify any exempt or non-GST items before filing.": "0% ਵਾਲੀ ਹਰ ਚੀਜ਼ ਜ਼ੀਰੋ ਦਰ ਵਜੋਂ ਦਿਖਾਈ ਜਾਂਦੀ ਹੈ, ਕਿਉਂਕਿ ਸਿਰਫ਼ GST ਦਰ ਦਰਜ ਹੁੰਦੀ ਹੈ। ਫਾਈਲ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਛੋਟ ਜਾਂ ਗੈਰ-GST ਵਸਤੂਆਂ ਨੂੰ ਦੁਬਾਰਾ ਵਰਗੀਕ੍ਰਿਤ ਕਰੋ।",
+  "HSN — B2B": "HSN — B2B",
+  "HSN — B2C": "HSN — B2C",
+  "Table 12, B2B tab": "ਟੇਬਲ 12, B2B ਟੈਬ",
+  "Table 12, B2C tab — optional below ₹5 crore turnover": "ਟੇਬਲ 12, B2C ਟੈਬ — ₹5 ਕਰੋੜ ਤੋਂ ਘੱਟ ਟਰਨਓਵਰ 'ਤੇ ਵਿਕਲਪਿਕ"
 }

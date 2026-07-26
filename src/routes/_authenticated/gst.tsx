@@ -52,6 +52,7 @@ function GstPage() {
     { key: "b2cs", label: "B2CS", hint: t("All other unregistered sales, summarised") },
     { key: "cdnr", label: "CDNR", hint: t("Credit notes against registered retailers") },
     { key: "cdnur", label: "CDNUR", hint: t("Credit notes against unregistered buyers") },
+    { key: "nilRated", label: t("Nil rated & exempt"), hint: t("Table 8 — supplies at 0%") },
     { key: "hsnB2b", label: t("HSN — B2B"), hint: t("Table 12, B2B tab") },
     { key: "hsnB2c", label: t("HSN — B2C"), hint: t("Table 12, B2C tab — optional below ₹5 crore turnover") },
     { key: "docs", label: t("Documents"), hint: t("Table 13 — invoice series issued") },
@@ -147,6 +148,14 @@ function GstPage() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                {t("3.1(c) Other outward supplies (nil rated, exempted)")}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                <Stat label={t("Nil rated / exempt")} value={inr(data.gstr3b.nilRatedTotal)} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 {t("4 Input tax credit (from approved purchases)")}
               </p>
               <div className="grid gap-3 sm:grid-cols-3 text-sm">
@@ -160,6 +169,30 @@ function GstPage() {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t("Not covered here")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">{t("Table 11 (advances)")}</span>{" — "}
+                {t("not applicable to you. Suppliers of goods don't pay GST on advances (Notification 66/2017) — the liability arises when you issue the invoice, which is already counted above.")}
+              </li>
+              <li>
+                <span className="font-medium text-foreground">{t("Tables 6A/6B (exports, SEZ)")}</span>{" — "}
+                {t("not produced. Dhela doesn't record shipping bill numbers, port codes or export type, so these can't be derived. If you export, your accountant must add them by hand.")}
+              </li>
+              <li>
+                <span className="font-medium text-foreground">{t("Exempt vs non-GST")}</span>{" — "}
+                {t("everything at 0% is reported as nil rated, because only the GST rate is recorded. Reclassify any exempt or non-GST items before filing.")}
+              </li>
+            </ul>
           </CardContent>
         </Card>
       )}

@@ -769,5 +769,20 @@
   "Every business record in this workspace will be permanently deleted.": "इस वर्कस्पेस का हर कारोबारी रिकॉर्ड हमेशा के लिए मिट जाएगा।",
   "Type the workspace name to confirm:": "पुष्टि के लिए वर्कस्पेस का नाम टाइप करें:",
   "Delete everything": "सब कुछ मिटा दें",
-  "Workspace cleared — {{n}} tables emptied": "वर्कस्पेस खाली हो गया — {{n}} टेबल साफ़"
+  "Workspace cleared — {{n}} tables emptied": "वर्कस्पेस खाली हो गया — {{n}} टेबल साफ़",
+  "Nil rated & exempt": "शून्य दर और छूट",
+  "Table 8 — supplies at 0%": "टेबल 8 — 0% पर आपूर्ति",
+  "3.1(c) Other outward supplies (nil rated, exempted)": "3.1(c) अन्य बाहरी आपूर्ति (शून्य दर, छूट)",
+  "Nil rated / exempt": "शून्य दर / छूट",
+  "Not covered here": "यहां शामिल नहीं",
+  "Table 11 (advances)": "टेबल 11 (अग्रिम)",
+  "not applicable to you. Suppliers of goods don't pay GST on advances (Notification 66/2017) — the liability arises when you issue the invoice, which is already counted above.": "आप पर लागू नहीं। सामान बेचने वालों को अग्रिम पर GST नहीं देना होता (अधिसूचना 66/2017) — देनदारी तब बनती है जब आप इनवॉइस जारी करते हैं, जो ऊपर पहले ही गिना जा चुका है।",
+  "Tables 6A/6B (exports, SEZ)": "टेबल 6A/6B (निर्यात, SEZ)",
+  "not produced. Dhela doesn't record shipping bill numbers, port codes or export type, so these can't be derived. If you export, your accountant must add them by hand.": "नहीं बनाया गया। Dhela शिपिंग बिल नंबर, पोर्ट कोड या निर्यात प्रकार दर्ज नहीं करता, इसलिए ये नहीं निकाले जा सकते। अगर आप निर्यात करते हैं तो आपके अकाउंटेंट को ये हाथ से जोड़ने होंगे।",
+  "Exempt vs non-GST": "छूट बनाम गैर-GST",
+  "everything at 0% is reported as nil rated, because only the GST rate is recorded. Reclassify any exempt or non-GST items before filing.": "0% वाली हर चीज़ शून्य दर के रूप में दिखाई जाती है, क्योंकि सिर्फ़ GST दर दर्ज होती है। फाइल करने से पहले छूट या गैर-GST वस्तुओं को दोबारा वर्गीकृत करें।",
+  "HSN — B2B": "HSN — B2B",
+  "HSN — B2C": "HSN — B2C",
+  "Table 12, B2B tab": "टेबल 12, B2B टैब",
+  "Table 12, B2C tab — optional below ₹5 crore turnover": "टेबल 12, B2C टैब — ₹5 करोड़ से कम टर्नओवर पर वैकल्पिक"
 }

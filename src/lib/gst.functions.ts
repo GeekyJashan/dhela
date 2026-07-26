@@ -84,10 +84,12 @@ export type GstReturns = {
   hsnB2b: Gstr1Row[];
   hsnB2c: Gstr1Row[];
   docs: Gstr1Row[];
+  nilRated: Gstr1Row[];
   gstr3b: {
     outwardTaxable: number; outwardIgst: number; outwardCgst: number; outwardSgst: number;
     creditNoteTaxable: number; creditNoteTax: number;
     inwardTaxable: number; itcTotal: number; itcSplitAvailable: boolean;
+    nilRatedTotal: number;
   };
   warnings: string[];
 };
@@ -167,21 +169,35 @@ export const getGstReturns = createServerFn({ method: "POST" })
     const b2csMap = new Map<string, Gstr1Row>();
     let skippedNoGstin = 0;
     let outwardTaxable = 0, outwardIgst = 0, outwardCgst = 0, outwardSgst = 0;
+    // Table 8 rows: 8A inter/registered, 8B intra/registered,
+    // 8C inter/unregistered, 8D intra/unregistered.
+    const table8 = new Map<string, number>();
+    let nilRatedTotal = 0;
 
     for (const inv of invoices) {
       const party = inv.retailer;
       const invLines = linesByInvoice.get(inv.id) ?? [];
       const pos = inv.place_of_supply ?? party?.state_code ?? org?.state_code ?? "";
 
-      outwardTaxable += n(inv.subtotal);
+      // Sum from lines rather than inv.subtotal so nil-rated value doesn't
+      // inflate 3.1(a); it belongs in 3.1(c).
+      outwardTaxable += invLines.reduce(
+        (a, l) => a + (n(l.gst_rate) === 0 ? 0 : n(l.taxable_value)), 0);
       outwardIgst += n(inv.igst_total);
       outwardCgst += n(inv.cgst_total);
       outwardSgst += n(inv.sgst_total);
 
-      // One row per rate, which is how the portal wants B2B and B2CL.
+      // 0% lines belong in Table 8, not in B2B/B2CL/B2CS — leaving them in the
+      // taxable tables at rate 0 was the bug this replaces.
       const byRate = new Map<number, { taxable: number; igst: number; cgst: number; sgst: number }>();
       for (const l of invLines) {
         const rate = n(l.gst_rate);
+        if (rate === 0) {
+          const bucket = `${party?.gstin ? "reg" : "unreg"}|${inv.is_interstate ? "inter" : "intra"}`;
+          table8.set(bucket, (table8.get(bucket) ?? 0) + n(l.taxable_value));
+          nilRatedTotal += n(l.taxable_value);
+          continue;
+        }
         const cur = byRate.get(rate) ?? { taxable: 0, igst: 0, cgst: 0, sgst: 0 };
         cur.taxable += n(l.taxable_value);
         cur.igst += n(l.igst_amount);
@@ -189,10 +205,11 @@ export const getGstReturns = createServerFn({ method: "POST" })
         cur.sgst += n(l.sgst_amount);
         byRate.set(rate, cur);
       }
-      if (!byRate.size) {
+      // An invoice made up entirely of nil-rated lines has no taxable table row
+      // at all; that is correct, not the "no line items" case warned about below.
+      if (!invLines.length) {
         warnings.push(`Invoice ${inv.invoice_number} has no line items — excluded from rate-wise tables.`);
       }
-
       if (party?.gstin) {
         for (const [rate, v] of byRate) {
           b2b.push({
@@ -246,8 +263,28 @@ export const getGstReturns = createServerFn({ method: "POST" })
       }
     }
 
+    const T8_ROWS: [string, string][] = [
+      ["reg|inter", "8A. Inter-State supplies to registered persons"],
+      ["reg|intra", "8B. Intra-State supplies to registered persons"],
+      ["unreg|inter", "8C. Inter-State supplies to unregistered persons"],
+      ["unreg|intra", "8D. Intra-State supplies to unregistered persons"],
+    ];
+    const nilRated: Gstr1Row[] = T8_ROWS
+      .filter(([k]) => (table8.get(k) ?? 0) > 0)
+      .map(([k, label]) => ({
+        "Description": label,
+        // Only gst_rate is recorded, so a 0% line can't be told apart from an
+        // exempt or non-GST one. Everything lands in Nil Rated for the
+        // accountant to reclassify; the UI says so.
+        "Nil Rated Supplies": r2(table8.get(k) ?? 0),
+        "Exempted (other than nil rated/non-GST)": 0,
+        "Non-GST Supplies": 0,
+      }));
+
     // Document series — the portal wants issued/cancelled counts per range.
-    const numbers = invoices.map(i => i.invoice_number).filter(Boolean).sort();
+    // Natural sort, or S-10 sorts before S-9 and the range comes out wrong.
+    const numbers = invoices.map(i => i.invoice_number).filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
     if (numbers.length) {
       docs.push({
         "Nature of Document": "Invoices for outward supply",
@@ -370,7 +407,7 @@ export const getGstReturns = createServerFn({ method: "POST" })
         skippedNoGstin,
       },
       b2b, b2cl, b2cs: [...b2csMap.values()], cdnr, cdnur,
-      hsnB2b: [...hsnB2bMap.values()], hsnB2c: [...hsnB2cMap.values()], docs,
+      hsnB2b: [...hsnB2bMap.values()], hsnB2c: [...hsnB2cMap.values()], docs, nilRated,
       gstr3b: {
         outwardTaxable: r2(outwardTaxable),
         outwardIgst: r2(outwardIgst),
@@ -381,6 +418,7 @@ export const getGstReturns = createServerFn({ method: "POST" })
         inwardTaxable: r2(inwardTaxable),
         itcTotal: r2(itcTotal),
         itcSplitAvailable: false,
+        nilRatedTotal: r2(nilRatedTotal),
       },
       warnings: [...new Set(warnings)],
     };

@@ -85,6 +85,8 @@ const PRODUCTS = [
   { name: "CENTRE HOLE BASIN MIXER", sku: "F690014CP", hsn: "84818020", unit: "PCS", gst_rate: 18, mrp: 2100, purchase_rate: 1334.5 },
   { name: "RAIN SHOWER CHROME 100MM", sku: "F160147CP", hsn: "84818020", unit: "PCS", gst_rate: 18, mrp: 650, purchase_rate: 399.5 },
   { name: "LED PANEL 36W WHITE", sku: "LED-36W", hsn: "94054900", unit: "PCS", gst_rate: 18, mrp: 1900, purchase_rate: 1250 },
+  // 0% — must land in Table 8, never in B2B/B2CS at rate 0.
+  { name: "PACKING JUTE TWINE", sku: "PKG-TWINE", hsn: "53079000", unit: "KGS", gst_rate: 0, mrp: 90, purchase_rate: 60 },
 ];
 
 const SUPPLIERS = [
@@ -163,8 +165,10 @@ export async function seed(orgId, userId) {
   // Two issued sales: one B2B (retailer has GSTIN), one B2CS (no GSTIN).
   // Both intrastate, so CGST+SGST — GSTR-1 needs both kinds present.
   const sales = [
-    { retailer: retailers[0], number: "S-001", date: "2026-07-20", items: [[0, 2], [4, 6]] },
-    { retailer: retailers[2], number: "S-002", date: "2026-07-22", items: [[2, 3]] },
+    { retailer: retailers[0], number: "S-9", date: "2026-07-20", items: [[0, 2], [4, 6]] },
+    { retailer: retailers[2], number: "S-10", date: "2026-07-22", items: [[2, 3]] },
+    // Nil-rated goods to a registered retailer → Table 8 row 8B.
+    { retailer: retailers[1], number: "S-11", date: "2026-07-24", items: [[9, 20]] },
   ];
   for (const s of sales) {
     const lines = s.items.map(([pi, qty], n) => {
@@ -200,7 +204,7 @@ export async function seed(orgId, userId) {
   // must NOT land in CDNUR (which only accepts B2CL/EXPWP/EXPWOP) and must
   // instead net down the B2CS bucket.
   const [b2csSale] = await rest(
-    `sales_invoices?select=id,retailer_id&org_id=eq.${orgId}&invoice_number=eq.S-002`);
+    `sales_invoices?select=id,retailer_id&org_id=eq.${orgId}&invoice_number=eq.S-10`);
   const cnProduct = PRODUCTS[2];
   const cnRate = round(cnProduct.purchase_rate * 1.18);
   const cnTaxable = round(cnRate * 1);
@@ -224,6 +228,9 @@ export async function seed(orgId, userId) {
     expect: {
       b2csTaxable: round(round(cnRate * 3) - cnTaxable),
       creditNoteTaxable: cnTaxable,
+      // 20 units of a 0% line at cost*1.18 — belongs in Table 8, not B2B.
+      nilRated: round(round(PRODUCTS[9].purchase_rate * 1.18) * 20),
+      docSeriesFrom: "S-9", docSeriesTo: "S-11",
     } };
 }
 

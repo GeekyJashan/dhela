@@ -107,6 +107,32 @@ test.describe("GST returns", () => {
     await expect(b2csRow).toContainText("2067.36");
   });
 
+  test("0% lines go to Table 8, not into B2B at rate 0", async ({ page }) => {
+    await page.goto("/gst");
+    await page.locator('input[type="month"]').fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+
+    // Seeded: 20 units of a 0% product to a registered retailer = 1,416.
+    await expect(page.getByText(/^Nil rated & exempt \(1\)$/)).toBeVisible();
+    const t8 = page.locator("table").filter({ hasText: "8B." }).first();
+    await expect(t8).toContainText("1416");
+    // And it must be reported under 3.1(c), not 3.1(a).
+    await expect(page.getByText("3.1(c) Other outward supplies (nil rated, exempted)")).toBeVisible();
+
+    // B2B has three rated rows from S-9 and none at rate 0.
+    const b2b = page.locator("table").filter({ hasText: "Invoice Number" }).first();
+    await expect(b2b).not.toContainText("S-11");
+  });
+
+  test("document series sorts numerically, so S-10 doesn't precede S-9", async ({ page }) => {
+    await page.goto("/gst");
+    await page.locator('input[type="month"]').fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+    const docs = page.locator("table").filter({ hasText: "Nature of Document" }).first();
+    await expect(docs).toContainText("S-9");
+    await expect(docs).toContainText("S-11");
+  });
+
   test("Table 12 is split into B2B and B2C tabs", async ({ page }) => {
     await page.goto("/gst");
     await page.locator('input[type="month"]').fill("2026-07");
