@@ -42,6 +42,111 @@ export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Zod's default error is a JSON dump of every issue, and server-fn errors are
+ * shown to the user as a toast — so a bad GSTIN rendered a wall of JSON.
+ * Surface the first human-readable message instead.
+ */
+function firstIssue<T>(schema: z.ZodType<T>, d: unknown): T {
+  const r = schema.safeParse(d);
+  if (!r.success) throw new Error(r.error.issues[0]?.message ?? "Invalid input");
+  return r.data;
+}
+
+/**
+ * The workspace's own business details — the ones that print on every invoice
+ * and drive GST returns. Until now these could only be set at signup (name) or
+ * not at all (GSTIN, address, state), so invoices went out without a GSTIN.
+ */
+export const updateOrgProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    firstIssue(z.object({
+      name: z.string().trim().min(1, "Workspace name is required"),
+      gstin: z.string().trim().nullish(),
+      address: z.string().nullish(),
+      state_code: z.string().nullish(),
+      phone: z.string().nullish(),
+      email: z.string().nullish(),
+    }), d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id, role").eq("user_id", userId).limit(1).maybeSingle();
+    if (!mem) throw new Error("No organization");
+    if (mem.role !== "admin") throw new Error("Only an admin can change business details");
+
+    const gstin = (data.gstin ?? "").trim().toUpperCase();
+    if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin)) {
+      throw new Error("That doesn't look like a valid GSTIN");
+    }
+    // GSTIN's first two digits are the state code — keep them consistent rather
+    // than letting the two fields drift apart and land in a GST return.
+    const stateFromGstin = gstin ? gstin.slice(0, 2) : null;
+
+    const blank = (v: string | null | undefined) => {
+      const s = (v ?? "").trim();
+      return s === "" ? null : s;
+    };
+    const { error } = await supabase.from("organizations").update({
+      name: data.name.trim(),
+      gstin: gstin || null,
+      // organizations has no city/pincode columns — the full postal address
+      // lives in `address`, which is what prints on an invoice anyway.
+      address: blank(data.address),
+      state_code: stateFromGstin ?? blank(data.state_code),
+      phone: blank(data.phone),
+      email: blank(data.email),
+    }).eq("id", mem.org_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, stateCode: stateFromGstin ?? blank(data.state_code) };
+  });
+
+/** Tables wiped by clearOrgData, children before parents. */
+const CLEARABLE = [
+  "payment_allocations", "payments",
+  "credit_note_lines", "credit_notes",
+  "sales_invoice_lines", "sales_invoices",
+  "order_lines", "orders",
+  "invoice_lines", "invoices",
+  "product_price_overrides", "products",
+  "retailers", "suppliers", "stock_groups",
+  "assistant_messages",
+] as const;
+
+/**
+ * Wipe every business record in the workspace, keeping the workspace itself,
+ * its members and its business details so nobody locks themselves out.
+ *
+ * Irreversible and unrecoverable — there are no backups of an org's rows — so
+ * the caller must retype the workspace name and the server checks it again
+ * rather than trusting the client. Admins only.
+ */
+export const clearOrgData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => firstIssue(z.object({ confirmName: z.string() }), d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id, role, organizations(name)").eq("user_id", userId).limit(1).maybeSingle();
+    if (!mem) throw new Error("No organization");
+    if (mem.role !== "admin") throw new Error("Only an admin can clear the workspace");
+
+    const orgName = (mem.organizations as { name: string } | null)?.name ?? "";
+    if (data.confirmName.trim() !== orgName.trim()) {
+      throw new Error("The name you typed doesn't match the workspace name");
+    }
+
+    const cleared: Record<string, boolean> = {};
+    for (const t of CLEARABLE) {
+      const { error } = await supabase.from(t).delete().eq("org_id", mem.org_id);
+      if (error) throw new Error(`Failed clearing ${t}: ${error.message}`);
+      cleared[t] = true;
+    }
+    return { ok: true, tables: Object.keys(cleared).length };
+  });
+
 export const getCurrentOrg = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

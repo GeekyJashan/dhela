@@ -53,6 +53,7 @@ E-way bills (/eway) — under Selling
 
 Other things worth knowing
 - Language: switch English / Hindi / Punjabi from the bottom of the sidebar.
+- Account (/account, under Finance): the workspace's own business details — name, GSTIN, address, state code, phone, email — plus the bank and signatory block printed at the bottom of sales invoices, and a "Clear all data" action that wipes every business record but keeps the login and workspace. Set the GSTIN here; without it invoices print without one and GST returns warn. Admins only for changes.
 - Admin (/admin, platform admins only): manage users and get an invite link for the workspace.
 - The AI quota (extractions/month) is shared across: AI-engine invoice uploads, AI-read order uploads, and questions asked to this assistant. OCR uploads never use it.
 

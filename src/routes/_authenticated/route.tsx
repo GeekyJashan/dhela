@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     { to: "/payments", label: "Payments", icon: IndianRupee },
     { to: "/gst", label: "GST returns", icon: FileSpreadsheet },
     { to: "/billing", label: "Billing", icon: CreditCard },
+    { to: "/account", label: "Account", icon: Settings },
   ]},
 ];
 

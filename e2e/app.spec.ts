@@ -145,6 +145,42 @@ test.describe("upload", () => {
   });
 });
 
+test.describe("account", () => {
+  test("saves the workspace GSTIN, which nothing else could set", async ({ page }) => {
+    await page.goto("/account");
+    await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
+    await expect(page.locator("#org-name")).not.toHaveValue("");
+    const gstin = page.locator("#org-gstin");
+    await gstin.fill("03AABCA1234K1Z5");
+    await page.getByRole("button", { name: /save business details/i }).click();
+    await expect(page.getByText("Business details saved")).toBeVisible();
+    await page.reload();
+    await expect(page.locator("#org-gstin")).toHaveValue("03AABCA1234K1Z5");
+    // State code is derived from the GSTIN rather than typed separately.
+    await expect(page.locator("#org-state")).toHaveValue("03");
+  });
+
+  test("rejects a malformed GSTIN instead of storing it", async ({ page }) => {
+    await page.goto("/account");
+    // Wait for the profile query to populate the form; submitting before that
+    // fails on the required name rather than on the GSTIN under test.
+    await expect(page.locator("#org-name")).not.toHaveValue("");
+    await page.locator("#org-gstin").fill("NOTAGSTIN");
+    await page.getByRole("button", { name: /save business details/i }).click();
+    await expect(page.getByText(/doesn't look like a valid GSTIN/i)).toBeVisible();
+  });
+
+  test("clear-all stays locked until the workspace name is typed exactly", async ({ page }) => {
+    await page.goto("/account");
+    await page.getByRole("button", { name: /clear all data…/i }).click();
+    const confirmBtn = page.getByRole("button", { name: /delete everything/i });
+    await expect(confirmBtn).toBeDisabled();
+    await page.locator("#confirm-name").fill("not the name");
+    await expect(confirmBtn).toBeDisabled();
+    // Deliberately not completing it — this asserts the guard, not the wipe.
+  });
+});
+
 test.describe("landing page", () => {
   test("renders unauthenticated with no horizontal scroll", async ({ browser, baseURL }) => {
     // Fresh context: the landing page must work for a logged-out visitor.
