@@ -1,23 +1,90 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Logo } from "@/components/logo";
 import { Reveal, CountUp, useInView } from "@/components/reveal";
 import { PLANS, type PlanId } from "@/lib/plans";
-import { whatsappLink, supportPhoneDisplay } from "@/lib/support";
+import { whatsappLink, supportPhoneDisplay, supportPhoneDigits, FOUNDER_EMAIL } from "@/lib/support";
 import hi from "@/locales/hi.json";
 import pa from "@/locales/pa.json";
 import { cn } from "@/lib/utils";
 import {
   FileUp, ArrowRight, CheckCircle2, Check, Moon, PhoneCall, TrendingDown, Truck,
   Package, Receipt, Store, Users, IndianRupee, ClipboardList, Undo2, FileText,
-  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw, Menu,
+  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw, Menu, ChevronDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify(structuredData()),
+    }],
+  }),
   component: Landing,
 });
+
+/**
+ * JSON-LD for the landing page. FAQPage is only legitimate because the answers
+ * are now in the server-rendered DOM — schema has to match visible content.
+ * Prices come from PLANS so the markup can't drift from what we charge.
+ */
+function structuredData() {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://dhela.in/#organization",
+        name: "Dhela",
+        url: "https://dhela.in/",
+        logo: "https://dhela.in/dhela.svg",
+        image: "https://dhela.in/og-image.png",
+        description: "Invoice and inventory software for Indian distributors.",
+        areaServed: { "@type": "Country", name: "India" },
+        contactPoint: [{
+          "@type": "ContactPoint",
+          contactType: "sales",
+          telephone: `+${supportPhoneDigits()}`,
+          email: FOUNDER_EMAIL,
+          availableLanguage: ["English", "Hindi", "Punjabi"],
+        }],
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://dhela.in/#software",
+        name: "Dhela",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        url: "https://dhela.in/",
+        publisher: { "@id": "https://dhela.in/#organization" },
+        inLanguage: ["en", "hi", "pa"],
+        description:
+          "Dhela is invoice and inventory software for Indian distributors. It reads supplier "
+          + "bills with AI, updates stock and true weighted-average cost, raises GST invoices, "
+          + "prepares e-way bills and GSTR-1 working papers, and answers questions about the "
+          + "business in English, Hindi or Punjabi.",
+        offers: (["free", "standard", "pro"] as PlanId[]).map(id => ({
+          "@type": "Offer",
+          name: `${PLANS[id].name} plan`,
+          price: String(PLANS[id].priceYearly),
+          priceCurrency: "INR",
+          category: PLANS[id].priceYearly === 0 ? "free" : "subscription",
+          url: "https://dhela.in/#pricing",
+        })),
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://dhela.in/#faq",
+        mainEntity: FAQS.map(([q, a]) => ({
+          "@type": "Question",
+          name: q,
+          acceptedAnswer: { "@type": "Answer", text: a },
+        })),
+      },
+    ],
+  };
+}
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const DEMO_WA = whatsappLink("Hi Jashan! I saw Dhela and want to know more for my distribution business.");
@@ -132,9 +199,11 @@ function Hero() {
         </h1>
 
         <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
-          Dhela reads every supplier bill, updates your stock and real cost, raises GST invoices,
-          files your e-way bills, tracks who owes you what — and answers any question about your
-          business in plain Hindi, Punjabi or English.
+          <strong className="font-medium text-foreground">Dhela is invoice and inventory software
+          for Indian distributors.</strong>{" "}
+          It reads every supplier bill with AI, updates your stock and true weighted-average cost,
+          raises GST invoices, prepares e-way bills and GSTR-1 working papers, and answers questions
+          about your business in English, हिंदी or ਪੰਜਾਬੀ.
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -158,7 +227,7 @@ function Hero() {
 
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
           <HeroStat value={<><CountUp to={45} />→<CountUp to={2} /> min</>} label="Per purchase bill, start to stock" />
-          <HeroStat value={<><CountUp to={98} />%+</>} label="Product match accuracy" />
+          <HeroStat value={<>{PLANS.free.aiExtractionsPerMonth}</>} label="Free AI bill reads every month" />
           <HeroStat value={<>{inr(333)}<span className="text-base font-normal">/mo</span></>} label="Less than a day of a clerk's pay" />
         </div>
       </div>
@@ -819,15 +888,20 @@ function Faq() {
       <Reveal className="text-center">
         <h2 className="font-display text-4xl md:text-5xl">The questions everyone asks</h2>
       </Reveal>
-      <Reveal delay={80} className="mt-10">
-        <Accordion type="single" collapsible className="w-full">
-          {FAQS.map(([q, a], i) => (
-            <AccordionItem key={q} value={`i${i}`}>
-              <AccordionTrigger className="text-left text-base">{q}</AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">{a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+      {/* <details> rather than a JS accordion: Radix unmounts collapsed content,
+          so the answers never reached the server-rendered HTML and no crawler
+          — or AI answer engine, none of which run JS — could see them. This is
+          native, keyboard-accessible, and every answer ships in the markup. */}
+      <Reveal delay={80} className="mt-10 divide-y border-t border-b">
+        {FAQS.map(([q, a]) => (
+          <details key={q} className="group py-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium marker:content-none">
+              {q}
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            <p className="mt-3 text-muted-foreground">{a}</p>
+          </details>
+        ))}
       </Reveal>
     </section>
   );

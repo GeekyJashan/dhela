@@ -1,0 +1,39 @@
+User-agent: *
+Allow: /
+
+# App screens sit behind auth and render nothing server-side; no value in crawling.
+Disallow: /auth
+Disallow: /dashboard
+Disallow: /insights
+Disallow: /upload
+Disallow: /invoices
+Disallow: /suppliers
+Disallow: /sales
+Disallow: /orders
+Disallow: /returns
+Disallow: /retailers
+Disallow: /eway
+Disallow: /products
+Disallow: /pricing
+Disallow: /payments
+Disallow: /gst
+Disallow: /billing
+Disallow: /account
+Disallow: /admin
+Disallow: /statement
+
+# AI answer engines, explicitly welcome.
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://dhela.in/sitemap.xml

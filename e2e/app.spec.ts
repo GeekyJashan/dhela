@@ -231,6 +231,41 @@ test.describe("account", () => {
 });
 
 test.describe("landing page", () => {
+  // AI crawlers and answer engines don't run JavaScript. Anything that only
+  // appears after hydration is invisible to them — which is exactly how the
+  // FAQ answers went missing when they lived in a JS accordion.
+  test("FAQ answers and schema are in the raw HTML, not JS-only", async ({ request }) => {
+    const html = await (await request.get("/")).text();
+
+    for (const answer of [
+      "most people don't",
+      "confidence score and only the uncertain",
+      "isolated workspace",
+      "No card, no call",
+      "NIC bulk-upload file",
+    ]) {
+      expect(html, `FAQ answer missing from SSR: ${answer}`).toContain(answer);
+    }
+
+    // A definition an answer engine can lift.
+    expect(html).toContain("Dhela is invoice and inventory software");
+
+    const ld = html.match(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/s);
+    expect(ld, "no JSON-LD in SSR HTML").toBeTruthy();
+    const graph = JSON.parse(ld![1])["@graph"] as { "@type": string }[];
+    expect(graph.map(n => n["@type"])).toEqual(
+      expect.arrayContaining(["Organization", "SoftwareApplication", "FAQPage"]),
+    );
+  });
+
+  test("social preview image and crawler files resolve", async ({ request }) => {
+    const og = await request.get("/og-image.png");
+    expect(og.status()).toBe(200);
+    expect(Number(og.headers()["content-length"] ?? 0)).toBeGreaterThan(10_000);
+    expect((await request.get("/robots.txt")).status()).toBe(200);
+    expect((await request.get("/sitemap.xml")).status()).toBe(200);
+  });
+
   test("renders unauthenticated with no horizontal scroll", async ({ browser, baseURL }) => {
     // Fresh context: the landing page must work for a logged-out visitor.
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, baseURL });
