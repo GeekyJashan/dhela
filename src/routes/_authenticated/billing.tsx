@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, MessageCircle, Sparkles, ScanLine, Copy, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { whatsappLink, supportPhoneDisplay, emailLink, UPI_VPA, upiPayLink, FOUNDER_EMAIL } from "@/lib/support";
 
@@ -80,14 +81,20 @@ function BillingPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
         {planOrder.map(id => {
           const p = PLANS[id];
           const current = billing?.plan === id;
+          // Only what differs between plans — the shared list sits below the
+          // grid, so three near-identical columns don't bury the difference.
+          const extras = [
+            ...(id !== "free" ? [t("Priority support")] : []),
+            ...(id === "pro" ? [t("Live GSTIN lookup + GST filer rating")] : []),
+          ];
           return (
-            <Card key={id} className={current ? "border-primary shadow-sm" : ""}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+            <Card key={id} className={cn("flex flex-col", current && "border-primary shadow-sm")}>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between text-base font-medium text-muted-foreground">
                   {p.name}
                   {current && (
                     <span className="text-xs font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
@@ -96,52 +103,83 @@ function BillingPage() {
                   )}
                 </CardTitle>
                 <div className="pt-1">
-                  <span className="text-3xl font-semibold">
-                    {p.priceYearly ? inr(Math.round(p.priceYearly / 12)) : t("Free")}
+                  <span className="font-display text-4xl">
+                    {p.priceYearly ? inr(Math.round(p.priceYearly / 12)) : "₹0"}
                   </span>
-                  {p.priceYearly > 0 && <span className="text-sm text-muted-foreground"> / {t("month")}</span>}
-                  {p.priceYearly > 0 && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {t("{{amt}} billed yearly", { amt: inr(p.priceYearly) })}
-                    </div>
-                  )}
+                  <span className="text-sm text-muted-foreground"> / {t("month")}</span>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {p.priceYearly
+                      ? t("{{amt}} billed yearly", { amt: inr(p.priceYearly) })
+                      : t("Free forever")}
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <ul className="space-y-1.5 text-sm">
-                  <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    {t("{{n}} AI extractions / month", { n: p.aiExtractionsPerMonth })}</li>
-                  <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    {t("Unlimited invoices, orders & payments")}</li>
-                  <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    {t("Unlimited free OCR extraction")}</li>
-                  <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    {t("WhatsApp statements & reminders")}</li>
-                  {id !== "free" && (
-                    <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      {t("Priority support")}</li>
-                  )}
-                  <li className="flex gap-2">
-                    <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                    <span>
-                      {t("AI assistant — ask anything about your invoices, retailers, products and orders: spot discrepancies, or get answers like profit on a product between any two dates. Each question uses 1 AI extraction.")}
-                    </span>
-                  </li>
-                  {id === "pro" && (
-                    <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      {t("Live GSTIN lookup — auto-fill business name + GST filer/defaulter rating for retailers & suppliers")}</li>
-                  )}
-                </ul>
-                {!current && id !== "free" && (
-                  <Button className="w-full" onClick={() => setPayPlan(id)}>
-                    <ScanLine className="h-4 w-4 mr-2" />{t("Upgrade now")}
-                  </Button>
+
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-3 text-center">
+                  <div className="font-display text-3xl text-primary leading-none">
+                    {p.aiExtractionsPerMonth}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1.5">
+                    {t("AI bill reads / month")}
+                  </div>
+                </div>
+
+                {extras.length > 0 && (
+                  <ul className="space-y-1.5 text-sm">
+                    {extras.map(f => (
+                      <li key={f} className="flex gap-2">
+                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}
+                      </li>
+                    ))}
+                  </ul>
                 )}
+
+                <div className="mt-auto pt-1">
+                  {current ? (
+                    <Button variant="outline" className="w-full" disabled>
+                      {t("Your current plan")}
+                    </Button>
+                  ) : id === "free" ? (
+                    <p className="text-center text-xs text-muted-foreground py-2.5">
+                      {t("No card, no expiry")}
+                    </p>
+                  ) : (
+                    <Button className="w-full" onClick={() => setPayPlan(id)}>
+                      <ScanLine className="h-4 w-4 mr-2" />{t("Upgrade now")}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t("On every plan, including Free")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid gap-2 text-sm sm:grid-cols-2">
+            {[
+              t("Unlimited invoices, orders & payments"),
+              t("Unlimited free OCR extraction"),
+              t("E-way bills, statements & receivables ageing"),
+              t("Stock and true weighted-average cost"),
+              t("English, हिंदी & ਪੰਜਾਬੀ"),
+            ].map(f => (
+              <li key={f} className="flex gap-2">
+                <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />{f}
+              </li>
+            ))}
+            <li className="flex gap-2">
+              <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+              {t("AI assistant — ask your own data anything. 1 read per question.")}
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Dialog open={!!payPlan} onOpenChange={o => !o && setPayPlan(null)}>
         <DialogContent className="max-w-sm">
@@ -235,23 +273,16 @@ function BillingPage() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">{t("How to upgrade")}</CardTitle></CardHeader>
-        <CardContent className="text-sm space-y-1.5">
-          <p>1. {t("Tap \"Upgrade now\" on a plan and scan the UPI QR.")}</p>
-          <p>2. {t("Pay by UPI or bank transfer.")}</p>
-          <p>
-            3. {t("Send the transaction screenshot to WhatsApp")}{" "}
-            <a href={whatsappLink(t("Hi Jashan! Here is my payment screenshot for the Dhela upgrade."))}
-              target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
-              {supportPhoneDisplay()}
-            </a>{" "}
-            {t("or email")}{" "}
-            <a href={`mailto:${FOUNDER_EMAIL}`} className="font-medium text-primary hover:underline">{FOUNDER_EMAIL}</a>
-            {" — "}{t("your plan is activated the same day.")}
-          </p>
-        </CardContent>
-      </Card>
+      <p className="text-center text-xs text-muted-foreground">
+        {t("Questions about a plan?")}{" "}
+        <a href={whatsappLink(t("Hi Jashan! I have a question about Dhela plans."))}
+          target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+          {supportPhoneDisplay()}
+        </a>{" · "}
+        <a href={`mailto:${FOUNDER_EMAIL}`} className="font-medium text-primary hover:underline">
+          {FOUNDER_EMAIL}
+        </a>
+      </p>
     </div>
   );
 }
