@@ -196,8 +196,35 @@ export async function seed(orgId, userId) {
     })));
   }
 
+  // A credit note against the no-GSTIN intrastate sale. This is the case that
+  // must NOT land in CDNUR (which only accepts B2CL/EXPWP/EXPWOP) and must
+  // instead net down the B2CS bucket.
+  const [b2csSale] = await rest(
+    `sales_invoices?select=id,retailer_id&org_id=eq.${orgId}&invoice_number=eq.S-002`);
+  const cnProduct = PRODUCTS[2];
+  const cnRate = round(cnProduct.purchase_rate * 1.18);
+  const cnTaxable = round(cnRate * 1);
+  const cnTax = round(cnTaxable * cnProduct.gst_rate / 100);
+  const [cn] = await insert("credit_notes", [{
+    org_id: orgId, retailer_id: b2csSale.retailer_id, sales_invoice_id: b2csSale.id,
+    credit_note_number: "CN-001", credit_date: "2026-07-25",
+    subtotal: cnTaxable, tax_total: cnTax, grand_total: round(cnTaxable + cnTax),
+    reason: "damaged", restock: false, created_by: userId,
+  }]);
+  await insert("credit_note_lines", [{
+    org_id: orgId, credit_note_id: cn.id, product_id: products[2].id,
+    description: cnProduct.name, hsn: cnProduct.hsn, quantity: 1, rate: cnRate,
+    gst_rate: cnProduct.gst_rate, taxable_value: cnTaxable, tax_amount: cnTax,
+    line_total: round(cnTaxable + cnTax),
+  }]);
+
   return { products: products.length, suppliers: suppliers.length, retailers: retailers.length,
-    purchases: purchases.length, sales: sales.length };
+    purchases: purchases.length, sales: sales.length, creditNotes: 1,
+    // Exact figures the e2e assertions check against.
+    expect: {
+      b2csTaxable: round(round(cnRate * 3) - cnTaxable),
+      creditNoteTaxable: cnTaxable,
+    } };
 }
 
 // `node e2e/seed.mjs` runs it standalone; Playwright imports the functions.

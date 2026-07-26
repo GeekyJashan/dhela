@@ -52,7 +52,8 @@ function GstPage() {
     { key: "b2cs", label: "B2CS", hint: t("All other unregistered sales, summarised") },
     { key: "cdnr", label: "CDNR", hint: t("Credit notes against registered retailers") },
     { key: "cdnur", label: "CDNUR", hint: t("Credit notes against unregistered buyers") },
-    { key: "hsn", label: t("HSN summary"), hint: t("Table 12") },
+    { key: "hsnB2b", label: t("HSN — B2B"), hint: t("Table 12, B2B tab") },
+    { key: "hsnB2c", label: t("HSN — B2C"), hint: t("Table 12, B2C tab — optional below ₹5 crore turnover") },
     { key: "docs", label: t("Documents"), hint: t("Table 13 — invoice series issued") },
   ];
 

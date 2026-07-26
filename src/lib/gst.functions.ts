@@ -60,8 +60,13 @@ type NoteRow = {
   id: string; credit_note_number: string | null; credit_date: string | null;
   subtotal: number | null; tax_total: number | null; grand_total: number | null;
   sales_invoice: { invoice_number: string | null; invoice_date: string | null;
-    place_of_supply: string | null; is_interstate: boolean | null } | null;
+    place_of_supply: string | null; is_interstate: boolean | null;
+    grand_total: number | null } | null;
   retailer: Party;
+};
+type NoteLineRow = {
+  credit_note_id: string; hsn: string | null; gst_rate: number | null;
+  taxable_value: number | null; tax_amount: number | null;
 };
 
 export type Gstr1Row = Record<string, string | number>;
@@ -76,7 +81,8 @@ export type GstReturns = {
   b2cs: Gstr1Row[];
   cdnr: Gstr1Row[];
   cdnur: Gstr1Row[];
-  hsn: Gstr1Row[];
+  hsnB2b: Gstr1Row[];
+  hsnB2c: Gstr1Row[];
   docs: Gstr1Row[];
   gstr3b: {
     outwardTaxable: number; outwardIgst: number; outwardCgst: number; outwardSgst: number;
@@ -123,11 +129,25 @@ export const getGstReturns = createServerFn({ method: "POST" })
 
     const { data: noteRaw } = await supabase.from("credit_notes")
       .select("id, credit_note_number, credit_date, subtotal, tax_total, grand_total, "
-        + "sales_invoice:sales_invoices(invoice_number, invoice_date, place_of_supply, is_interstate), "
+        + "sales_invoice:sales_invoices(invoice_number, invoice_date, place_of_supply, is_interstate, grand_total), "
         + "retailer:retailers(name, gstin, state_code)")
       .gte("credit_date", from).lte("credit_date", to)
       .order("credit_date");
     const notes = (noteRaw ?? []) as unknown as NoteRow[];
+
+    let noteLines: NoteLineRow[] = [];
+    if (notes.length) {
+      const { data: nlRaw } = await supabase.from("credit_note_lines")
+        .select("credit_note_id, hsn, gst_rate, taxable_value, tax_amount")
+        .in("credit_note_id", notes.map(n => n.id));
+      noteLines = (nlRaw ?? []) as unknown as NoteLineRow[];
+    }
+    const noteLinesById = new Map<string, NoteLineRow[]>();
+    for (const l of noteLines) {
+      const arr = noteLinesById.get(l.credit_note_id) ?? [];
+      arr.push(l);
+      noteLinesById.set(l.credit_note_id, arr);
+    }
 
     // Purchases give the ITC figure for 3B. Only approved ones have hit stock.
     const { data: purchases } = await supabase.from("invoices")
@@ -209,11 +229,13 @@ export const getGstReturns = createServerFn({ method: "POST" })
       } else {
         skippedNoGstin++;
         for (const [rate, v] of byRate) {
-          const type = inv.is_interstate ? "Inter-State" : "Intra-State";
-          const key = `${type}|${pos}|${rate}`;
+          // "Type" is OE (other than e-commerce) or E — not the supply's
+          // inter/intra nature, which is carried by Place Of Supply.
+          const key = `${pos}|${rate}`;
           const cur = b2csMap.get(key) ?? {
-            "Type": type, "Place Of Supply": pos, "Rate": rate,
-            "Taxable Value": 0, "Integrated Tax": 0, "Central Tax": 0, "State/UT Tax": 0, "Cess": 0,
+            "Type": "OE", "Place Of Supply": pos, "Rate": rate,
+            "Taxable Value": 0, "Integrated Tax": 0, "Central Tax": 0, "State/UT Tax": 0,
+            "Cess": 0, "E-Commerce GSTIN": "",
           };
           cur["Taxable Value"] = r2(Number(cur["Taxable Value"]) + v.taxable);
           cur["Integrated Tax"] = r2(Number(cur["Integrated Tax"]) + v.igst);
@@ -252,6 +274,7 @@ export const getGstReturns = createServerFn({ method: "POST" })
         "Note Value": r2(n(cn.grand_total)),
         "Taxable Value": r2(n(cn.subtotal)),
       };
+
       if (party?.gstin) {
         cdnr.push({
           "GSTIN/UIN of Recipient": party.gstin,
@@ -260,14 +283,49 @@ export const getGstReturns = createServerFn({ method: "POST" })
           "Invoice/Advance Receipt date": src?.invoice_date ?? "",
           ...base,
         });
-      } else {
-        cdnur.push({ "UR Type": src?.is_interstate ? "B2CL" : "B2CS", ...base });
+        continue;
+      }
+
+      // CDNUR accepts only B2CL, EXPWP and EXPWOP. A note against an
+      // unregistered buyer therefore belongs there only when the original
+      // supply itself was B2CL — interstate and over the threshold. Everything
+      // else is a negative adjustment inside B2CS, not a CDNUR row.
+      const wasB2cl = !!src?.is_interstate && n(src?.grand_total) > B2CL_THRESHOLD;
+      if (wasB2cl) {
+        cdnur.push({ "UR Type": "B2CL", ...base });
+        continue;
+      }
+
+      for (const l of noteLinesById.get(cn.id) ?? []) {
+        const rate = n(l.gst_rate);
+        const taxable = n(l.taxable_value);
+        const tax = n(l.tax_amount);
+        const key = `${pos}|${rate}`;
+        const cur = b2csMap.get(key) ?? {
+          "Type": "OE", "Place Of Supply": pos, "Rate": rate,
+          "Taxable Value": 0, "Integrated Tax": 0, "Central Tax": 0, "State/UT Tax": 0,
+          "Cess": 0, "E-Commerce GSTIN": "",
+        };
+        cur["Taxable Value"] = r2(Number(cur["Taxable Value"]) - taxable);
+        if (src?.is_interstate) {
+          cur["Integrated Tax"] = r2(Number(cur["Integrated Tax"]) - tax);
+        } else {
+          cur["Central Tax"] = r2(Number(cur["Central Tax"]) - tax / 2);
+          cur["State/UT Tax"] = r2(Number(cur["State/UT Tax"]) - tax / 2);
+        }
+        b2csMap.set(key, cur);
       }
     }
 
-    // HSN summary (Table 12), keyed the way the portal groups it.
-    const hsnMap = new Map<string, Gstr1Row>();
+    // Table 12 has separate B2B and B2C tabs since Phase 3 (May 2025), so a
+    // line is bucketed by whether its invoice went to a GSTIN holder.
+    const b2bInvoiceIds = new Set(
+      invoices.filter(i => i.retailer?.gstin).map(i => i.id),
+    );
+    const hsnB2bMap = new Map<string, Gstr1Row>();
+    const hsnB2cMap = new Map<string, Gstr1Row>();
     for (const l of lines) {
+      const hsnMap = b2bInvoiceIds.has(l.sales_invoice_id) ? hsnB2bMap : hsnB2cMap;
       const uqc = toUqc(l.unit);
       const rate = n(l.gst_rate);
       const code = (l.hsn ?? "").trim();
@@ -312,7 +370,7 @@ export const getGstReturns = createServerFn({ method: "POST" })
         skippedNoGstin,
       },
       b2b, b2cl, b2cs: [...b2csMap.values()], cdnr, cdnur,
-      hsn: [...hsnMap.values()], docs,
+      hsnB2b: [...hsnB2bMap.values()], hsnB2c: [...hsnB2cMap.values()], docs,
       gstr3b: {
         outwardTaxable: r2(outwardTaxable),
         outwardIgst: r2(outwardIgst),

@@ -88,8 +88,31 @@ test.describe("GST returns", () => {
     // Seed has one B2B sale (retailer with GSTIN) and one B2CS (without),
     // which is exactly the split GSTR-1 has to get right. Section titles carry
     // their row count, e.g. "B2B (1)".
-    await expect(page.getByText(/^B2B \(\d+\)$/)).toBeVisible();
-    await expect(page.getByText(/^B2CS \(\d+\)$/)).toBeVisible();
+    await expect(page.getByText(/^B2B \(1\)$/)).toBeVisible();
+    await expect(page.getByText(/^B2CS \(1\)$/)).toBeVisible();
+  });
+
+  test("credit note to an unregistered intrastate buyer nets into B2CS, not CDNUR", async ({ page }) => {
+    await page.goto("/gst");
+    await page.locator('input[type="month"]').fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+
+    // CDNUR only accepts B2CL/EXPWP/EXPWOP. The seeded note is intrastate to a
+    // buyer with no GSTIN, so it must not appear there at all.
+    await expect(page.getByText(/^CDNUR \(0\)$/)).toBeVisible();
+
+    // Instead it reduces the B2CS bucket: 3 units sold less 1 credited.
+    const b2csRow = page.locator("table").filter({ hasText: "OE" }).first();
+    await expect(b2csRow).toContainText("OE");
+    await expect(b2csRow).toContainText("2067.36");
+  });
+
+  test("Table 12 is split into B2B and B2C tabs", async ({ page }) => {
+    await page.goto("/gst");
+    await page.locator('input[type="month"]').fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+    await expect(page.getByText(/^HSN — B2B \(\d+\)$/)).toBeVisible();
+    await expect(page.getByText(/^HSN — B2C \(\d+\)$/)).toBeVisible();
   });
 
   test("a section downloads as CSV", async ({ page }) => {
