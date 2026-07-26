@@ -697,5 +697,7 @@
   "Choose from phone": "फोन से चुनें",
   "Photo": "फोटो",
   "Keep tapping to add more — nothing uploads until you press Upload.": "और जोड़ने के लिए दबाते रहें — Upload दबाने तक कुछ भी अपलोड नहीं होगा।",
-  "Remove": "हटाएं"
+  "Remove": "हटाएं",
+  "Not read off the bill — calculated from quantity, rate and GST": "बिल से नहीं पढ़ा गया — मात्रा, दर और GST से गणना किया गया",
+  "Approve": "मंज़ूर करें"
 }

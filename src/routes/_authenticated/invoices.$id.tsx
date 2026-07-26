@@ -176,24 +176,35 @@ function InvoiceReview() {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/invoices" })}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> {t("Back")}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Button variant="ghost" size="sm" className="shrink-0 px-2"
+            onClick={() => navigate({ to: "/invoices" })}>
+            <ArrowLeft className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">{t("Back")}</span>
           </Button>
-          <div>
-            <h1 className="font-display text-2xl">{inv.supplier_name ?? t("Unknown supplier")}</h1>
-            <p className="text-xs text-muted-foreground">{t("Invoice")} {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}</p>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl sm:text-2xl truncate">
+              {inv.supplier_name ?? t("Unknown supplier")}
+            </h1>
+            <p className="text-xs text-muted-foreground truncate">
+              {t("Invoice")} {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}
+            </p>
           </div>
           <StatusBadge status={inv.status} />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={reprocess}><RefreshCw className="h-4 w-4 mr-2" /> {t("Re-extract")}</Button>
-          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={doDelete}>
-            <Trash2 className="h-4 w-4 mr-2" /> {t("Delete")}
+        {/* Three buttons side by side run off a 390px screen. Below sm the two
+            secondary actions share a row and Approve takes the full width. */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Button variant="outline" size="sm" className="sm:h-9" onClick={reprocess}>
+            <RefreshCw className="h-4 w-4 mr-1.5 sm:mr-2" />{t("Re-extract")}
           </Button>
-          <Button onClick={doApprove} disabled={inv.status === "approved"}>
-            <CheckCircle2 className="h-4 w-4 mr-2" /> {t("Approve & post")}
+          <Button variant="outline" size="sm" className="sm:h-9 text-destructive hover:text-destructive" onClick={doDelete}>
+            <Trash2 className="h-4 w-4 mr-1.5 sm:mr-2" />{t("Delete")}
+          </Button>
+          <Button size="sm" className="col-span-2 sm:col-span-1 sm:h-9"
+            onClick={doApprove} disabled={inv.status === "approved"}>
+            <CheckCircle2 className="h-4 w-4 mr-1.5 sm:mr-2" />{t("Approve & post")}
           </Button>
         </div>
       </div>
@@ -302,7 +313,9 @@ function InvoiceReview() {
                       <TableCell className="tabular-nums">{l.gst_rate}</TableCell>
                       <TableCell className="text-xs">{l.batch}</TableCell>
                       <TableCell className="text-xs">{l.expiry_date}</TableCell>
-                      <TableCell className="text-right tabular-nums">{l.line_total}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <LineTotal line={l} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -312,6 +325,41 @@ function InvoiceReview() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Line total, falling back to a computed figure when the extractor didn't
+ * return one. A blank cell tells the operator nothing, and checking the
+ * numbers is the entire job of this screen.
+ *
+ * Derived values are italic with a tooltip so they're never mistaken for a
+ * figure actually read off the bill.
+ */
+function LineTotal({ line }: {
+  line: {
+    line_total: number | null; quantity: number | null; rate: number | null;
+    discount_pct: number | null; gst_rate: number | null; taxable_value: number | null;
+  };
+}) {
+  const { t } = useTranslation();
+  const n = (v: number | null | undefined) => (v == null ? null : Number(v));
+
+  const stored = n(line.line_total);
+  if (stored) return <>{stored.toLocaleString("en-IN")}</>;
+
+  const qty = n(line.quantity);
+  const rate = n(line.rate);
+  const taxable = n(line.taxable_value)
+    ?? (qty != null && rate != null ? qty * rate * (1 - (n(line.discount_pct) ?? 0) / 100) : null);
+  if (taxable == null) return <span className="text-muted-foreground">—</span>;
+
+  const total = taxable * (1 + (n(line.gst_rate) ?? 0) / 100);
+  return (
+    <span className="italic text-muted-foreground"
+      title={t("Not read off the bill — calculated from quantity, rate and GST")}>
+      {Math.round(total).toLocaleString("en-IN")}*
+    </span>
   );
 }
 

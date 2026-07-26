@@ -156,7 +156,9 @@ function AuthedLayout() {
           </button>
           <Link to="/dashboard"><Logo size={24} /></Link>
         </header>
-        <main className="flex-1 overflow-auto"><Outlet /></main>
+        {/* pb clears the fixed Ask AI launcher, which otherwise sits on top
+            of whatever is at the bottom of the page. */}
+        <main className="flex-1 overflow-auto pb-20 print:pb-0"><Outlet /></main>
       </div>
 
       <Assistant />
