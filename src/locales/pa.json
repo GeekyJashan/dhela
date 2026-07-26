@@ -661,5 +661,16 @@
   "All": "ਸਾਰੇ",
   "No payments match this filter.": "ਇਸ ਫਿਲਟਰ ਨਾਲ ਕੋਈ ਭੁਗਤਾਨ ਮੇਲ ਨਹੀਂ ਖਾਂਦਾ।",
   "Open menu": "ਮੀਨੂ ਖੋਲ੍ਹੋ",
-  "Close menu": "ਮੀਨੂ ਬੰਦ ਕਰੋ"
+  "Close menu": "ਮੀਨੂ ਬੰਦ ਕਰੋ",
+  "Pay for {{plan}}": "{{plan}} ਲਈ ਭੁਗਤਾਨ",
+  "Scan and pay": "ਸਕੈਨ ਕਰਕੇ ਭੁਗਤਾਨ ਕਰੋ",
+  "for one year, incl. GST": "ਇੱਕ ਸਾਲ ਲਈ, GST ਸਮੇਤ",
+  "UPI QR code": "UPI QR ਕੋਡ",
+  "Or pay to this UPI number": "ਜਾਂ ਇਸ UPI ਨੰਬਰ 'ਤੇ ਭੁਗਤਾਨ ਕਰੋ",
+  "Number copied": "ਨੰਬਰ ਕਾਪੀ ਹੋ ਗਿਆ",
+  "The QR doesn't carry the amount — type {{amt}} yourself before paying.": "QR ਵਿੱਚ ਰਕਮ ਨਹੀਂ ਹੈ — ਭੁਗਤਾਨ ਤੋਂ ਪਹਿਲਾਂ {{amt}} ਆਪ ਟਾਈਪ ਕਰੋ।",
+  "I've paid — send screenshot": "ਭੁਗਤਾਨ ਹੋ ਗਿਆ — ਸਕ੍ਰੀਨਸ਼ਾਟ ਭੇਜੋ",
+  "Send the screenshot and your plan is activated the same day.": "ਸਕ੍ਰੀਨਸ਼ਾਟ ਭੇਜੋ, ਤੁਹਾਡਾ ਪਲਾਨ ਉਸੇ ਦਿਨ ਚਾਲੂ ਹੋ ਜਾਵੇਗਾ।",
+  "Tap \"Upgrade now\" on a plan and scan the UPI QR.": "ਕਿਸੇ ਪਲਾਨ 'ਤੇ \"ਹੁਣੇ ਅੱਪਗ੍ਰੇਡ ਕਰੋ\" ਦਬਾਓ ਅਤੇ UPI QR ਸਕੈਨ ਕਰੋ।",
+  "QR unavailable — please pay to the UPI number below.": "QR ਉਪਲਬਧ ਨਹੀਂ — ਕਿਰਪਾ ਕਰਕੇ ਹੇਠਾਂ ਦਿੱਤੇ UPI ਨੰਬਰ 'ਤੇ ਭੁਗਤਾਨ ਕਰੋ।"
 }

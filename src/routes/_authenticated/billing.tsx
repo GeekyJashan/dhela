@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, MessageCircle, Sparkles } from "lucide-react";
+import { Check, MessageCircle, Sparkles, ScanLine, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { whatsappLink, supportPhoneDisplay, FOUNDER_EMAIL } from "@/lib/support";
+import { whatsappLink, supportPhoneDisplay, supportPhoneDigits, FOUNDER_EMAIL } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/billing")({
   head: () => ({ meta: [{ title: "Billing — Dhela" }] }),
@@ -19,6 +22,8 @@ const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 function BillingPage() {
   const { t } = useTranslation();
   const fetchBilling = useServerFn(getBillingInfo);
+  const [payPlan, setPayPlan] = useState<PlanId | null>(null);
+  const [qrBroken, setQrBroken] = useState(false);
 
   const { data: billing } = useQuery({
     queryKey: ["billing_info"],
@@ -76,7 +81,6 @@ function BillingPage() {
         {planOrder.map(id => {
           const p = PLANS[id];
           const current = billing?.plan === id;
-          const href = upgradeHref(id);
           return (
             <Card key={id} className={current ? "border-primary shadow-sm" : ""}>
               <CardHeader>
@@ -126,9 +130,9 @@ function BillingPage() {
                   )}
                 </ul>
                 {!current && id !== "free" && (
-                  <a href={href} target="_blank" rel="noreferrer" className="block">
-                    <Button className="w-full"><MessageCircle className="h-4 w-4 mr-2" />{t("Upgrade now")}</Button>
-                  </a>
+                  <Button className="w-full" onClick={() => setPayPlan(id)}>
+                    <ScanLine className="h-4 w-4 mr-2" />{t("Upgrade now")}
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -136,10 +140,70 @@ function BillingPage() {
         })}
       </div>
 
+      <Dialog open={!!payPlan} onOpenChange={o => !o && setPayPlan(null)}>
+        <DialogContent className="max-w-sm">
+          {payPlan && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t("Pay for {{plan}}", { plan: PLANS[payPlan].name })}</DialogTitle>
+              </DialogHeader>
+
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">{t("Scan and pay")}</p>
+                <p className="font-display text-4xl mt-1">{inr(PLANS[payPlan].priceYearly)}</p>
+                <p className="text-xs text-muted-foreground">{t("for one year, incl. GST")}</p>
+              </div>
+
+              {/* Static QR exported from the founder's own UPI app — it
+                  encodes the real VPA, which a phone number alone cannot. */}
+              {qrBroken ? (
+                <div className="mx-auto flex h-[220px] w-[220px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center">
+                  <ScanLine className="h-6 w-6 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    {t("QR unavailable — please pay to the UPI number below.")}
+                  </p>
+                </div>
+              ) : (
+                <div className="mx-auto rounded-xl border bg-white p-3">
+                  <img src="/upi-qr.png" alt={t("UPI QR code")} width={220} height={220}
+                    onError={() => setQrBroken(true)}
+                    className="h-[220px] w-[220px] object-contain" />
+                </div>
+              )}
+
+              <div className="rounded-lg bg-muted/60 px-3 py-2 text-center">
+                <p className="text-xs text-muted-foreground">{t("Or pay to this UPI number")}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(supportPhoneDigits().replace(/^91/, ""));
+                    toast.success(t("Number copied"));
+                  }}
+                  className="mt-0.5 inline-flex items-center gap-1.5 font-medium hover:text-primary transition-colors">
+                  {supportPhoneDisplay()} <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                {t("The QR doesn't carry the amount — type {{amt}} yourself before paying.", { amt: inr(PLANS[payPlan].priceYearly) })}
+              </p>
+
+              <a href={upgradeHref(payPlan)} target="_blank" rel="noreferrer" className="block">
+                <Button className="w-full">
+                  <MessageCircle className="h-4 w-4 mr-2" />{t("I've paid — send screenshot")}
+                </Button>
+              </a>
+              <p className="text-xs text-muted-foreground text-center">
+                {t("Send the screenshot and your plan is activated the same day.")}
+              </p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader><CardTitle className="text-base">{t("How to upgrade")}</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-1.5">
-          <p>1. {t("Tap \"Upgrade now\" on a plan and message us on WhatsApp.")}</p>
+          <p>1. {t("Tap \"Upgrade now\" on a plan and scan the UPI QR.")}</p>
           <p>2. {t("Pay by UPI or bank transfer.")}</p>
           <p>
             3. {t("Send the transaction screenshot to WhatsApp")}{" "}
