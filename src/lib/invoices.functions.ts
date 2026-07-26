@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
-import { matchLineToProduct, type MatchableProduct } from "./product-match";
+import { matchLineToProduct, nameTokens, type MatchableProduct } from "./product-match";
 
 const log = createLogger("invoices.functions");
 
@@ -354,6 +354,118 @@ export const createProductFromLine = createServerFn({ method: "POST" })
 
     log.info("createProductFromLine:done", { lineId: data.lineId, productId: product.id });
     return product;
+  });
+
+/**
+ * Catalog key for a product name: the matcher's tokens, sorted, after closing
+ * the gap in "1 KG" so it keys the same as "1KG" (suppliers write both, and
+ * nameTokens would otherwise drop the bare "1" as too short).
+ *
+ * Deliberately exact rather than fuzzy. matchLineToProduct accepts anything
+ * scoring over 0.5, which pairs "TATA SALT 1KG" with "TATA SALT 2KG" — fine
+ * as a suggestion a human confirms, wrong as the basis for silently creating
+ * or reusing a product. An extra duplicate is a merge; a wrong merge is
+ * corrupted stock and cost. Returns "" when a name has nothing usable in it.
+ */
+const catalogKey = (s: string) =>
+  [...nameTokens(s.replace(/(\d)\s+(?=[a-z])/gi, "$1"))].sort().join(" ");
+
+/**
+ * Create catalog products for every line on a purchase invoice that isn't
+ * linked to one yet.
+ *
+ * This is the onboarding path for a distributor arriving with no existing
+ * software: their first few supplier bills build the product master, instead
+ * of somebody typing several hundred products in by hand. Lines whose name
+ * already matches something in the catalog are linked rather than duplicated,
+ * so running this across a stack of bills converges instead of multiplying.
+ */
+export const createProductsForUnmatchedLines = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: inv, error: invErr } = await supabase.from("invoices")
+      .select("id, org_id, status").eq("id", data.invoiceId).single();
+    if (invErr || !inv) throw new Error(invErr?.message ?? "Invoice not found");
+    if (inv.status === "approved") {
+      throw new Error("This purchase is already approved — link products before approving.");
+    }
+
+    const { data: lines, error: linesErr } = await supabase.from("invoice_lines")
+      .select("id, raw_description, hsn, gst_rate, mrp, unit, rate")
+      .eq("invoice_id", data.invoiceId)
+      .is("matched_product_id", null)
+      .order("line_no");
+    if (linesErr) throw new Error(linesErr.message);
+
+    const { data: existing, error: prodErr } = await supabase.from("products")
+      .select("id, name").eq("org_id", inv.org_id);
+    if (prodErr) throw new Error(prodErr.message);
+
+    // Existing catalog first, so a line the fuzzy matcher missed but whose
+    // name normalises to a product we already have gets linked, not cloned.
+    const byKey = new Map<string, string>();
+    for (const p of existing ?? []) {
+      const k = catalogKey(p.name ?? "");
+      if (k && !byKey.has(k)) byKey.set(k, p.id);
+    }
+
+    type Line = NonNullable<typeof lines>[number];
+    const links: { lineId: string; productId: string }[] = [];
+    const groups = new Map<string, { rep: Line; lineIds: string[] }>();
+    let skipped = 0;
+    let matchedExisting = 0;
+
+    for (const l of lines ?? []) {
+      const k = catalogKey((l.raw_description ?? "").trim());
+      if (!k) { skipped++; continue; }           // nothing usable to name a product
+      const hit = byKey.get(k);
+      if (hit) { links.push({ lineId: l.id, productId: hit }); matchedExisting++; continue; }
+      const g = groups.get(k);
+      if (g) g.lineIds.push(l.id);              // same item twice on one bill
+      else groups.set(k, { rep: l, lineIds: [l.id] });
+    }
+
+    // Stock stays 0 — "Approve & post" is what adds this invoice's quantity.
+    const rows = [...groups.values()].map(g => ({
+      org_id: inv.org_id,
+      name: (g.rep.raw_description ?? "").trim(),
+      hsn: g.rep.hsn ?? null,
+      gst_rate: g.rep.gst_rate ?? null,
+      mrp: g.rep.mrp ?? null,
+      unit: g.rep.unit ?? null,
+      purchase_rate: g.rep.rate ?? null,
+      current_stock: 0,
+    }));
+
+    let created = 0;
+    if (rows.length) {
+      const { data: ins, error } = await supabase.from("products")
+        .insert(rows).select("id, name");
+      if (error) throw new Error(error.message);
+      created = (ins ?? []).length;
+
+      // Group names are distinct by construction, so name is a safe join key.
+      const idByName = new Map((ins ?? []).map(p => [p.name, p.id]));
+      for (const g of groups.values()) {
+        const pid = idByName.get((g.rep.raw_description ?? "").trim());
+        if (!pid) continue;
+        for (const lineId of g.lineIds) links.push({ lineId, productId: pid });
+      }
+    }
+
+    for (const { lineId, productId } of links) {
+      const { error } = await supabase.from("invoice_lines")
+        .update({ matched_product_id: productId }).eq("id", lineId);
+      if (error) throw new Error(error.message);
+    }
+
+    log.info("createProductsForUnmatchedLines:done", {
+      invoiceId: data.invoiceId, created, matchedExisting, linesLinked: links.length, skipped,
+    });
+    return { created, matchedExisting, linesLinked: links.length, skipped };
   });
 
 /** Edit purchase-invoice header fields (supplier, number, date, totals). */

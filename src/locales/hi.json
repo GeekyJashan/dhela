@@ -650,5 +650,11 @@
   "Expired": "खत्म हो गया",
   "How do I generate an e-way bill?": "मैं ई-वे बिल कैसे बनाऊं?",
   "Ask anything about your invoices, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.": "अपने इनवॉइस, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफे के बारे में कुछ भी पूछें — जवाब सीधे आपके डेटा से आएंगे। ऐप में कोई काम करने में अटक गए हैं? वो भी पूछें।",
-  "Every dhela accounted for.": "हर ढेला हिसाब में।"
+  "Every dhela accounted for.": "हर ढेला हिसाब में।",
+  "{{n}} line(s) aren't linked to a product yet. Add them to your catalog in one go — names, HSN, GST rate, MRP and unit come straight off this bill.": "{{n}} लाइन अभी किसी प्रोडक्ट से लिंक नहीं हैं। इन्हें एक साथ अपनी कैटलॉग में जोड़ें — नाम, HSN, GST दर, MRP और यूनिट इसी बिल से आ जाएंगे।",
+  "Add {{n}} to catalog": "{{n}} को कैटलॉग में जोड़ें",
+  "{{n}} new product(s) created": "{{n}} नए प्रोडक्ट बनाए गए",
+  "{{n}} line(s) matched products you already had": "{{n}} लाइन आपके पहले से मौजूद प्रोडक्ट से मैच हो गईं",
+  "{{n}} line(s) skipped — no usable description": "{{n}} लाइन छोड़ी गईं — कोई उपयोगी विवरण नहीं",
+  "Nothing to add — every line is already linked": "जोड़ने के लिए कुछ नहीं — हर लाइन पहले से लिंक है"
 }

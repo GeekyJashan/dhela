@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, updatePurchaseInvoice, deletePurchaseInvoice } from "@/lib/invoices.functions";
+import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, createProductsForUnmatchedLines, updatePurchaseInvoice, deletePurchaseInvoice } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
-import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save } from "lucide-react";
+import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
@@ -29,6 +29,8 @@ function InvoiceReview() {
   const extract = useServerFn(extractInvoice);
   const linkProduct = useServerFn(setLineProduct);
   const createProduct = useServerFn(createProductFromLine);
+  const createAllProducts = useServerFn(createProductsForUnmatchedLines);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const updateHeader = useServerFn(updatePurchaseInvoice);
   const removeInvoice = useServerFn(deletePurchaseInvoice);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -117,10 +119,11 @@ function InvoiceReview() {
     } catch (e) { toast.error((e as Error).message); }
   };
 
+  const unlinkedCount = (lines ?? []).filter(l => !l.matched_product_id).length;
+
   const doApprove = async () => {
-    const unlinked = (lines ?? []).filter(l => !l.matched_product_id).length;
-    if (unlinked > 0 && !confirm(
-      t("{{n}} line(s) are not linked to a product — stock and purchase cost won't update for them. Approve anyway?", { n: unlinked }),
+    if (unlinkedCount > 0 && !confirm(
+      t("{{n}} line(s) are not linked to a product — stock and purchase cost won't update for them. Approve anyway?", { n: unlinkedCount }),
     )) return;
     await approve({ data: { invoiceId: id } });
     toast.success(t("Approved and posted to inventory"));
@@ -140,6 +143,27 @@ function InvoiceReview() {
       }
       qc.invalidateQueries({ queryKey: ["invoice-lines", id] });
     } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const buildCatalog = async () => {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const r = await createAllProducts({ data: { invoiceId: id } });
+      const parts = [
+        r.created ? t("{{n}} new product(s) created", { n: r.created }) : null,
+        r.matchedExisting ? t("{{n}} line(s) matched products you already had", { n: r.matchedExisting }) : null,
+        r.skipped ? t("{{n}} line(s) skipped — no usable description", { n: r.skipped }) : null,
+      ].filter(Boolean);
+      toast.success(parts.join(" · ") || t("Nothing to add — every line is already linked"));
+      qc.invalidateQueries({ queryKey: ["invoice-lines", id] });
+      qc.invalidateQueries({ queryKey: ["products_min_match"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   const reprocess = async () => {
@@ -221,6 +245,17 @@ function InvoiceReview() {
           <Card>
             <CardHeader><CardTitle className="text-sm">{t("Line items ({{n}})", { n: lines?.length ?? 0 })}</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto">
+              {unlinkedCount > 0 && inv.status !== "approved" && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/50 bg-warning/10 px-4 py-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                  <p className="flex-1 min-w-[220px] text-sm">
+                    {t("{{n}} line(s) aren't linked to a product yet. Add them to your catalog in one go — names, HSN, GST rate, MRP and unit come straight off this bill.", { n: unlinkedCount })}
+                  </p>
+                  <Button size="sm" onClick={buildCatalog} loading={bulkBusy}>
+                    <Plus className="h-4 w-4 mr-1" /> {t("Add {{n}} to catalog", { n: unlinkedCount })}
+                  </Button>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
