@@ -218,7 +218,7 @@ function Upload() {
   const doneCount = rows.filter((r) => r.status === "review" || r.status === "approved").length;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
         {t("Drop one or many. A single file is read instantly and opens for review; larger batches process in the background (up to {{n}}).", { n: MAX_FILES })}

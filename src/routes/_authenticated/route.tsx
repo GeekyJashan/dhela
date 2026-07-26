@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -67,12 +68,39 @@ function AuthedLayout() {
     navigate({ to: "/auth", replace: true });
   };
 
+  // Off-canvas below lg. Closing on navigation is what makes it usable —
+  // otherwise every tap leaves the drawer covering the page you just opened.
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { setNavOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setNavOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
   return (
     <div className="h-dvh flex bg-background overflow-hidden print:h-auto print:overflow-visible">
-      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-full print:hidden">
-        <Link to="/dashboard" className="flex items-center px-5 py-5 border-b border-sidebar-border shrink-0">
-          <Logo size={30} wordmarkClassName="dhela-word-gold" />
-        </Link>
+      {navOpen && (
+        <div onClick={() => setNavOpen(false)} aria-hidden
+          className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-[2px] lg:hidden print:hidden" />
+      )}
+
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-60 shrink-0 bg-sidebar text-sidebar-foreground flex flex-col h-full",
+        "transition-transform duration-300 ease-out print:hidden",
+        "lg:static lg:translate-x-0",
+        navOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
+      )}>
+        <div className="flex items-center justify-between px-5 py-5 border-b border-sidebar-border shrink-0">
+          <Link to="/dashboard">
+            <Logo size={30} wordmarkClassName="dhela-word-gold" />
+          </Link>
+          <button onClick={() => setNavOpen(false)} aria-label={t("Close menu")}
+            className="lg:hidden text-sidebar-foreground/70 hover:text-sidebar-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
         <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-4">
           {groups.map((group, gi) => (
             <div key={group.label} className="space-y-0.5 animate-in fade-in slide-in-from-left-2 fill-mode-both"
@@ -119,7 +147,18 @@ function AuthedLayout() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto"><Outlet /></main>
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="lg:hidden flex items-center gap-3 h-14 shrink-0 border-b bg-background px-4 print:hidden">
+          <button onClick={() => setNavOpen(true)} aria-label={t("Open menu")}
+            className="-ml-1 p-2 rounded-md text-foreground/70 hover:bg-muted hover:text-foreground">
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link to="/dashboard"><Logo size={24} /></Link>
+        </header>
+        <main className="flex-1 overflow-auto"><Outlet /></main>
+      </div>
+
       <Assistant />
     </div>
   );

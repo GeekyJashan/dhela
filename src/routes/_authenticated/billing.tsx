@@ -35,7 +35,7 @@ function BillingPage() {
   const planOrder: PlanId[] = ["free", "standard", "pro"];
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="font-display text-4xl">{t("Plan & billing")}</h1>
         <p className="text-muted-foreground mt-1">

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   FileUp, ArrowRight, CheckCircle2, Check, Moon, PhoneCall, TrendingDown, Truck,
   Package, Receipt, Store, Users, IndianRupee, ClipboardList, Undo2, FileText,
-  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw,
+  ScanLine, Languages, ShieldCheck, MessageCircle, Sparkles, Boxes, Percent, X, RotateCw, Menu,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -46,6 +46,7 @@ function Landing() {
 
 function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     onScroll();
@@ -78,8 +79,28 @@ function SiteHeader() {
         <div className="flex items-center gap-2">
           <Link to="/auth" className="hidden sm:block"><Button variant="ghost">Sign in</Button></Link>
           <Link to="/auth"><Button>Start free <ArrowRight className="h-4 w-4 ml-1.5" /></Button></Link>
+          <button onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            className="lg:hidden -mr-1 p-2 rounded-md text-foreground/70 hover:bg-muted hover:text-foreground">
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {menuOpen && (
+        <nav className="lg:hidden border-t bg-background/95 backdrop-blur-md px-6 py-3 space-y-1">
+          {links.map(([href, label]) => (
+            <a key={href} href={href} onClick={() => setMenuOpen(false)}
+              className="block rounded-md px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+              {label}
+            </a>
+          ))}
+          <Link to="/auth" onClick={() => setMenuOpen(false)}
+            className="block rounded-md px-3 py-2.5 text-sm hover:bg-muted transition-colors sm:hidden">
+            Sign in
+          </Link>
+        </nav>
+      )}
     </header>
   );
 }

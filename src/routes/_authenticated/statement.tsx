@@ -110,11 +110,11 @@ function StatementPage() {
     : `https://wa.me/?text=${waText}`;
 
   if (!id) {
-    return <div className="p-8 text-muted-foreground">{t("No party selected. Open a statement from the Retailers, Suppliers, or Payments page.")}</div>;
+    return <div className="p-4 sm:p-8 text-muted-foreground">{t("No party selected. Open a statement from the Retailers, Suppliers, or Payments page.")}</div>;
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="font-display text-4xl">{t("Account statement")}</h1>

@@ -196,7 +196,7 @@ function ReturnsPage() {
   const reasonLabel = (r: Reason) => t(REASONS.find(x => x.value === r)?.label ?? r);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-4xl">{t("Returns")}</h1>

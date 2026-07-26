@@ -112,7 +112,7 @@ function SalesList() {
   const due = pay ? Number(pay.invoice.grand_total ?? 0) - Number(pay.invoice.amount_paid ?? 0) : 0;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-4xl">{t("Sales invoices")}</h1>
