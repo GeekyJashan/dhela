@@ -656,5 +656,8 @@
   "{{n}} new product(s) created": "{{n}} नए प्रोडक्ट बनाए गए",
   "{{n}} line(s) matched products you already had": "{{n}} लाइन आपके पहले से मौजूद प्रोडक्ट से मैच हो गईं",
   "{{n}} line(s) skipped — no usable description": "{{n}} लाइन छोड़ी गईं — कोई उपयोगी विवरण नहीं",
-  "Nothing to add — every line is already linked": "जोड़ने के लिए कुछ नहीं — हर लाइन पहले से लिंक है"
+  "Nothing to add — every line is already linked": "जोड़ने के लिए कुछ नहीं — हर लाइन पहले से लिंक है",
+  "Insights": "इनसाइट्स",
+  "All": "सभी",
+  "No payments match this filter.": "इस फ़िल्टर से कोई भुगतान मेल नहीं खाता।"
 }

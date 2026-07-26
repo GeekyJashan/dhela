@@ -656,5 +656,8 @@
   "{{n}} new product(s) created": "{{n}} ਨਵੇਂ ਪ੍ਰੋਡਕਟ ਬਣਾਏ ਗਏ",
   "{{n}} line(s) matched products you already had": "{{n}} ਲਾਈਨਾਂ ਤੁਹਾਡੇ ਪਹਿਲਾਂ ਤੋਂ ਮੌਜੂਦ ਪ੍ਰੋਡਕਟਾਂ ਨਾਲ ਮੈਚ ਹੋ ਗਈਆਂ",
   "{{n}} line(s) skipped — no usable description": "{{n}} ਲਾਈਨਾਂ ਛੱਡੀਆਂ ਗਈਆਂ — ਕੋਈ ਵਰਤੋਂਯੋਗ ਵੇਰਵਾ ਨਹੀਂ",
-  "Nothing to add — every line is already linked": "ਜੋੜਨ ਲਈ ਕੁਝ ਨਹੀਂ — ਹਰ ਲਾਈਨ ਪਹਿਲਾਂ ਤੋਂ ਲਿੰਕ ਹੈ"
+  "Nothing to add — every line is already linked": "ਜੋੜਨ ਲਈ ਕੁਝ ਨਹੀਂ — ਹਰ ਲਾਈਨ ਪਹਿਲਾਂ ਤੋਂ ਲਿੰਕ ਹੈ",
+  "Insights": "ਇਨਸਾਈਟਸ",
+  "All": "ਸਾਰੇ",
+  "No payments match this filter.": "ਇਸ ਫਿਲਟਰ ਨਾਲ ਕੋਈ ਭੁਗਤਾਨ ਮੇਲ ਨਹੀਂ ਖਾਂਦਾ।"
 }

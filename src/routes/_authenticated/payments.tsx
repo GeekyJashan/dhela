@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText } from "lucide-react";
+import { Plus, Trash2, FileText, LineChart, Receipt } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import { PaymentsAnalytics } from "@/components/payments-analytics";
 
 export const Route = createFileRoute("/_authenticated/payments")({
@@ -53,6 +55,7 @@ function PaymentsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [direction, setDirection] = useState<"all" | "retailer" | "supplier">("all");
 
   const { data: payments } = useQuery({
     queryKey: ["payments"],
@@ -112,6 +115,10 @@ function PaymentsPage() {
     queryFn: async () => (await supabase.from("suppliers").select("id, name").order("name")).data ?? [],
   });
 
+  const shownPayments = (payments ?? []).filter(
+    p => direction === "all" || p.party_type === direction,
+  );
+
   const partyOptions = form.party_type === "retailer" ? retailers : suppliers;
   const partyBalance = balances?.find(b => b.party_type === form.party_type && b.party_id === form.party_id);
 
@@ -166,8 +173,6 @@ function PaymentsPage() {
           <Plus className="h-4 w-4 mr-2" /> {t("Record payment")}
         </Button>
       </div>
-
-      <PaymentsAnalytics />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
@@ -251,88 +256,128 @@ function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("Receivables ageing")}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t("Unpaid invoice amounts by how long they've been outstanding.")}</p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>{t("Retailer")}</TableHead>
-              <TableHead className="text-right">{t("0–30 days")}</TableHead>
-              <TableHead className="text-right">{t("31–60 days")}</TableHead>
-              <TableHead className="text-right">{t("60+ days")}</TableHead>
-              <TableHead className="text-right">{t("Total due")}</TableHead>
-              <TableHead></TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {ageing?.map(r => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.b0 ? inr(r.b0) : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.b30 ? inr(r.b30) : "—"}</TableCell>
-                  <TableCell className={`text-right tabular-nums ${r.b60 ? "text-destructive font-medium" : ""}`}>{r.b60 ? inr(r.b60) : "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums font-semibold">{inr(r.total)}</TableCell>
-                  <TableCell className="text-right">
-                    <Link to="/statement" search={{ party: "retailer", id: r.id }}>
-                      <Button size="sm" variant="ghost" title={t("View statement")}><FileText className="h-3.5 w-3.5" /></Button>
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!ageing?.length && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  {t("No outstanding invoices — everything is collected.")}
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="ledger" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="ledger" className="gap-1.5">
+            <Receipt className="h-3.5 w-3.5" /> {t("Payments")}
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="gap-1.5">
+            <LineChart className="h-3.5 w-3.5" /> {t("Insights")}
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader><CardTitle>{t("Payment history ({{n}})", { n: payments?.length ?? 0 })}</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>{t("Date")}</TableHead>
-              <TableHead>{t("Party")}</TableHead>
-              <TableHead>{t("Direction")}</TableHead>
-              <TableHead>{t("Mode")}</TableHead>
-              <TableHead>{t("Reference")}</TableHead>
-              <TableHead className="text-right">{t("Amount")}</TableHead>
-              <TableHead className="text-right">{t("Discount")}</TableHead>
-              <TableHead></TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {payments?.map(p => (
-                <TableRow key={p.id}>
-                  <TableCell>{p.payment_date}</TableCell>
-                  <TableCell className="font-medium">{p.retailer?.name ?? p.supplier?.name ?? "—"}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs font-medium ${p.party_type === "retailer" ? "text-green-700" : "text-red-700"}`}>
-                      {p.party_type === "retailer" ? t("Received") : t("Paid out")}
-                    </span>
-                  </TableCell>
-                  <TableCell className="capitalize">{t(p.mode)}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.reference ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{inr(p.amount)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{Number(p.discount_amount) ? inr(p.discount_amount) : "—"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => del(p)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!payments?.length && (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                  {t("No payments recorded yet.")}
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <TabsContent value="ledger" className="space-y-6 mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Receivables ageing")}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t("Unpaid invoice amounts by how long they've been outstanding.")}</p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>{t("Retailer")}</TableHead>
+                  <TableHead className="text-right">{t("0–30 days")}</TableHead>
+                  <TableHead className="text-right">{t("31–60 days")}</TableHead>
+                  <TableHead className="text-right">{t("60+ days")}</TableHead>
+                  <TableHead className="text-right">{t("Total due")}</TableHead>
+                  <TableHead></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {ageing?.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.b0 ? inr(r.b0) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.b30 ? inr(r.b30) : "—"}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${r.b60 ? "text-destructive font-medium" : ""}`}>{r.b60 ? inr(r.b60) : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">{inr(r.total)}</TableCell>
+                      <TableCell className="text-right">
+                        <Link to="/statement" search={{ party: "retailer", id: r.id }}>
+                          <Button size="sm" variant="ghost" title={t("View statement")}><FileText className="h-3.5 w-3.5" /></Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!ageing?.length && (
+                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      {t("No outstanding invoices — everything is collected.")}
+                    </TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+              <CardTitle>{t("Payment history ({{n}})", { n: shownPayments.length })}</CardTitle>
+              <div className="flex rounded-md border p-0.5">
+                {([
+                  ["all", t("All")],
+                  ["retailer", t("Received")],
+                  ["supplier", t("Paid out")],
+                ] as const).map(([key, label]) => (
+                  <button key={key} onClick={() => setDirection(key)}
+                    className={cn(
+                      "rounded px-3 py-1 text-xs transition-colors",
+                      direction === key
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted",
+                    )}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Party")}</TableHead>
+                  <TableHead>{t("Direction")}</TableHead>
+                  <TableHead>{t("Mode")}</TableHead>
+                  <TableHead>{t("Reference")}</TableHead>
+                  <TableHead className="text-right">{t("Amount")}</TableHead>
+                  <TableHead className="text-right">{t("Discount")}</TableHead>
+                  <TableHead></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {shownPayments.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell>{p.payment_date}</TableCell>
+                      <TableCell className="font-medium">{p.retailer?.name ?? p.supplier?.name ?? "—"}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs font-medium ${p.party_type === "retailer" ? "text-green-700" : "text-red-700"}`}>
+                          {p.party_type === "retailer" ? t("Received") : t("Paid out")}
+                        </span>
+                      </TableCell>
+                      <TableCell className="capitalize">{t(p.mode)}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.reference ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{inr(p.amount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(p.discount_amount) ? inr(p.discount_amount) : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" onClick={() => del(p)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!shownPayments.length && (
+                    <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                      {payments?.length
+                        ? t("No payments match this filter.")
+                        : t("No payments recorded yet.")}
+                    </TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Mounted only when opened, so the charts' queries don't slow the
+            page a distributor actually works in every day. */}
+        <TabsContent value="insights" className="mt-0">
+          <PaymentsAnalytics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
