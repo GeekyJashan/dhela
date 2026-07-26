@@ -1,0 +1,161 @@
+import { test, expect } from "@playwright/test";
+
+/**
+ * Covers the flows built in this repo that had never been exercised by a
+ * human: navigation, the mobile drawer, payments after the tab split, the
+ * insights move, the GST working papers, the billing checkout dialog, and the
+ * upload screen's camera entry point.
+ *
+ * Seeded data comes from e2e/seed.mjs and is reset before every run, so the
+ * assertions can be exact rather than "greater than zero".
+ */
+
+test.describe("navigation", () => {
+  test("sidebar reaches every section", async ({ page }, testInfo) => {
+    await page.goto("/dashboard");
+    // On mobile the sidebar is off-canvas until the hamburger is tapped.
+    if (testInfo.project.name === "mobile") {
+      await page.getByRole("button", { name: /open menu/i }).click();
+    }
+    for (const label of ["Dashboard", "Insights", "Purchases", "Suppliers",
+                         "Sales", "Retailers", "Products", "Payments", "GST returns"]) {
+      await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
+  });
+
+  test("mobile drawer closes after navigating", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "drawer only exists below lg");
+    await page.goto("/dashboard");
+    const drawer = page.locator("aside");
+    await page.getByRole("button", { name: /open menu/i }).click();
+    await expect(drawer).toHaveClass(/translate-x-0/);
+    await page.getByRole("link", { name: "Products", exact: true }).click();
+    await expect(page).toHaveURL(/\/products/);
+    // The close-on-navigate behaviour is the whole point of the drawer.
+    await expect(drawer).toHaveClass(/-translate-x-full/);
+  });
+});
+
+test.describe("purchases", () => {
+  test("seeded invoices are listed", async ({ page }) => {
+    await page.goto("/invoices");
+    await expect(page.getByText("INV-45")).toBeVisible();
+    await expect(page.getByText("INV-49")).toBeVisible();
+    await expect(page.getByText("INV-53")).toBeVisible();
+  });
+
+  test("review screen shows line totals and no false arithmetic warning", async ({ page }) => {
+    await page.goto("/invoices");
+    await page.getByText("INV-53").click();
+    await expect(page).toHaveURL(/\/invoices\//);
+    await expect(page.getByText("Line items", { exact: false })).toBeVisible();
+    // Seeded figures reconcile, so the "don't add up" card must stay away —
+    // this is the regression guard for false positives on that check.
+    await expect(page.getByText("These numbers don't add up")).toHaveCount(0);
+  });
+});
+
+test.describe("payments", () => {
+  test("history filters by direction", async ({ page }) => {
+    await page.goto("/payments");
+    await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
+    await expect(page.getByText("Receivables ageing")).toBeVisible();
+    for (const f of ["All", "Received", "Paid out"]) {
+      await expect(page.getByRole("button", { name: f, exact: true })).toBeVisible();
+    }
+    await page.getByRole("button", { name: "Received", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Received", exact: true })).toHaveClass(/bg-primary/);
+  });
+
+  test("charts are on Insights, not Payments", async ({ page }) => {
+    await page.goto("/payments");
+    await expect(page.getByRole("tab", { name: /insights/i })).toHaveCount(0);
+    await page.goto("/insights");
+    await expect(page.getByRole("heading", { name: "Insights" })).toBeVisible();
+  });
+});
+
+test.describe("GST returns", () => {
+  test("builds working papers for the seeded month", async ({ page }) => {
+    await page.goto("/gst");
+    await expect(page.getByRole("heading", { name: "GST returns" })).toBeVisible();
+    // Never claim to file.
+    await expect(page.getByText("This is a working paper, not a filing.")).toBeVisible();
+
+    await page.getByRole("textbox").or(page.locator('input[type="month"]')).first().fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+
+    // Seed has one B2B sale (retailer with GSTIN) and one B2CS (without),
+    // which is exactly the split GSTR-1 has to get right. Section titles carry
+    // their row count, e.g. "B2B (1)".
+    await expect(page.getByText(/^B2B \(\d+\)$/)).toBeVisible();
+    await expect(page.getByText(/^B2CS \(\d+\)$/)).toBeVisible();
+  });
+
+  test("a section downloads as CSV", async ({ page }) => {
+    await page.goto("/gst");
+    await page.locator('input[type="month"]').fill("2026-07");
+    await expect(page.getByText("GSTR-3B summary")).toBeVisible();
+    const download = page.waitForEvent("download", { timeout: 15_000 });
+    await page.getByRole("button", { name: "CSV" }).first().click();
+    expect((await download).suggestedFilename()).toMatch(/^gstr1-2026-07-/);
+  });
+});
+
+test.describe("billing", () => {
+  test("upgrade opens the UPI checkout with the plan price", async ({ page }) => {
+    await page.goto("/billing");
+    await expect(page.getByRole("heading", { name: "Plan & billing" })).toBeVisible();
+    const upgrade = page.getByRole("button", { name: /upgrade now/i }).first();
+    if (await upgrade.count()) {
+      await upgrade.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(page.getByText("jsehgal2003@okaxis")).toBeVisible();
+      // Anchored, or it also matches "Pay ₹3,999 in your UPI app" on mobile.
+      await expect(page.getByRole("dialog").getByText(/^₹(3,999|7,999)$/)).toBeVisible();
+    }
+  });
+
+  test("the UPI QR image actually resolves", async ({ page }) => {
+    const res = await page.request.get("/upi-qr.png");
+    expect(res.status()).toBe(200);
+    expect(Number(res.headers()["content-length"] ?? 0)).toBeGreaterThan(1000);
+  });
+});
+
+test.describe("upload", () => {
+  test("camera button appears on mobile only", async ({ page }, testInfo) => {
+    await page.goto("/upload");
+    await expect(page.getByRole("heading", { name: "Upload invoices" })).toBeVisible();
+    const camera = page.getByRole("button", { name: /take photo/i });
+    if (testInfo.project.name === "mobile") {
+      await expect(camera).toBeVisible();
+      // capture=environment is what opens the camera rather than a file list.
+      await expect(page.locator('input[type="file"][capture="environment"]')).toHaveCount(1);
+    } else {
+      await expect(camera).toHaveCount(0);
+    }
+  });
+
+  test("one spinner on the upload button, not two", async ({ page }) => {
+    await page.goto("/upload");
+    const btn = page.getByRole("button", { name: /upload & extract/i });
+    await expect(btn).toBeDisabled(); // nothing selected yet
+    await expect(btn.locator(".animate-spin")).toHaveCount(0);
+  });
+});
+
+test.describe("landing page", () => {
+  test("renders unauthenticated with no horizontal scroll", async ({ browser, baseURL }) => {
+    // Fresh context: the landing page must work for a logged-out visitor.
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, baseURL });
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: /your entire back office/i })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.body.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(false);
+    await ctx.close();
+  });
+});

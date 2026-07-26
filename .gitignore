@@ -21,6 +21,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.test.example
 
 # Python backend
 backend/venv/
@@ -45,3 +46,8 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# playwright
+test-results/
+playwright-report/
+e2e/.auth/

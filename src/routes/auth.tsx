@@ -11,6 +11,12 @@ import { Logo } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/auth")({
+  // Client-only, like the rest of the authenticated app. Server-rendering this
+  // form ships a live <form> before React attaches its onSubmit, so a fast tap
+  // on Sign in did a native GET to /auth — page reloads, fields clear, no error
+  // shown, login silently fails. There is no SEO value in rendering a login box
+  // on the server, so the whole class of problem goes away.
+  ssr: false,
   head: () => ({ meta: [{ title: "Sign in — Dhela" }] }),
   component: AuthPage,
 });
@@ -80,16 +86,16 @@ function AuthPage() {
               </TabsList>
               <TabsContent value="signin" className="mt-4">
                 <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signIn(); }}>
-                  <div className="space-y-2"><Label>{t("Email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>{t("Password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <div className="space-y-2"><Label htmlFor="signin-email">{t("Email")}</Label><Input id="signin-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label htmlFor="signin-password">{t("Password")}</Label><Input id="signin-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
                   <Button type="submit" className="w-full" disabled={loading}>{loading ? t("Signing in…") : t("Sign in")}</Button>
                 </form>
               </TabsContent>
               <TabsContent value="signup" className="mt-4">
                 <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (!loading) signUp(); }}>
-                  <div className="space-y-2"><Label>{t("Workspace name")}</Label><Input placeholder={t("Acme Distributors")} value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>{t("Work email")}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                  <div className="space-y-2"><Label>{t("Password")}</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                  <div className="space-y-2"><Label htmlFor="signup-org">{t("Workspace name")}</Label><Input id="signup-org" autoComplete="organization" placeholder={t("Acme Distributors")} value={orgName} onChange={(e) => setOrgName(e.target.value)} /></div>
+                  <div className="space-y-2"><Label htmlFor="signup-email">{t("Work email")}</Label><Input id="signup-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                  <div className="space-y-2"><Label htmlFor="signup-password">{t("Password")}</Label><Input id="signup-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
                   <Button type="submit" className="w-full" disabled={loading}>{loading ? t("Creating…") : t("Create workspace")}</Button>
                 </form>
               </TabsContent>
