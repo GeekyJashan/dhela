@@ -3,7 +3,7 @@
 **Audited:** 2026-07-27 · **Business type: SaaS** (pricing page, sign-up, free plan,
 `/features`-equivalent sections) · single public page
 
-## SEO Health Score: 71/100
+## SEO Health Score: 71 → 79/100 (re-audit, 2026-07-27, fixes now live)
 
 | Category | Weight | Score | Note |
 |---|---|---|---|
@@ -15,10 +15,65 @@
 | AI search readiness | 10% | 72 | See `GEO-ANALYSIS.md` |
 | Images | 5% | 25 | Zero raster images on the page |
 
-> **State warning.** Every fix below is committed locally and **not deployed**.
-> The live site at dhela.in still serves the pre-fix HTML: no JSON-LD, no
-> og:image, FAQ answers missing, `/robots.txt` and `/sitemap.xml` returning 404.
-> These findings are only real once pushed.
+> **Re-audit.** The previous round is deployed and verified live: JSON-LD,
+> og:image, FAQ answers in HTML, robots.txt and sitemap.xml all returning 200.
+> Live Core Web Vitals measured over the real network are in the "good" band on
+> both desktop and mobile. New findings from this pass are marked **[R2]**.
+
+## [R2] Correction to earlier advice: FAQPage schema
+
+I recommended FAQPage markup last round and implied a search benefit. That was
+wrong. **Google retired FAQ rich results for all sites on 7 May 2026** — the
+dropdown SERP feature no longer exists, Search Console's FAQ reporting is being
+removed through mid-2026, and the markup produces no rich result.
+
+What survives: Google still reads FAQ structured data to understand a page, and
+the markup does no harm. **Keep it — don't remove it.** But the real win was
+never the schema; it was getting the answers into server-rendered HTML, which
+helps users and AI answer engines regardless of what Google does with the JSON-LD.
+
+Do not add FAQPage to future pages expecting a SERP feature.
+
+## [R2] Live Core Web Vitals
+
+Measured against the deployed site over a real network, not localhost:
+
+| | TTFB | FCP | LCP | CLS | Load | Requests |
+|---|---|---|---|---|---|---|
+| Desktop | 136 ms | 644 ms | 644 ms | 0.016 | 877 ms | 38 |
+| Mobile | 149 ms | 756 ms | 756 ms | 0.015 | 911 ms | 38 |
+
+All comfortably inside Google's "good" thresholds. INP still unmeasured — it
+needs real interaction data from real users.
+
+## [R2] Fonts were the second-largest payload — fixed
+
+318 KB of webfont on a page with no images. Four weights each of Noto Sans
+Devanagari and Noto Sans Gurmukhi were being loaded; Indic glyph sets are large,
+and the landing page's Devanagari amounts to one tagline. Trimmed to two weights
+each (400, 600). Latin keeps its full range because the UI genuinely uses
+400/500/600/700.
+
+## [R2] FAQ answers were too short to cite — improved
+
+Answers measured 25–40 words against an optimal citation block of 134–167. Short
+enough to be skipped as a citation target. The three answers carrying the most
+commercial weight — the Tally coexistence question, the accuracy question and the
+privacy question — are now 105–125 words, each still fully checkable against what
+the product does. The simple ones stay short, which is correct.
+
+## [R2] Security headers — fixed
+
+`vercel.json` now sets `X-Content-Type-Options`, `Referrer-Policy`,
+`X-Frame-Options` and `Permissions-Policy`, plus a one-day cache on static brand
+assets. HSTS was already present.
+
+## [R2] Schema validated
+
+All three blocks structurally valid, required fields present, and the three plan
+prices in `SoftwareApplication` read from `PLANS` so they cannot drift from what
+you charge. `Organization.sameAs` is absent because no social profiles exist yet
+— that is the gap to close, not a markup error.
 
 ---
 

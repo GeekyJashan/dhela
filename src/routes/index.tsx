@@ -858,13 +858,13 @@ function Pricing() {
 
 const FAQS: [string, string][] = [
   ["Do I have to stop using Tally?",
-   "No, and most people don't. Dhela takes over the painful part — reading bills, stock, billing, receivables, e-way bills — and your accountant carries on with the books. Nothing is locked in."],
+   "No, and most people don't. Dhela takes over the painful part — reading supplier bills, keeping stock and true cost, raising GST invoices, tracking receivables and preparing e-way bills — while your accountant carries on with the books in whatever they already use. The two run side by side: Dhela handles the day-to-day entry your staff does, and at month end you hand your CA a clean set of figures instead of a shoebox. Nothing is locked in, and nothing about your existing setup has to change on day one. Most distributors start by putting a single week of purchase bills through Dhela while everything else stays exactly where it is, then widen from there once they trust the numbers."],
   ["What if the AI reads something wrong?",
-   "You review before anything is committed. Every field carries a confidence score and only the uncertain ones are flagged for you. Nothing touches your stock until you press Approve, and you can re-extract a bill if the reading looks off."],
+   "You review before anything is committed. Every field carries a confidence score and only the uncertain ones are flagged, so you check a handful of numbers rather than re-reading the whole bill. Dhela also cross-checks the arithmetic: if subtotal plus tax doesn't equal the grand total, or the line items don't add up to the subtotal, it says so plainly at the top of the review screen instead of letting the figures through. Nothing touches your stock or your cost until you press Approve, and you can re-extract a bill or correct any field by hand at any point. This matters most with photos of paper bills, where a crease or a shadow can lose a digit — which is exactly why the check exists."],
   ["Will it read a photo from WhatsApp?",
    "Yes — PDFs, scans and phone photos all work. Clean digital prints also work on the free OCR engine, which never counts against your AI quota. Genuinely bad handwriting is the one thing that still needs a careful review."],
   ["Is my data private?",
-   "Every distributor gets an isolated workspace. Your invoices, retailers, rates and margins are visible only to the people you invite — no other business on Dhela can see them."],
+   "Every distributor gets an isolated workspace. Your invoices, retailers, purchase rates and margins are visible only to the people you invite into your own workspace — no other business using Dhela can see them, and there is no shared pool of pricing or supplier data between accounts. Your rates are the most commercially sensitive thing you have, and they stay yours. Access is per-person, so an operator you invite to do data entry sees the same workspace you do, and removing them removes their access immediately. Data lives in a managed Postgres database with row-level security enforced per organisation, not merely filtered in the application."],
   ["Do I need to pay to try it?",
    "No card, no call. The free plan gives you 15 AI bill reads a month plus unlimited free OCR, and every other feature is fully open on it."],
   ["Can my staff use it in Hindi or Punjabi?",
