@@ -300,6 +300,27 @@ test.describe("landing page", () => {
     expect(graph.find(n => n["@type"] === "WebPage")!.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  test("tour switches screens and keeps the golden connector on the live tab", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#tour").scrollIntoViewIfNeeded();
+    const img = page.locator(".tour-img");
+    const before = await img.getAttribute("src");
+
+    const gstTab = page.locator("[data-tour-tab]", { hasText: "File your GST" });
+    await gstTab.click();
+    await expect(img).not.toHaveAttribute("src", before!);
+    await expect(img).toHaveAttribute("src", "/shots/gst.jpg");
+
+    // The connector is absolutely positioned and has to track the active tab in
+    // both axes — the row wraps to three lines on a phone, where tracking only
+    // x left it underneath the wrong tab.
+    await page.waitForTimeout(800);
+    const tab = (await gstTab.boundingBox())!;
+    const wire = (await page.locator(".tab-wire").boundingBox())!;
+    expect(Math.abs((tab.x + tab.width / 2) - (wire.x + wire.width / 2))).toBeLessThan(10);
+    expect(Math.abs((tab.y + tab.height) - wire.y)).toBeLessThan(12);
+  });
+
   test("every product screenshot actually resolves", async ({ request }) => {
     for (const f of ["bulk", "review", "insights", "gst", "payments", "mobile-upload"]) {
       const r = await request.get(`/shots/${f}.jpg`);

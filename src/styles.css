@@ -291,28 +291,45 @@
 
 /* --- product tour --- */
 @keyframes shot-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(6px); }
-  to   { opacity: 1; transform: none; filter: none; }
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
 }
-.shot-in { animation: shot-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.shot-in { animation: shot-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* Light sweeping across the frame as a screen swaps — reads as the app
-   refreshing rather than a picture being replaced. */
-@keyframes shot-sweep {
-  0%   { transform: translateX(-120%) skewX(-12deg); opacity: 0; }
-  35%  { opacity: 1; }
-  100% { transform: translateX(320%) skewX(-12deg); opacity: 0; }
-}
-.shot-sweep::after {
-  content: ""; position: absolute; inset: 0; width: 45%;
-  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.35), transparent);
-  animation: shot-sweep 0.9s ease-out; pointer-events: none;
-}
-
-/* Cursor-tracked tilt on the browser frame. */
+/* Frame tilts toward the cursor; the screen inside pushes in a little further,
+   which gives depth without washing the screenshot out. No brightness filters —
+   they flatten the UI colours underneath. */
 .tour-frame {
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
   transform-style: preserve-3d; will-change: transform;
+}
+.tour-screen { overflow: hidden; }
+.tour-img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: 60% 35%;
+}
+.tour-frame:hover { box-shadow: 0 32px 70px -28px oklch(0.42 0.09 200 / 0.5); }
+.tour-frame:hover .tour-img { transform: scale(1.075); }
+
+/* Golden filaments carrying the change from one screen to the next: each wire
+   draws itself, then a brighter pulse runs along it. */
+@keyframes wire-draw {
+  from { stroke-dashoffset: 1000; opacity: 0; }
+  25%  { opacity: 0.9; }
+  to   { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes wire-spark {
+  from { offset-distance: 0%; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { offset-distance: 100%; opacity: 0; }
+}
+.wire { stroke-dasharray: 1000; animation: wire-draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.wire-spark { animation: wire-spark 1.1s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/* Sliding golden connector under the tab row. */
+.tab-wire {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes phone-float {
@@ -321,10 +338,32 @@
 }
 .phone-float { animation: phone-float 6s ease-in-out infinite; }
 
+/* Scan sweep over the phone screen, matching the scanning → uploading →
+   extracting sequence beside it. */
+@keyframes phone-scan {
+  0%        { transform: translateY(-12%); opacity: 0; }
+  8%        { opacity: 1; }
+  55%       { opacity: 1; }
+  70%, 100% { transform: translateY(560%); opacity: 0; }
+}
+.phone-scan {
+  animation: phone-scan 3.2s cubic-bezier(0.4, 0, 0.3, 1) infinite;
+  background: linear-gradient(180deg, transparent, oklch(0.82 0.145 68 / 0.55), transparent);
+  box-shadow: 0 0 22px 5px oklch(0.82 0.145 68 / 0.35);
+}
+/* Fades in and stays. Ending on opacity 0 left the label blank for part of
+   every cycle; the element is remounted on each stage change anyway. */
+@keyframes status-swap {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.status-swap { animation: status-swap 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .shot-in, .shot-sweep::after, .phone-float { animation: none !important; }
-  .shot-in { opacity: 1; transform: none; filter: none; }
-  .tour-frame { transition: none !important; transform: none !important; }
+  .shot-in, .phone-float, .phone-scan, .status-swap, .wire, .wire-spark { animation: none !important; }
+  .shot-in { opacity: 1; transform: none; }
+  .phone-scan, .wire, .wire-spark { display: none; }
+  .tour-frame, .tour-img, .tab-wire { transition: none !important; transform: none !important; }
 }
 
 /* --- GSTIN auto-fill affordances --- */

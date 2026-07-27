@@ -382,12 +382,16 @@ const TOUR: { id: string; label: string; caption: string; img: string; alt: stri
 ];
 
 const TOUR_MS = 6500;
+const PHONE_STAGES = ["Scanning bill…", "Uploading…", "Extracting line items…", "Ready to review"];
 
 function ProductTour() {
   const [active, setActive] = useState(0);
+  const [stage, setStage] = useState(0);
   const { ref, inView } = useInView(0.2);
   const paused = useRef(false);
   const frame = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [wire, setWire] = useState({ x: 0, y: 0, w: 0 });
 
   useEffect(() => {
     if (!inView) return;
@@ -397,8 +401,28 @@ function ProductTour() {
     return () => clearInterval(id);
   }, [inView]);
 
-  // Arrow keys once the tour is on screen — it behaves like a control, so it
-  // should answer like one.
+  // Phone status cycles on its own clock, matched to the scan sweep.
+  useEffect(() => {
+    if (!inView) return;
+    const id = setInterval(() => setStage(s => (s + 1) % PHONE_STAGES.length), 3200);
+    return () => clearInterval(id);
+  }, [inView]);
+
+  // Slide the golden connector under whichever tab is live. It tracks y as
+  // well as x because the row wraps to three lines on a phone, where anchoring
+  // to the bottom of the block would leave it under the wrong tab.
+  useEffect(() => {
+    const measure = () => {
+      const row = tabsRef.current;
+      const el = row?.children[active] as HTMLElement | undefined;
+      if (!row || !el) return;
+      setWire({ x: el.offsetLeft, y: el.offsetTop + el.offsetHeight + 5, w: el.offsetWidth });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [active]);
+
   useEffect(() => {
     if (!inView) return;
     const onKey = (e: KeyboardEvent) => {
@@ -409,8 +433,8 @@ function ProductTour() {
     return () => window.removeEventListener("keydown", onKey);
   }, [inView]);
 
-  // Cursor-tracked tilt. Small angles only — past a few degrees a screenshot
-  // stops reading as a screen and starts reading as a gimmick.
+  // Small angles only — past a few degrees a screenshot stops reading as a
+  // screen and starts reading as a gimmick.
   const tilt = (e: React.MouseEvent) => {
     const el = frame.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -418,7 +442,7 @@ function ProductTour() {
     const px = (e.clientX - r.left) / r.width - 0.5;
     const py = (e.clientY - r.top) / r.height - 0.5;
     el.style.transform =
-      `perspective(1400px) rotateY(${px * 4}deg) rotateX(${-py * 3}deg) scale(1.012)`;
+      `perspective(1400px) rotateY(${px * 5}deg) rotateX(${-py * 3.5}deg) scale(1.015)`;
   };
   const untilt = () => {
     if (frame.current) frame.current.style.transform = "perspective(1400px)";
@@ -439,49 +463,65 @@ function ProductTour() {
           </p>
         </Reveal>
 
-        <div className="mt-10 flex flex-wrap justify-center gap-2"
+        <div className="relative mt-10"
           onMouseEnter={() => { paused.current = true; }}
           onMouseLeave={() => { paused.current = false; }}>
-          {TOUR.map((t, i) => (
-            <button key={t.id} onClick={() => setActive(i)} aria-current={i === active}
-              className={cn(
-                "relative overflow-hidden rounded-full border px-4 py-2 text-sm transition-all duration-300",
-                i === active
-                  ? "border-primary bg-primary text-primary-foreground shadow-md scale-105"
-                  : "hover:bg-muted hover:border-primary/40 text-muted-foreground",
-              )}>
-              {t.label}
-              {i === active && (
-                <span key={active} className="step-timer absolute bottom-0 left-0 h-0.5 w-full bg-accent"
-                  style={{ animationDuration: `${TOUR_MS}ms` }} />
-              )}
-            </button>
-          ))}
+          <div ref={tabsRef} className="relative flex flex-wrap justify-center gap-2">
+            {TOUR.map((t, i) => (
+              <button key={t.id} onClick={() => setActive(i)} aria-current={i === active}
+                data-tour-tab
+                className={cn(
+                  "rounded-full border px-4 py-2 text-sm transition-all duration-300",
+                  i === active
+                    ? "border-accent/60 bg-primary text-primary-foreground shadow-md scale-105"
+                    : "hover:bg-muted hover:border-accent/40 text-muted-foreground",
+                )}>
+                {t.label}
+              </button>
+            ))}
+            {/* Golden filament tracking the live tab. */}
+            {/* left-0 matters: an absolute element with no left resolves to its
+                static position, which here is after the last flex item — the
+                connector then floats off past the final tab. */}
+            <span aria-hidden className="tab-wire pointer-events-none absolute left-0 top-0 h-[2px] rounded-full"
+              style={{
+                transform: `translate(${wire.x}px, ${wire.y}px)`, width: wire.w,
+                background: "linear-gradient(90deg, transparent, oklch(0.82 0.145 68), transparent)",
+                boxShadow: "0 0 10px 1px oklch(0.82 0.145 68 / 0.6)",
+              }} />
+          </div>
         </div>
 
-        <div className="mt-8 grid lg:grid-cols-[1.55fr_1fr] gap-8 items-start"
+        <div className="mt-10 grid lg:grid-cols-[1.55fr_1fr] gap-8 items-start"
           onMouseEnter={() => { paused.current = true; }}
           onMouseLeave={() => { paused.current = false; }}>
           <Reveal>
             <div ref={frame} onMouseMove={tilt} onMouseLeave={untilt}
-              className="tour-frame rounded-xl border bg-card shadow-2xl overflow-hidden">
+              className="tour-frame relative rounded-xl border bg-card shadow-2xl overflow-hidden">
               <div className="flex items-center gap-1.5 border-b bg-muted/60 px-4 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-destructive/40" />
                 <span className="h-2.5 w-2.5 rounded-full bg-warning/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-success/40" />
-                <span className="ml-3 rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground transition-all">
+                <span className="ml-3 rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
                   dhela.in/{shot.id}
                 </span>
               </div>
-              <div key={shot.id} className="shot-sweep relative overflow-hidden">
-                <img src={shot.img} alt={shot.alt}
-                  width={1600} height={1003} loading="lazy" decoding="async"
-                  className="shot-in block w-full" />
+              <div className="tour-screen relative">
+                {/* The entry animation and the hover zoom live on different
+                    elements: shot-in fills forwards with transform:none, which
+                    would otherwise beat the :hover scale. */}
+                <div key={shot.id} className="shot-in">
+                  <img src={shot.img} alt={shot.alt}
+                    width={1600} height={1003} loading="lazy" decoding="async"
+                    className="tour-img block w-full" />
+                </div>
+                <GoldenWires key={`w${active}`} />
               </div>
             </div>
-            <div className="mt-4 flex justify-center gap-1.5 lg:hidden">
+            <div className="mt-5 flex justify-center gap-1.5 lg:hidden">
               {TOUR.map((t, i) => (
-                <button key={t.id} onClick={() => setActive(i)} aria-label={t.label}
+                <button key={t.id} onClick={() => setActive(i)}
+                  aria-label={`Go to ${t.label}`} data-tour-dot
                   className={cn("h-1.5 rounded-full transition-all",
                     i === active ? "w-6 bg-primary" : "w-1.5 bg-border")} />
               ))}
@@ -493,20 +533,63 @@ function ProductTour() {
               <p className="font-display text-2xl">{shot.label}</p>
               <p className="mt-2 text-muted-foreground">{shot.caption}</p>
             </div>
+
             <Reveal delay={80} className="hidden lg:block">
-              <div className="phone-float mx-auto w-[206px] rounded-[1.7rem] border-[6px] border-foreground/85 bg-foreground/85 shadow-2xl overflow-hidden">
-                <img src="/shots/mobile-upload.jpg" width={380} height={780} loading="lazy" decoding="async"
-                  alt="Dhela upload screen on a phone, showing a Take photo button that opens the camera to capture supplier bills"
-                  className="block w-full rounded-[1.2rem]" />
+              <div className="phone-float relative mx-auto w-[214px] rounded-[2rem] border-[7px] border-foreground/90 bg-foreground/90 shadow-2xl">
+                <div className="relative overflow-hidden rounded-[1.4rem]">
+                  <img src="/shots/mobile-upload.jpg" width={380} height={780} loading="lazy" decoding="async"
+                    alt="Dhela upload screen on a phone, showing a Take photo button that opens the camera to capture supplier bills"
+                    className="block w-full" />
+                  {/* scan sweep, matched to the status line below */}
+                  <span aria-hidden className="phone-scan pointer-events-none absolute inset-x-0 top-0 h-10" />
+                </div>
+                {/* Dynamic Island */}
+                <div aria-hidden
+                  className="absolute left-1/2 top-1.5 h-[18px] w-[62px] -translate-x-1/2 rounded-full bg-foreground" />
               </div>
-              <p className="mt-4 text-center text-xs text-muted-foreground">
-                Or shoot them straight from your phone
-              </p>
+
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                </span>
+                <span key={stage} className="status-swap font-medium text-muted-foreground">
+                  {PHONE_STAGES[stage]}
+                </span>
+              </div>
             </Reveal>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Golden filaments that draw across the screen as it changes — the visual
+ * equivalent of the change being carried through rather than cut to. Purely
+ * decorative, so it's aria-hidden and vanishes under reduced motion.
+ */
+function GoldenWires() {
+  const paths = [
+    "M -50 240 C 320 120, 700 360, 1150 180",
+    "M -50 520 C 380 400, 760 640, 1150 460",
+    "M -50 760 C 300 700, 820 880, 1150 720",
+  ];
+  return (
+    <svg aria-hidden viewBox="0 0 1100 1003" preserveAspectRatio="none"
+      className="pointer-events-none absolute inset-0 h-full w-full">
+      {paths.map((d, i) => (
+        <g key={i}>
+          <path d={d} fill="none" stroke="oklch(0.82 0.145 68)" strokeWidth="2"
+            className="wire" style={{ animationDelay: `${i * 110}ms`,
+              filter: "drop-shadow(0 0 4px oklch(0.82 0.145 68 / 0.8))" }} />
+          <circle r="3.5" fill="oklch(0.93 0.09 90)" className="wire-spark"
+            style={{ offsetPath: `path("${d}")`, animationDelay: `${i * 110}ms`,
+                     filter: "drop-shadow(0 0 6px oklch(0.82 0.145 68))" }} />
+        </g>
+      ))}
+    </svg>
   );
 }
 
