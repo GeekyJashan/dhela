@@ -22,8 +22,7 @@
 
 ## [R4] Third-party crawler findings, fixed
 
-A run through seositecheckup.com surfaced six items. Five are fixed; one needs a
-DNS change only the domain owner can make.
+A run through seositecheckup.com surfaced six items. All six are now closed.
 
 | Finding | Severity | Status |
 |---|---|---|
@@ -31,7 +30,7 @@ DNS change only the domain owner can make.
 | Title/meta/heading keywords don't overlap | HIGH | Fixed — H1 rewritten |
 | Images not in a modern format | HIGH | Fixed — WebP |
 | More than 20 HTTP requests | LOW | Fixed — 40 → 19 |
-| No SPF record | LOW | **Open — needs a TXT record at the registrar** |
+| No SPF record | LOW | Fixed — `v=spf1 -all` TXT at the apex |
 | Favicon not referenced properly | LOW | Fixed — added `rel="shortcut icon"` |
 
 ### The rupee sign was costing 104 KB
@@ -76,6 +75,23 @@ Indic font, so an uncovered glyph degrades to a font mismatch, never to tofu.
 Screenshots re-encoded at WebP q90 rather than q85: q85 saved another 58 KB but
 these are text-heavy UI captures already through one lossy generation, and q90
 holds SSIM at 0.9968. 948 KB of JPEG became 504 KB of WebP on disk.
+
+### SPF, and the trap it sets
+
+`dhela.in` has no MX record, so it neither sends nor receives mail. The record
+is therefore `v=spf1 -all` — a hard assertion that **nobody** is authorised to
+send as this domain, which is the strongest anti-spoofing position available and
+the correct one while no mailbox exists. It pairs with the DMARC record GoDaddy
+already publishes at `p=quarantine`.
+
+Verified live on the authoritative nameserver and on both 8.8.8.8 and 1.1.1.1:
+exactly one `v=spf1` record, single-quoted.
+
+**This must change before the domain ever sends email.** Standing up Google
+Workspace or GoDaddy email without first rewriting this to
+`v=spf1 include:_spf.google.com -all` will get every message rejected, and the
+failure will look like a mail-provider problem rather than a DNS one. Only one
+SPF record is permitted per domain, so edit this record — never add a second.
 
 ### Still open after this round
 
