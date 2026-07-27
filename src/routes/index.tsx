@@ -136,7 +136,7 @@ const LINKEDIN_COMPANY = "https://www.linkedin.com/company/dhelaa/";
 // Freshness is a real citation signal, so these are stated rather than implied.
 // Bump UPDATED when the page's substance changes, not on every deploy.
 const PUBLISHED = "2026-07-13";
-const UPDATED = "2026-07-27";
+const UPDATED = "2026-07-28";
 const DEMO_WA = whatsappLink("Hi Jashan! I saw Dhela and want to know more for my distribution business.");
 
 function Landing() {
