@@ -130,9 +130,21 @@ try {
     if (!(await btn.count()) || !(await btn.first().isEnabled())) throw new Error("Post button not clickable");
     await btn.first().click();
     await page.waitForTimeout(8000);
-    const stillOpen = await page.getByRole("dialog").count();
-    console.log(stillOpen ? "warning: composer still open — check whether it published" : "PUBLISHED");
-    console.log(`https://www.linkedin.com/company/dhelaa/posts/`);
+
+    // Whether the dialog closed is not evidence of anything — it has stayed
+    // open on a post that published fine, and reporting that as "check whether
+    // it published" is how you end up posting twice. Go and look instead.
+    const probe = paras[0].slice(0, 40);
+    await page.goto(`https://www.linkedin.com/company/${PAGE_ID}/admin/page-posts/published/`,
+      { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(6000);
+    const feed = await page.locator("main").innerText().catch(() => "");
+    const markers = feed.match(/Feed post number \d+/g) ?? [];
+    if (!feed.includes(probe)) {
+      throw new Error(`clicked Post but the published tab does not show it — check manually before retrying, or you will double-post`);
+    }
+    console.log(`PUBLISHED — ${markers.length} post(s) now on the page`);
+    console.log("https://www.linkedin.com/company/dhelaa/posts/");
     ok = true;
   }
 } catch (err) {

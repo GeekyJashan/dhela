@@ -160,6 +160,13 @@ so the preview screenshot scrolls containers back to top first. Media sits
 *below* the text in the composer, so it may still be out of frame — trust the
 `attached … — N uploaded image(s)` line over the screenshot.
 
+**The composer can stay open on a post that published perfectly well.** Do not
+treat a lingering dialog as failure — that reading is what leads to a retry and
+a duplicate post. `post.mjs` now confirms by loading the published tab and
+looking for the opening line, and it refuses to claim success without it. If it
+ever reports that it clicked Post but cannot find the post, **check the page by
+hand before running anything again.**
+
 ## Cadence
 
 The page started at 0 followers. Initial reach comes almost entirely from the
