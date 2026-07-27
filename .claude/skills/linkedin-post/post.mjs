@@ -1,43 +1,129 @@
 /**
  * Publishes a post to the Dhela LinkedIn company page, with media.
  *
- *   node .claude/skills/linkedin-post/post.mjs --text post.txt --image brand/post-en.png
- *   node .claude/skills/linkedin-post/post.mjs --text post.txt --image brand/post-en.png --publish
+ *   node .claude/skills/linkedin-post/post.mjs --list
+ *   node .claude/skills/linkedin-post/post.mjs --next
+ *   node .claude/skills/linkedin-post/post.mjs --post content/linkedin/2026-07-28-en-evening-routine.md
+ *   node .claude/skills/linkedin-post/post.mjs --post <file> --publish
+ *
+ * Posts live in content/linkedin/*.md with front matter:
+ *
+ *   ---
+ *   lang: en
+ *   image: brand/post-en.png
+ *   status: draft          # becomes `posted` after a successful publish
+ *   ---
+ *   Body. Blank line between paragraphs.
  *
  * Without --publish it composes everything, screenshots the composer to
  * /tmp/linkedin-preview.png and stops. That default is deliberate: publishing is
  * public, permanent, and in the founder's voice. Show the preview and the copy,
  * get a human yes, then re-run with --publish.
  *
+ * DUPLICATE PROTECTION is two layers, because neither alone is trustworthy:
+ *   1. the file's own `status: posted` — fast, but goes stale the moment a post
+ *      is deleted on LinkedIn by hand;
+ *   2. a live check of the page's published feed for this post's opening line —
+ *      the actual source of truth, checked before composing.
+ * --force overrides both, and says so loudly.
+ *
  * Runs against the persistent profile at ~/.dhela-browser, not the user's own
  * Chrome. Playwright MCP's --extension mode cannot do this: Chrome blocks
  * DOM.setFileInputFiles over chrome.debugger, so media upload fails there.
  */
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import { open } from "../../../scripts/browser-session.mjs";
 
 const PAGE_ID = "142985997";
 const PAGE_NAME = "Dhela";
+const POSTS_DIR = "content/linkedin";
 
 const arg = (k, d = "") => {
   const i = process.argv.indexOf(`--${k}`);
   return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
-const publish = process.argv.includes("--publish");
+const has = (k) => process.argv.includes(`--${k}`);
+const publish = has("publish");
+const force = has("force");
 
+/** Minimal front matter — `key: value` lines between --- fences. */
+function parsePost(src, path) {
+  const m = src.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!m) return { meta: {}, body: src.trim(), path };
+  const meta = {};
+  for (const line of m[1].split("\n")) {
+    const kv = line.match(/^([\w-]+):\s*(.*)$/);
+    if (kv) meta[kv[1]] = kv[2].trim();
+  }
+  return { meta, body: m[2].trim(), path };
+}
+
+async function loadAll() {
+  if (!existsSync(POSTS_DIR)) return [];
+  const files = (await readdir(POSTS_DIR)).filter(f => f.endsWith(".md")).sort();
+  return Promise.all(files.map(async f => {
+    const p = join(POSTS_DIR, f);
+    return parsePost(await readFile(p, "utf8"), p);
+  }));
+}
+
+if (has("list")) {
+  const all = await loadAll();
+  if (!all.length) console.log(`no posts in ${POSTS_DIR}/`);
+  for (const p of all) {
+    const flag = p.meta.needs_proofread === "true" ? "  [needs proofread]" : "";
+    console.log(`${(p.meta.status ?? "draft").padEnd(7)} ${(p.meta.lang ?? "?").padEnd(3)} ${p.path}${flag}`);
+    console.log(`        ${p.body.split("\n")[0].slice(0, 74)}…`);
+  }
+  process.exit(0);
+}
+
+let postPath = arg("post");
+if (has("next")) {
+  const all = await loadAll();
+  const next = all.find(p => (p.meta.status ?? "draft") !== "posted");
+  if (!next) { console.error(`nothing left to post in ${POSTS_DIR}/ — every file is status: posted`); process.exit(1); }
+  postPath = next.path;
+  console.log(`next unposted: ${postPath}`);
+}
+
+// --text/--image stay as an escape hatch for one-offs that are not worth a file.
 const textPath = arg("text");
-const imagePath = arg("image");
-if (!textPath) { console.error("need --text <file>"); process.exit(1); }
-if (!existsSync(textPath)) { console.error(`no such file: ${textPath}`); process.exit(1); }
+if (!postPath && !textPath) {
+  console.error("need --post <file>, --next, --list, or --text <file>");
+  process.exit(1);
+}
+
+let meta = {}, raw;
+if (postPath) {
+  if (!existsSync(postPath)) { console.error(`no such post: ${postPath}`); process.exit(1); }
+  ({ meta, body: raw } = parsePost(await readFile(postPath, "utf8"), postPath));
+} else {
+  if (!existsSync(textPath)) { console.error(`no such file: ${textPath}`); process.exit(1); }
+  raw = (await readFile(textPath, "utf8")).replace(/\r\n/g, "\n").trim();
+}
+
+const imagePath = arg("image", meta.image ?? "");
 if (imagePath && !existsSync(imagePath)) { console.error(`no such image: ${imagePath}`); process.exit(1); }
 
-const raw = (await readFile(textPath, "utf8")).replace(/\r\n/g, "\n").trim();
 const paras = raw.split(/\n\s*\n/).map(s => s.replace(/\n/g, " ").trim()).filter(Boolean);
 if (!paras.length) { console.error("post body is empty"); process.exit(1); }
 
-console.log(`${paras.length} paragraphs, ${raw.length} characters`);
+// Layer 1: what the file says. Cheap, and wrong if the post was deleted by hand.
+if (meta.status === "posted" && !force) {
+  console.error(`\n${postPath} is marked status: posted (${meta.posted_at ?? "date unknown"}).`);
+  console.error("Refusing to post it again. Use --force if you really mean to.");
+  process.exit(1);
+}
+if (meta.needs_proofread === "true" && publish && !force) {
+  console.error(`\n${postPath} is flagged needs_proofread: true.`);
+  console.error("A native speaker should read it before it goes public. Remove the flag, or use --force.");
+  process.exit(1);
+}
+
+console.log(`${paras.length} paragraphs, ${raw.length} characters${meta.lang ? `, lang=${meta.lang}` : ""}`);
 if (raw.length > 3000) console.warn("warning: LinkedIn truncates around 3000 characters");
 
 const ctx = await open({ headless: false });
@@ -52,6 +138,25 @@ try {
     throw new Error("profile is signed out — the user must run: node scripts/browser-session.mjs login");
   }
 
+  // Layer 2: ask LinkedIn. The file's status can be stale in both directions —
+  // a post deleted by hand still reads `posted`, and a post published from
+  // another machine does not read `posted` at all. This is the source of truth.
+  const probe = paras[0].slice(0, 40);
+  await page.goto(`https://www.linkedin.com/company/${PAGE_ID}/admin/page-posts/published/`,
+    { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(6000);
+  const existing = await page.locator("main").innerText().catch(() => "");
+  if (existing.includes(probe)) {
+    if (!force) {
+      throw new Error(`this post is already live on the page — its opening line is on the published tab.\n`
+        + `  "${probe}…"\n`
+        + `  Nothing was composed. Use --force only if you genuinely want a second copy.`);
+    }
+    console.warn(`\nWARNING: this post is already live and --force was given. Publishing a duplicate.\n`);
+  }
+
+  await page.goto(`https://www.linkedin.com/company/${PAGE_ID}/admin/dashboard/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(3500);
   await page.getByRole("link", { name: "Start a post" }).click({ timeout: 20_000 });
   await page.waitForTimeout(4500);
 
@@ -134,7 +239,6 @@ try {
     // Whether the dialog closed is not evidence of anything — it has stayed
     // open on a post that published fine, and reporting that as "check whether
     // it published" is how you end up posting twice. Go and look instead.
-    const probe = paras[0].slice(0, 40);
     await page.goto(`https://www.linkedin.com/company/${PAGE_ID}/admin/page-posts/published/`,
       { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(6000);
@@ -145,6 +249,21 @@ try {
     }
     console.log(`PUBLISHED — ${markers.length} post(s) now on the page`);
     console.log("https://www.linkedin.com/company/dhelaa/posts/");
+
+    // Record it in the file itself, so --next moves on and a future session can
+    // see what has already gone out without asking LinkedIn.
+    if (postPath) {
+      const src = (await readFile(postPath, "utf8")).replace(/\r\n/g, "\n");
+      const stamp = new Date().toISOString();
+      let updated = src.includes("\nstatus:")
+        ? src.replace(/\nstatus:.*/, `\nstatus: posted`)
+        : src.replace(/^---\n/, `---\nstatus: posted\n`);
+      updated = updated.includes("\nposted_at:")
+        ? updated.replace(/\nposted_at:.*/, `\nposted_at: ${stamp}`)
+        : updated.replace(/\nstatus: posted/, `\nstatus: posted\nposted_at: ${stamp}`);
+      await writeFile(postPath, updated);
+      console.log(`marked ${postPath} as posted`);
+    }
     ok = true;
   }
 } catch (err) {

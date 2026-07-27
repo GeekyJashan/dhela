@@ -107,19 +107,59 @@ brand tokens and several traps worth not rediscovering.
 Note a carousel is a **PDF document post**, not an image: `post.mjs --image`
 attaches an image, so a PDF still has to go on by hand.
 
+## Where posts live
+
+Every post is a file in `content/linkedin/`, named `YYYY-MM-DD-<lang>-<slug>.md`:
+
+```markdown
+---
+lang: en                    # en | hi | pa
+image: brand/post-en.png    # optional; --image overrides
+status: draft               # becomes `posted` automatically after publishing
+needs_proofread: true       # optional; blocks --publish until removed
+---
+First paragraph.
+
+Second paragraph. Blank line between each.
+```
+
+That directory is the record of what exists and what has gone out. **Write new
+posts there**, not to a scratch file in /tmp — the whole point is that a session
+six weeks from now can see the history.
+
 ## Publishing
 
 ```bash
-# 1. Dry run — composes, screenshots, does NOT publish
-node .claude/skills/linkedin-post/post.mjs --text post.txt --image brand/post-en.png
-
-# 2. Show the user /tmp/linkedin-preview.png and the copy. Get approval.
-
-# 3. Publish
-node .claude/skills/linkedin-post/post.mjs --text post.txt --image brand/post-en.png --publish
+node .claude/skills/linkedin-post/post.mjs --list     # what exists, and its status
+node .claude/skills/linkedin-post/post.mjs --next     # dry-run the oldest unposted one
+node .claude/skills/linkedin-post/post.mjs --post content/linkedin/<file>.md
+node .claude/skills/linkedin-post/post.mjs --post content/linkedin/<file>.md --publish
 ```
 
-Put the post body in a UTF-8 text file, blank line between paragraphs.
+`--next` picks the oldest file whose status is not `posted`. Dry run is the
+default: it composes, verifies, screenshots to `/tmp/linkedin-preview.png` and
+stops. **Show the user the copy and the preview, get a yes, then add
+`--publish`.** On success the file is rewritten with `status: posted` and a
+`posted_at` stamp.
+
+`--text <file> --image <img>` still works for a one-off not worth a file.
+
+## Not posting the same thing twice
+
+Three independent guards, because no single one is trustworthy:
+
+| Guard | Catches | Blind spot |
+|---|---|---|
+| `status: posted` in the file | anything this repo has published | a post deleted on LinkedIn by hand still reads `posted` |
+| `needs_proofread: true` | Indic copy no native speaker has read | only what you remember to flag |
+| **live check of the published tab** | anything actually on the page, however it got there | needs the profile signed in |
+
+The live check runs **before** the composer opens, so a duplicate costs nothing.
+It has already earned its keep: a second copy of the English post was created by
+hand, and a later `--next` run refused to make a third.
+
+`--force` overrides all three and says so loudly. Reach for it only when a
+second copy is genuinely wanted.
 
 Notes baked into `post.mjs`, so you do not have to rediscover them:
 
