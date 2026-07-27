@@ -48,6 +48,10 @@ const NAV_GROUPS: NavGroup[] = [
   { label: "Finance", items: [
     { to: "/payments", label: "Payments", icon: IndianRupee },
     { to: "/gst", label: "GST returns", icon: FileSpreadsheet },
+  ]},
+  // Workspace settings rather than day-to-day work — Finance is where an
+  // operator lives, and these two are neither daily nor money movement.
+  { label: "System", items: [
     { to: "/billing", label: "Billing", icon: CreditCard },
     { to: "/account", label: "Account", icon: Settings },
   ]},
@@ -60,8 +64,11 @@ function AuthedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = Route.useRouteContext();
   const isAdmin = (user?.app_metadata as { platform_admin?: boolean } | undefined)?.platform_admin === true;
+  // Admin joins the existing System group rather than adding a second one.
   const groups: NavGroup[] = isAdmin
-    ? [...NAV_GROUPS, { label: "System", items: [{ to: "/admin", label: "Admin", icon: ShieldCheck }] }]
+    ? NAV_GROUPS.map(g => g.label === "System"
+        ? { ...g, items: [...g.items, { to: "/admin", label: "Admin", icon: ShieldCheck }] }
+        : g)
     : NAV_GROUPS;
 
   const signOut = async () => {

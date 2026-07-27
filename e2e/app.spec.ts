@@ -20,7 +20,8 @@ test.describe("navigation", () => {
       await page.getByRole("button", { name: /open menu/i }).click();
     }
     for (const label of ["Dashboard", "Insights", "Purchases", "Suppliers",
-                         "Sales", "Retailers", "Products", "Payments", "GST returns"]) {
+                         "Sales", "Retailers", "Products", "Payments", "GST returns",
+                         "Billing", "Account"]) {
       await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
   });

@@ -19,7 +19,7 @@ type Db = { from: (t: string) => any };
 const PLATFORM_GUIDE = `
 HOW DHELA IS LAID OUT (use this to answer "how do I…" / "where is…" navigation questions — no tool call needed for these):
 
-Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance (plus System → Admin for platform admins only).
+Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance, System. Billing and Account live under System, not Finance. Admin appears inside System for platform admins only.
 
 Overview
 - Dashboard (/dashboard): home screen — recent purchase invoices and a quick snapshot of the business.
@@ -45,16 +45,19 @@ Catalog
 Finance
 - Payments (/payments): record a payment received from (or made to) a party, see receivables ageing, and full payment history (filterable by All / Received / Paid out). "Record payment" is also reachable directly from a sales invoice row. The charts that used to sit here now live under Overview → Insights.
 - GST returns (/gst): pick a month and Dhela builds GSTR-1 working papers (B2B, B2CL, B2CS, CDNR, CDNUR, HSN summary, document series) plus a GSTR-3B summary, each downloadable as CSV for the accountant. Built from issued sales invoices and approved purchases only — drafts and unapproved purchases are excluded. Dhela does NOT file returns; the taxpayer files on the GST portal. If asked whether Dhela files GST returns, say no clearly.
-- Billing (/billing): current plan, monthly AI-extraction usage meter, and how to upgrade (WhatsApp the founder with a screenshot of the payment — upgrades activate same day).
+
 - Account statement: not in the sidebar directly — open it from a retailer's or supplier's row ("Statement" action) on the Retailers/Suppliers page. Shows a running debit/credit ledger for that party over a chosen date range, printable.
+
+System (workspace settings, not day-to-day work)
+- Billing (/billing): current plan, monthly AI-extraction usage meter, and how to upgrade (scan the UPI QR at checkout, then send the payment screenshot on WhatsApp or by email — upgrades activate same day).
+- Account (/account): the workspace's own business details — name, GSTIN, address, state code, phone, email — plus the bank and signatory block printed at the bottom of sales invoices, and a "Clear all data" action that wipes every business record but keeps the login and workspace. Set the GSTIN here; without it invoices print without one and GST returns warn. Admin role only for changes.
+- Admin (/admin, platform admins only): manage users and get an invite link for the workspace.
 
 E-way bills (/eway) — under Selling
 - Flags sales invoices at or above ₹50,000 (the legal e-way bill threshold) that still need one. Open a sales invoice and tap "E-way bill" to fill vehicle/transport details (Part B — the invoice's own data is Part A, filled automatically), then "Download NIC JSON" — a ready-made file you upload yourself at ewaybillgst.gov.in → Bulk Generation to get the E-way Bill Number (EBN) for free. Paste that EBN back in to store it, print it on the invoice, and track its validity/expiry from the /eway register.
 
 Other things worth knowing
 - Language: switch English / Hindi / Punjabi from the bottom of the sidebar.
-- Account (/account, under Finance): the workspace's own business details — name, GSTIN, address, state code, phone, email — plus the bank and signatory block printed at the bottom of sales invoices, and a "Clear all data" action that wipes every business record but keeps the login and workspace. Set the GSTIN here; without it invoices print without one and GST returns warn. Admins only for changes.
-- Admin (/admin, platform admins only): manage users and get an invite link for the workspace.
 - The AI quota (extractions/month) is shared across: AI-engine invoice uploads, AI-read order uploads, and questions asked to this assistant. OCR uploads never use it.
 
 If a user asks "how do I do X" or "where do I find X", answer directly from this guide (with the page name and the exact steps/button) — do not call a tool for this, tools are only for pulling their actual data/numbers.
