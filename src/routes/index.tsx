@@ -1053,15 +1053,17 @@ function Pricing() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid md:grid-cols-3 gap-5 items-start">
+        {/* Stretch, not items-start: Pro carries an extra feature that wraps to
+            two lines, so natural heights left it hanging below the others. */}
+        <div className="mt-12 grid md:grid-cols-3 gap-5">
           {PLAN_ORDER.map((id, i) => {
             const p = PLANS[id];
             const pitch = PLAN_PITCH[id];
             const featured = id === "standard";
             return (
-              <Reveal key={id} delay={i * 80}>
+              <Reveal key={id} delay={i * 80} className="h-full">
                 <div className={cn(
-                  "relative h-full rounded-2xl border bg-card p-6 card-lift",
+                  "relative flex h-full flex-col rounded-2xl border bg-card p-6 card-lift",
                   featured && "border-primary shadow-lg md:-mt-3",
                 )}>
                   {featured && (
@@ -1099,7 +1101,7 @@ function Pricing() {
                       </li>
                     ))}
                   </ul>
-                  <Link to="/auth" className="block mt-6">
+                  <Link to="/auth" className="mt-auto block pt-6">
                     <Button className="w-full" variant={featured ? "default" : "outline"}>
                       {id === "free" ? "Start free" : `Start free, upgrade later`}
                     </Button>
