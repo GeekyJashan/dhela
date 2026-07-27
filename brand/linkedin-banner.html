@@ -1,0 +1,122 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Dhela LinkedIn banners</title>
+<style>
+  /* Same self-hosted faces the product uses, so the banner is set in the real
+     brand type rather than a lookalike. */
+  @font-face { font-family: "Instrument Serif"; src: url("http://localhost:8080/fonts/instrument-serif-latin.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "Inter"; src: url("http://localhost:8080/fonts/inter-latin.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "Noto Deva"; src: url("http://localhost:8080/fonts/noto-devanagari-subset.woff2") format("woff2"); font-weight: 400 700; }
+
+  :root {
+    --cream:   oklch(0.985 0.006 90);
+    --ink:     oklch(0.22 0.03 200);
+    --teal:    oklch(0.42 0.09 200);
+    --gold:    oklch(0.78 0.14 65);
+    --muted:   oklch(0.5 0.02 200);
+    --deep:    oklch(0.14 0.02 200);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #555; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+
+  .banner {
+    width: 1128px; height: 191px; position: relative; overflow: hidden;
+    font-family: Inter, sans-serif; display: flex; align-items: center;
+  }
+  /* LinkedIn floats the round page logo over the banner's bottom-left corner,
+     so nothing that matters may live in this box. */
+  .safe-left { position: absolute; left: 0; bottom: 0; width: 196px; height: 96px; }
+
+  .copy { margin-left: 210px; }
+  .head { font-family: "Instrument Serif", serif; font-size: 40px; line-height: 1.1; letter-spacing: -0.01em; }
+  .sub  { font-size: 14.5px; margin-top: 9px; letter-spacing: 0.01em; }
+  .url  { position: absolute; right: 34px; bottom: 22px; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; }
+
+  /* ---------- A. Ledger light ---------- */
+  #a { background: var(--cream); }
+  #a .grid {
+    position: absolute; inset: 0; opacity: 0.5;
+    background-image: linear-gradient(oklch(0.42 0.09 200 / 0.07) 1px, transparent 1px),
+                      linear-gradient(90deg, oklch(0.42 0.09 200 / 0.07) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  #a .glowA { position: absolute; width: 300px; height: 300px; border-radius: 50%; left: -70px; top: -120px;
+              background: radial-gradient(circle, oklch(0.42 0.09 200 / 0.20), transparent 68%); }
+  #a .glowB { position: absolute; width: 340px; height: 340px; border-radius: 50%; right: -80px; top: -110px;
+              background: radial-gradient(circle, oklch(0.78 0.14 65 / 0.34), transparent 68%); }
+  #a .head { color: var(--ink); }
+  #a .head b { color: var(--teal); font-weight: 400; }
+  #a .sub { color: var(--muted); }
+  #a .url { color: var(--teal); }
+
+  /* ---------- B. Deep teal, golden filaments ---------- */
+  #b { background: linear-gradient(105deg, var(--deep) 0%, oklch(0.24 0.035 200) 62%, oklch(0.28 0.05 195) 100%); }
+  #b .deva { font-family: "Noto Deva", serif; font-size: 43px; color: var(--gold); letter-spacing: 0.01em; }
+  #b .sub { color: oklch(0.86 0.01 90); }
+  #b .url { color: oklch(0.78 0.14 65 / 0.85); }
+  #b svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ---------- C. Split, bold statement ---------- */
+  #c { background: var(--cream); }
+  #c .slab { position: absolute; inset: 0 0 0 auto; width: 470px; background: var(--ink);
+             clip-path: polygon(58px 0, 100% 0, 100% 100%, 0 100%); }
+  #c .head { color: var(--ink); font-size: 42px; }
+  #c .head b { color: var(--teal); font-weight: 400; }
+  #c .sub { color: var(--muted); }
+  #c .right { position: absolute; right: 40px; top: 0; height: 100%; width: 380px;
+              display: flex; flex-direction: column; justify-content: center; gap: 11px; }
+  #c .stat { color: var(--cream); font-size: 13.5px; display: flex; align-items: center; gap: 10px; }
+  #c .stat i { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); flex: none; }
+  #c .stat b { color: var(--gold); font-weight: 600; }
+</style>
+
+<!-- ============ A ============ -->
+<div class="banner" id="a">
+  <div class="grid"></div><div class="glowA"></div><div class="glowB"></div>
+  <div class="copy">
+    <div class="head">Invoices, stock and GST for Indian<br>distributors, <b>run by AI.</b></div>
+    <div class="sub">Every supplier bill read automatically &nbsp;·&nbsp; E-way bills &amp; GSTR-1 &nbsp;·&nbsp; English, हिंदी, ਪੰਜਾਬੀ</div>
+  </div>
+  <div class="url">dhela.in</div>
+</div>
+
+<!-- ============ B ============ -->
+<div class="banner" id="b">
+  <svg class="wires" viewBox="0 0 1128 191" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="w" x1="0" x2="1">
+        <stop offset="0%" stop-color="#e0a94e" stop-opacity="0"/>
+        <stop offset="45%" stop-color="#f6dfa4" stop-opacity=".75"/>
+        <stop offset="100%" stop-color="#e0a94e" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- The copy block occupies roughly x 210–760, y 55–140, so the filaments
+         are routed above and below it. Crossing the subline made the smallest
+         type on the banner the hardest to read. -->
+    <path d="M-20 172 C 260 186, 560 188, 790 156 S 1020 96, 1160 118" fill="none" stroke="url(#w)" stroke-width="1.3"/>
+    <path d="M-20 188 C 300 198, 620 196, 860 172 S 1060 132, 1160 150" fill="none" stroke="url(#w)" stroke-width="0.9" opacity=".6"/>
+    <path d="M-20 26 C 200 8, 420 34, 640 18 S 960 -6, 1160 22" fill="none" stroke="url(#w)" stroke-width="0.9" opacity=".42"/>
+    <path d="M812 148 C 900 118, 960 64, 1160 44" fill="none" stroke="url(#w)" stroke-width="1.1" opacity=".7"/>
+    <circle cx="790" cy="156" r="2.6" fill="#f6dfa4"/><circle cx="1006" cy="82" r="2" fill="#f6dfa4" opacity=".75"/>
+  </svg>
+  <div class="copy" style="position:relative">
+    <div class="deva">हर ढेला, हिसाब में</div>
+    <div class="sub" style="margin-top:11px">Invoice, stock and GST software for Indian distributors — <span style="color:oklch(0.78 0.14 65)">run by AI.</span></div>
+  </div>
+  <div class="url">dhela.in</div>
+</div>
+
+<!-- ============ C ============ -->
+<div class="banner" id="c">
+  <div class="slab"></div>
+  <div class="copy">
+    <div class="head">Your back office,<br><b>run by AI.</b></div>
+    <div class="sub">Invoice &amp; inventory software for Indian distributors</div>
+  </div>
+  <div class="right">
+    <div class="stat"><i></i><b>45 min → 2 min</b> per purchase bill</div>
+    <div class="stat"><i></i>Stock and true cost update themselves</div>
+    <div class="stat"><i></i>E-way bills and GSTR-1 working papers</div>
+    <div class="stat"><i></i>English, हिंदी, ਪੰਜਾਬੀ &nbsp;·&nbsp; dhela.in</div>
+  </div>
+</div>

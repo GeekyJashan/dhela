@@ -41,8 +41,19 @@ function structuredData() {
         image: "https://dhela.in/og-image.png",
         description: "Invoice and inventory software for Indian distributors.",
         areaServed: { "@type": "Country", name: "India" },
+        // City and state only — enough for Google to place the business in the
+        // Jalandhar distributor belt it actually sells into, without putting a
+        // street address on a one-person company's public page.
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Jalandhar",
+          addressRegion: "Punjab",
+          addressCountry: "IN",
+        },
         founder: { "@id": "https://dhela.in/#founder" },
-        sameAs: [LINKEDIN],
+        // The company page is the entity signal; the founder profile is the
+        // E-E-A-T one. Both were flagged empty in the last two audits.
+        sameAs: [LINKEDIN_COMPANY, LINKEDIN],
         contactPoint: [{
           "@type": "ContactPoint",
           contactType: "sales",
@@ -115,6 +126,13 @@ function structuredData() {
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const LINKEDIN = "https://www.linkedin.com/in/jashan-sehgal-b11a19226/";
+/**
+ * The vanity URL, not the /company/142985997 form. The numeric one redirects a
+ * logged-out visitor to a login wall, so a crawler following it from sameAs
+ * learns nothing; the vanity URL serves the page publicly. Two a's because
+ * /company/dhela belongs to an unrelated fashion label.
+ */
+const LINKEDIN_COMPANY = "https://www.linkedin.com/company/dhelaa/";
 // Freshness is a real citation signal, so these are stated rather than implied.
 // Bump UPDATED when the page's substance changes, not on every deploy.
 const PUBLISHED = "2026-07-13";
@@ -398,13 +416,28 @@ function ProductTour() {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [wire, setWire] = useState({ x: 0, y: 0, w: 0 });
 
+  // Bumped whenever someone picks a slide themselves, which restarts the timer
+  // below. Without it the interval kept its own schedule, so a tab you clicked
+  // could be replaced a fraction of a second later — you get a full TOUR_MS on
+  // the slide you asked for, which is also what stopped the e2e connector
+  // assertion measuring a tab that had already moved on.
+  const [pick, setPick] = useState(0);
+  const select = (i: number) => { setActive(i); setPick(p => p + 1); };
+  // Functional form: the arrow-key listener is registered once, so reading
+  // `active` from its closure would always step from whichever slide was
+  // showing when the tour first scrolled into view.
+  const step = (d: number) => {
+    setActive(a => (a + d + TOUR.length) % TOUR.length);
+    setPick(p => p + 1);
+  };
+
   useEffect(() => {
     if (!inView) return;
     const id = setInterval(() => {
       if (!paused.current) setActive(a => (a + 1) % TOUR.length);
     }, TOUR_MS);
     return () => clearInterval(id);
-  }, [inView]);
+  }, [inView, pick]);
 
   // Phone status cycles on its own clock, matched to the scan sweep.
   useEffect(() => {
@@ -431,8 +464,8 @@ function ProductTour() {
   useEffect(() => {
     if (!inView) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setActive(a => (a + 1) % TOUR.length);
-      if (e.key === "ArrowLeft") setActive(a => (a - 1 + TOUR.length) % TOUR.length);
+      if (e.key === "ArrowRight") step(1);
+      if (e.key === "ArrowLeft") step(-1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -473,7 +506,7 @@ function ProductTour() {
           onMouseLeave={() => { paused.current = false; }}>
           <div ref={tabsRef} className="relative flex flex-wrap justify-center gap-2">
             {TOUR.map((t, i) => (
-              <button key={t.id} onClick={() => setActive(i)} aria-current={i === active}
+              <button key={t.id} onClick={() => select(i)} aria-current={i === active}
                 data-tour-tab
                 className={cn(
                   "rounded-full border px-4 py-2 text-sm transition-all duration-300",
@@ -525,7 +558,7 @@ function ProductTour() {
             </div>
             <div className="mt-5 flex justify-center gap-1.5 lg:hidden">
               {TOUR.map((t, i) => (
-                <button key={t.id} onClick={() => setActive(i)}
+                <button key={t.id} onClick={() => select(i)}
                   aria-label={`Go to ${t.label}`} data-tour-dot
                   className={cn("h-1.5 rounded-full transition-all",
                     i === active ? "w-6 bg-primary" : "w-1.5 bg-border")} />
@@ -1239,12 +1272,16 @@ function SiteFooter() {
           <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           <Link to="/auth" className="hover:text-foreground transition-colors">Sign in</Link>
+          {/* A crawlable link, not just a sameAs entry — it is what ties the
+              site and the company page together as one entity. */}
+          <a href={LINKEDIN_COMPANY} target="_blank" rel="noreferrer noopener"
+            className="hover:text-foreground transition-colors">LinkedIn</a>
         </div>
         <p className="flex items-center gap-1.5 text-xs">
           <ShieldCheck className="h-3.5 w-3.5 text-success" />
           Isolated workspace per distributor · GST-aware · full audit trail
         </p>
-        <p className="text-xs">© 2026 Dhela · dhela.in · Built for distributors.</p>
+        <p className="text-xs">© 2026 Dhela · Jalandhar, Punjab · Built for distributors.</p>
         <p className="text-xs">
           Written by{" "}
           <a href={LINKEDIN} target="_blank" rel="noreferrer noopener"

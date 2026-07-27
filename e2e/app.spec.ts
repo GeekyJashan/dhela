@@ -297,7 +297,15 @@ test.describe("landing page", () => {
     )["@graph"] as Record<string, unknown>[];
     expect(graph.map(n => n["@type"])).toEqual(
       expect.arrayContaining(["Organization", "Person", "WebPage"]));
-    expect(graph.find(n => n["@type"] === "Organization")!.sameAs).toBeTruthy();
+    const org = graph.find(n => n["@type"] === "Organization")!;
+    // Name the company page specifically: a truthy check still passed when
+    // sameAs held only the founder profile, which is the gap two audits flagged.
+    // The vanity slug matters — /company/142985997 redirects a crawler to a
+    // login wall, and /company/dhela is an unrelated company.
+    expect(org.sameAs).toEqual(
+      expect.arrayContaining(["https://www.linkedin.com/company/dhelaa/"]));
+    expect(html).toContain("linkedin.com/company/dhelaa");
+    expect((org.address as Record<string, string>).addressLocality).toBe("Jalandhar");
     expect(graph.find(n => n["@type"] === "WebPage")!.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
@@ -308,6 +316,15 @@ test.describe("landing page", () => {
     const before = await img.getAttribute("src");
 
     const gstTab = page.locator("[data-tour-tab]", { hasText: "File your GST" });
+    // This page is server-rendered, so the tab is in the DOM well before React
+    // attaches its handler. Clicking that early lands on inert markup: nothing
+    // moves, and because the auto-advance timer has not been created either,
+    // nothing moves for the rest of the test. The connector's width comes from
+    // a measurement effect, so a non-zero width means the component is live.
+    await expect
+      .poll(async () => (await page.locator(".tab-wire").boundingBox())?.width ?? 0,
+        { timeout: 10_000, message: "tour should hydrate before the test drives it" })
+      .toBeGreaterThan(0);
     await gstTab.click();
     await expect(img).not.toHaveAttribute("src", before!);
     await expect(img).toHaveAttribute("src", "/shots/gst.webp");
@@ -315,11 +332,20 @@ test.describe("landing page", () => {
     // The connector is absolutely positioned and has to track the active tab in
     // both axes — the row wraps to three lines on a phone, where tracking only
     // x left it underneath the wrong tab.
-    await page.waitForTimeout(800);
-    const tab = (await gstTab.boundingBox())!;
-    const wire = (await page.locator(".tab-wire").boundingBox())!;
-    expect(Math.abs((tab.x + tab.width / 2) - (wire.x + wire.width / 2))).toBeLessThan(10);
-    expect(Math.abs((tab.y + tab.height) - wire.y)).toBeLessThan(12);
+    // Poll rather than sleep a fixed 800ms: the connector animates into place,
+    // and on a loaded machine a fixed wait sampled it mid-transition. Clicking a
+    // tab restarts the 6.5s auto-advance, so this window cannot span a slide
+    // change.
+    await expect
+      .poll(async () => {
+        const tab = (await gstTab.boundingBox())!;
+        const wire = (await page.locator(".tab-wire").boundingBox())!;
+        return Math.round(Math.max(
+          Math.abs((tab.x + tab.width / 2) - (wire.x + wire.width / 2)),
+          Math.abs((tab.y + tab.height) - wire.y),
+        ));
+      }, { timeout: 3_000, message: "golden connector should settle under the active tab" })
+      .toBeLessThan(12);
   });
 
   test("every product screenshot actually resolves", async ({ request }) => {
