@@ -28,8 +28,34 @@ i18n.use(initReactI18next).init({
   returnEmptyString: false,
 });
 
+/**
+ * Pull in the complete Noto family for an Indic locale.
+ *
+ * The self-hosted faces in fonts.css only cover the Hindi/Punjabi copy on the
+ * landing page — a distributor can type any Devanagari they like into a product
+ * or party name, and the subset would not have it. Loading the full family costs
+ * ~150 KB, so it happens here rather than on the marketing page, which is the
+ * one page that has to be fast and never needs it.
+ */
+const INDIC_FONTS: Record<string, string> = {
+  hi: "family=Noto+Sans+Devanagari:wght@400;600",
+  pa: "family=Noto+Sans+Gurmukhi:wght@400;600",
+};
+
+function loadIndicFont(code: string) {
+  const family = INDIC_FONTS[code];
+  if (!family || typeof document === "undefined") return;
+  const href = `https://fonts.googleapis.com/css2?${family}&display=swap`;
+  if (document.querySelector(`link[href="${href}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
 /** Fetch a dictionary once, on demand. English is the key language, so it needs none. */
 async function loadLocale(code: string): Promise<void> {
+  loadIndicFont(code);
   if (code === "en" || i18n.hasResourceBundle(code, "translation")) return;
   try {
     const mod = code === "hi"

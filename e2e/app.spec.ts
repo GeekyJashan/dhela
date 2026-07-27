@@ -310,7 +310,7 @@ test.describe("landing page", () => {
     const gstTab = page.locator("[data-tour-tab]", { hasText: "File your GST" });
     await gstTab.click();
     await expect(img).not.toHaveAttribute("src", before!);
-    await expect(img).toHaveAttribute("src", "/shots/gst.jpg");
+    await expect(img).toHaveAttribute("src", "/shots/gst.webp");
 
     // The connector is absolutely positioned and has to track the active tab in
     // both axes — the row wraps to three lines on a phone, where tracking only
@@ -324,8 +324,8 @@ test.describe("landing page", () => {
 
   test("every product screenshot actually resolves", async ({ request }) => {
     for (const f of ["bulk", "review", "insights", "gst", "payments", "mobile-upload"]) {
-      const r = await request.get(`/shots/${f}.jpg`);
-      expect(r.status(), `/shots/${f}.jpg`).toBe(200);
+      const r = await request.get(`/shots/${f}.webp`);
+      expect(r.status(), `/shots/${f}.webp`).toBe(200);
       expect(Number(r.headers()["content-length"] ?? 0)).toBeGreaterThan(5_000);
     }
   });
@@ -343,7 +343,7 @@ test.describe("landing page", () => {
     const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, baseURL });
     const page = await ctx.newPage();
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /your entire back office/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /invoices, stock and GST/i })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.body.scrollWidth > document.documentElement.clientWidth,
     );

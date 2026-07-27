@@ -20,6 +20,76 @@
 > Live Core Web Vitals measured over the real network are in the "good" band on
 > both desktop and mobile. New findings from this pass are marked **[R2]**.
 
+## [R4] Third-party crawler findings, fixed
+
+A run through seositecheckup.com surfaced six items. Five are fixed; one needs a
+DNS change only the domain owner can make.
+
+| Finding | Severity | Status |
+|---|---|---|
+| Render-blocking resources | HIGH | Fixed — fonts self-hosted, no third-party stylesheet |
+| Title/meta/heading keywords don't overlap | HIGH | Fixed — H1 rewritten |
+| Images not in a modern format | HIGH | Fixed — WebP |
+| More than 20 HTTP requests | LOW | Fixed — 40 → 19 |
+| No SPF record | LOW | **Open — needs a TXT record at the registrar** |
+| Favicon not referenced properly | LOW | Fixed — added `rel="shortcut icon"` |
+
+### The rupee sign was costing 104 KB
+
+The single biggest finding of this round, and it was invisible until the font
+files were listed by subset. U+20B9 (₹) sits in Google's `latin-ext` unicode
+range, so rendering one rupee glyph pulled the **entire** latin-ext subset of
+three families: Inter (83 KB), Instrument Serif (7.6 KB) and Noto Devanagari
+(13.5 KB). None of the rest of latin-ext — Central and Eastern European
+accented characters — is used anywhere on the page.
+
+Fonts are now self-hosted and built by `scripts/build-fonts.mjs` (`npm run
+fonts`), which fetches a rupee-only subset and inlines it as a data URI with
+`unicode-range: U+20B9`.
+
+Instrument Serif turns out to have no ₹ glyph at all — gstatic answers that
+subset request with a 400 — so ₹ in display type has always fallen through the
+stack. Unchanged behaviour, now documented rather than accidental.
+
+### Indic fonts moved off the marketing page
+
+Noto Devanagari + Gurmukhi were 151 KB, loaded by every visitor, for one hero
+tagline and two FAQ entries. The landing page now ships a 25 KB subset built
+from the characters that page actually contains. The full families load only
+when someone switches the app to Hindi or Punjabi, because a distributor can
+type any Devanagari they like into a product name and a subset would not have
+it. The font stack lists the subsets ahead of the full families and the system
+Indic font, so an uncovered glyph degrades to a font mismatch, never to tofu.
+
+*Verified:* switching the app to Hindi fetches the 118 KB full family and
+`document.fonts.check('16px "Noto Sans Devanagari"', 'हिसाब')` returns true.
+
+### Measured, production build over localhost
+
+| | Before | After |
+|---|---|---|
+| Requests | 40 | **19** |
+| Fonts | 317.7 KB / 7 reqs | **87.3 KB / 4 reqs** |
+| Images | 204.3 KB JPEG | **75.0 KB WebP** |
+| Scripts | 28 reqs | **11 reqs** |
+
+Screenshots re-encoded at WebP q90 rather than q85: q85 saved another 58 KB but
+these are text-heavy UI captures already through one lossy generation, and q90
+holds SSIM at 0.9968. 948 KB of JPEG became 504 KB of WebP on disk.
+
+### Still open after this round
+
+The entry chunk is 424 KB raw / 119 KB gzipped, and the largest thing in it is
+the Supabase auth client — which a logged-out visitor reading the marketing page
+has no use for. Deferring it is the next real performance win, and it is a
+bigger change than anything above because it touches the auth flow.
+
+Also worth stating plainly: the "more than 20 HTTP requests" rule is an
+HTTP/1.1-era heuristic, and Vercel serves this site over HTTP/2. Getting from 21
+to 19 was worth doing because those were sub-1 KB chunks costing a full round
+trip each on a slow Indian mobile connection — not because 20 is a meaningful
+number.
+
 ## [R2] Correction to earlier advice: FAQPage schema
 
 I recommended FAQPage markup last round and implied a search benefit. That was

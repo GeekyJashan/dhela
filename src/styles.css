@@ -1,6 +1,9 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+/* Self-hosted @font-face rules, inlined into the built stylesheet by Vite so
+   they cost no extra request. Generated — see scripts/build-fonts.mjs. */
+@import "./fonts.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -37,8 +40,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --font-sans: "Inter", "Noto Sans Devanagari", "Noto Sans Gurmukhi", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Instrument Serif", "Noto Sans Devanagari", "Noto Sans Gurmukhi", ui-serif, Georgia, serif;
+  /* The "… Subset" faces cover the Hindi/Punjabi copy on the landing page and
+     are self-hosted. The unsuffixed families are the complete Noto fonts, which
+     only exist once setLanguage has loaded them — so in-app text falls through
+     to them, and to the system Indic font, for anything the subset misses. */
+  --font-sans: "Inter", "Noto Sans Devanagari Subset", "Noto Sans Gurmukhi Subset", "Noto Sans Devanagari", "Noto Sans Gurmukhi", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", "Noto Sans Devanagari Subset", "Noto Sans Gurmukhi Subset", "Noto Sans Devanagari", "Noto Sans Gurmukhi", ui-serif, Georgia, serif;
 }
 
 :root {

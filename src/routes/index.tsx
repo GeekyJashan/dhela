@@ -226,8 +226,13 @@ function Hero() {
           For FMCG, Pharma, Hardware, Grocery & General distributors
         </div>
 
-        <h1 className="font-display text-5xl md:text-7xl leading-[1.03] mt-6">
-          Your entire back office,<br />
+        {/* Names the three things it does before it names the benefit. The old
+            "Your entire back office, run by AI" shared no keyword at all with
+            the title tag or the meta description, and told a distributor
+            scanning the page nothing about what the software is. */}
+        <h1 className="font-display text-5xl md:text-6xl leading-[1.05] mt-6">
+          Invoices, stock and GST<br />
+          for Indian distributors,<br />
           <span className="text-primary">run by AI.</span>
         </h1>
 
@@ -364,19 +369,19 @@ function Pain() {
 /* ------------------------------ product tour ------------------------------ */
 
 const TOUR: { id: string; label: string; caption: string; img: string; alt: string }[] = [
-  { id: "upload", label: "Drop the whole pile", img: "/shots/bulk.jpg",
+  { id: "upload", label: "Drop the whole pile", img: "/shots/bulk.webp",
     caption: "Throw the whole pile in at once — up to 100 a batch. Each one queues with a thumbnail so you can spot a blurred photo before it's read, and the batch processes in the background while you carry on.",
     alt: "Dhela bulk upload screen with fourteen supplier bills queued as thumbnails, each marked Ready, and an Upload and extract button showing 14 files" },
-  { id: "review", label: "Read a bill", img: "/shots/review.jpg",
+  { id: "review", label: "Read a bill", img: "/shots/review.webp",
     caption: "Supplier, GSTIN, HSN, quantities, rates and GST — pulled off the bill with a confidence score. You check the flagged fields and approve.",
     alt: "Dhela purchase review screen showing a supplier invoice extracted into editable fields with line items, HSN codes and a 92% extraction accuracy score" },
-  { id: "insights", label: "See the money", img: "/shots/insights.jpg",
+  { id: "insights", label: "See the money", img: "/shots/insights.webp",
     caption: "Net sales, real margin, what's collected, what's still outstanding, and how long your money sits with retailers.",
     alt: "Dhela insights dashboard showing business health score, net sales, profit margin, collections and outstanding receivables" },
-  { id: "gst", label: "File your GST", img: "/shots/gst.jpg",
+  { id: "gst", label: "File your GST", img: "/shots/gst.webp",
     caption: "GSTR-1 working papers — B2B, B2CS, credit notes, HSN summary — and a GSTR-3B summary, each downloadable for your accountant.",
     alt: "Dhela GST returns screen showing GSTR-1 working papers and a GSTR-3B summary for a selected month" },
-  { id: "payments", label: "Chase what's owed", img: "/shots/payments.jpg",
+  { id: "payments", label: "Chase what's owed", img: "/shots/payments.webp",
     caption: "Receivables ageing by retailer, every payment in and out, and a printable statement for anyone who asks.",
     alt: "Dhela payments screen showing receivables ageing by retailer and full payment history" },
 ];
@@ -457,7 +462,7 @@ function ProductTour() {
 
       <div ref={ref} className="relative max-w-6xl mx-auto px-6">
         <Reveal className="text-center max-w-2xl mx-auto">
-          <h2 className="font-display text-4xl md:text-5xl">Look inside</h2>
+          <h2 className="font-display text-4xl md:text-5xl">Look inside the software</h2>
           <p className="mt-3 text-muted-foreground">
             Real screens, real numbers — not mock-ups. This is the actual app.
           </p>
@@ -537,7 +542,7 @@ function ProductTour() {
             <Reveal delay={80} className="hidden lg:block">
               <div className="phone-float relative mx-auto w-[214px] rounded-[2rem] border-[7px] border-foreground/90 bg-foreground/90 shadow-2xl">
                 <div className="relative overflow-hidden rounded-[1.4rem]">
-                  <img src="/shots/mobile-upload.jpg" width={380} height={780} loading="lazy" decoding="async"
+                  <img src="/shots/mobile-upload.webp" width={380} height={780} loading="lazy" decoding="async"
                     alt="Dhela upload screen on a phone, showing a Take photo button that opens the camera to capture supplier bills"
                     className="block w-full" />
                   {/* scan sweep, matched to the status line below */}

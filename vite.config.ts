@@ -16,6 +16,30 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     server: { host: "::", port: 8080 },
+    build: {
+      rollupOptions: {
+        output: {
+          // The landing page was fetching 28 scripts, 20 of them a single SVG
+          // each, because every lucide icon got its own chunk. Grouping the two
+          // sets below took it to 8. Everything else keeps the bundler's own
+          // route splitting — the point is to stop paying a round trip for
+          // 700-byte files, not to build one big bundle.
+          manualChunks(id: string) {
+            if (id.includes("node_modules/lucide-react")) return "icons";
+            // React and the tiny shims that always load with it.
+            if (/node_modules\/(react|react-dom|scheduler|use-sync-external-store|tslib)\//.test(id)) {
+              return "react";
+            }
+            // The three components the public page shares with the app. Named
+            // one by one on purpose: grouping all of src/components would drag
+            // the authenticated screens' code onto the landing page, and
+            // grouping all of components/ui would drag in every shadcn
+            // primitive for the sake of one button.
+            if (/\/src\/components\/(ui\/button|logo|reveal)\.tsx$/.test(id)) return "ui";
+          },
+        },
+      },
+    },
     resolve: {
       alias: { "@": `${process.cwd()}/src` },
       dedupe: [

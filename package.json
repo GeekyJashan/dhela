@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "seed:e2e": "node e2e/seed.mjs"
+    "seed:e2e": "node e2e/seed.mjs",
+    "fonts": "node scripts/build-fonts.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.5",
