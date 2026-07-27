@@ -51,3 +51,10 @@ supabase/.temp/
 test-results/
 playwright-report/
 e2e/.auth/
+
+# Playwright MCP session artefacts (snapshots, console logs)
+.playwright-mcp/
+# Playwright MCP also drops named snapshots/screenshots in the cwd
+*.snapshot.yml
+edit-page.yml
+composer.png

@@ -1,0 +1,134 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Dhela launch post cards</title>
+<!-- 1200x1200 LinkedIn feed cards. Serve from the dev server so the self-hosted
+     faces resolve: copy to public/, open /_posts.html, screenshot each #id.
+     Full Noto families here, not the landing page's 57-character subset —
+     these cards use far more Devanagari and Gurmukhi than the marketing copy. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Gurmukhi:wght@400;600;700&display=swap">
+<style>
+  @font-face { font-family: "Instrument Serif"; src: url("/fonts/instrument-serif-latin.woff2") format("woff2"); font-weight: 400 700; }
+  @font-face { font-family: "Inter"; src: url("/fonts/inter-latin.woff2") format("woff2"); font-weight: 400 700; }
+
+  :root {
+    --cream: oklch(0.985 0.006 90);
+    --ink:   oklch(0.22 0.03 200);
+    --teal:  oklch(0.42 0.09 200);
+    --gold:  oklch(0.78 0.14 65);
+    --muted: oklch(0.5 0.02 200);
+    --deep:  oklch(0.14 0.02 200);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #444; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+  .card {
+    width: 1200px; height: 1200px; position: relative; overflow: hidden;
+    font-family: Inter, sans-serif; padding: 96px 92px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .main { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; }
+  .eyebrow { font-size: 26px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; }
+  .big { font-size: 118px; line-height: 1.04; letter-spacing: -0.02em; }
+  .big-deva, .big-guru { font-size: 96px; line-height: 1.32; font-weight: 700; }
+  .big-deva { font-family: "Noto Sans Devanagari", serif; }
+  .big-guru { font-family: "Noto Sans Gurmukhi", serif; }
+  .body { font-size: 34px; line-height: 1.5; margin-top: 40px; max-width: 900px; }
+  .body-deva { font-family: "Noto Sans Devanagari", sans-serif; font-size: 33px; line-height: 1.72; }
+  .body-guru { font-family: "Noto Sans Gurmukhi", sans-serif; font-size: 33px; line-height: 1.72; }
+  .foot { display: flex; align-items: center; gap: 22px; font-size: 30px; letter-spacing: 0.06em; }
+  .coin { width: 74px; height: 74px; flex: none; }
+  .rule { flex: 1; height: 1px; }
+
+  /* 1 — English, light */
+  #en { background: var(--cream); color: var(--ink); }
+  #en .grid { position: absolute; inset: 0; opacity: .55;
+    background-image: linear-gradient(oklch(0.42 0.09 200 / .07) 1px, transparent 1px),
+                      linear-gradient(90deg, oklch(0.42 0.09 200 / .07) 1px, transparent 1px);
+    background-size: 60px 60px; }
+  #en .glow { position: absolute; width: 620px; height: 620px; border-radius: 50%; right: -180px; top: -200px;
+    background: radial-gradient(circle, oklch(0.78 0.14 65 / .38), transparent 68%); }
+  #en .eyebrow { color: var(--teal); }
+  #en .big { font-family: "Instrument Serif", serif; }
+  #en .big em { font-style: normal; color: var(--teal); }
+  #en .body { color: var(--muted); }
+  #en .rule { background: oklch(0.42 0.09 200 / .22); }
+  #en .foot { color: var(--teal); }
+
+  /* 2 — Hindi, deep teal */
+  #hi { background: linear-gradient(150deg, var(--deep) 0%, oklch(0.23 0.035 200) 65%, oklch(0.29 0.05 195) 100%); color: oklch(0.95 0.01 90); }
+  #hi .eyebrow { color: var(--gold); }
+  #hi .big-deva { color: var(--gold); }
+  #hi .body-deva { color: oklch(0.88 0.01 90); }
+  #hi .rule { background: oklch(0.78 0.14 65 / .3); }
+  #hi .foot { color: var(--gold); }
+  #hi .glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; left: -230px; bottom: -240px;
+    background: radial-gradient(circle, oklch(0.78 0.14 65 / .18), transparent 66%); }
+
+  /* 3 — Punjabi, gold on ink */
+  #pa { background: var(--ink); color: oklch(0.95 0.01 90); }
+  #pa .band { position: absolute; inset: 0 0 auto 0; height: 16px;
+    background: linear-gradient(90deg, var(--gold), oklch(0.62 0.14 155), var(--gold)); }
+  #pa .glow { position: absolute; width: 760px; height: 760px; border-radius: 50%; right: -260px; top: -180px;
+    background: radial-gradient(circle, oklch(0.42 0.09 200 / .55), transparent 68%); }
+  #pa .eyebrow { color: var(--gold); }
+  #pa .big-guru { color: oklch(0.97 0.01 90); }
+  #pa .big-guru em { font-style: normal; color: var(--gold); }
+  #pa .body-guru { color: oklch(0.86 0.01 90); }
+  #pa .rule { background: oklch(0.78 0.14 65 / .3); }
+  #pa .foot { color: var(--gold); }
+</style>
+
+<script>
+const COIN = `<svg class="coin" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="f" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0%" stop-color="#f6dfa4"/><stop offset="42%" stop-color="#e0a94e"/><stop offset="100%" stop-color="#a5702c"/>
+    </linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eccd86"/><stop offset="100%" stop-color="#8d5d22"/>
+    </linearGradient>
+  </defs>
+  <circle cx="24" cy="24" r="22.5" fill="url(#f)"/>
+  <circle cx="24" cy="24" r="21" fill="none" stroke="url(#r)" stroke-width="3.4" stroke-dasharray="1.15 2.35"/>
+  <circle cx="24" cy="24" r="17.4" fill="none" stroke="#1d3239" stroke-opacity="0.45" stroke-width="1.15"/>
+  <text x="24" y="31.6" text-anchor="middle" font-family="Georgia, serif" font-size="23" fill="#14262b">D</text>
+  <path d="M16.6 35.4h14.8M18.9 38.1h10.2" stroke="#14262b" stroke-opacity="0.55" stroke-width="1.15" stroke-linecap="round"/>
+  <path d="M9.6 17.4A16.4 16.4 0 0 1 22.6 7.8" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="2.1" stroke-linecap="round"/>
+</svg>`;
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-coin]").forEach(el => el.innerHTML = COIN + el.innerHTML);
+});
+</script>
+
+<!-- ============ English ============ -->
+<div class="card" id="en">
+  <div class="grid"></div><div class="glow"></div>
+  <div class="main">
+    <div class="eyebrow">Per supplier bill</div>
+    <div class="big" style="margin-top:34px">45 minutes<br><em>→ 2 minutes.</em></div>
+    <div class="body">AI reads every line, updates your stock, and recalculates the true weighted-average cost of what you're holding.</div>
+  </div>
+  <div class="foot" data-coin style="position:relative"><span class="rule"></span><span>DHELA.IN</span></div>
+</div>
+
+<!-- ============ Hindi ============ -->
+<div class="card" id="hi">
+  <div class="glow"></div>
+  <div class="main">
+    <div class="eyebrow">हर ढेला, हिसाब में</div>
+    <div class="big-deva" style="margin-top:34px">45 मिनट का बिल,<br>दो मिनट में।</div>
+    <div class="body body-deva">फ़ोन से बिलों का ढेर फ़ोटो कीजिए। AI हर लाइन पढ़ता है, स्टॉक अपडेट करता है, और आपका असली cost दोबारा निकालता है।</div>
+  </div>
+  <div class="foot" data-coin style="position:relative"><span class="rule"></span><span>DHELA.IN</span></div>
+</div>
+
+<!-- ============ Punjabi ============ -->
+<div class="card" id="pa">
+  <div class="band"></div><div class="glow"></div>
+  <div class="main">
+    <div class="eyebrow">ਹਰ ਢੇਲਾ, ਹਿਸਾਬ ਵਿੱਚ</div>
+    <div class="big-guru" style="margin-top:34px">45 ਮਿੰਟ ਦਾ ਬਿੱਲ,<br><em>ਦੋ ਮਿੰਟ ਵਿੱਚ।</em></div>
+    <div class="body body-guru">ਫ਼ੋਨ ਨਾਲ ਬਿੱਲਾਂ ਦਾ ਢੇਰ ਫ਼ੋਟੋ ਕਰੋ। AI ਹਰ ਲਾਈਨ ਪੜ੍ਹਦਾ ਹੈ, ਸਟਾਕ ਅੱਪਡੇਟ ਕਰਦਾ ਹੈ, ਤੇ ਤੁਹਾਡਾ ਅਸਲੀ cost ਮੁੜ ਕੱਢਦਾ ਹੈ।</div>
+  </div>
+  <div class="foot" data-coin style="position:relative"><span class="rule"></span><span>DHELA.IN</span></div>
+</div>
