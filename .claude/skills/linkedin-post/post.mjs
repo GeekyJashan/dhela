@@ -126,6 +126,33 @@ if (meta.needs_proofread === "true" && publish && !force) {
 console.log(`${paras.length} paragraphs, ${raw.length} characters${meta.lang ? `, lang=${meta.lang}` : ""}`);
 if (raw.length > 3000) console.warn("warning: LinkedIn truncates around 3000 characters");
 
+/**
+ * Opens the post composer.
+ *
+ * The dashboard has two layouts and which one you get depends on whether the
+ * page has published anything. With zero posts it shows a "Start a post" prompt
+ * inline; once there are posts that prompt is replaced by "Manage recent posts"
+ * and the only way in is the Create menu. Written against the empty state, this
+ * broke the moment the page had its first post.
+ */
+async function openComposer(page) {
+  const direct = page.getByRole("link", { name: "Start a post" });
+  if (await direct.count()) {
+    await direct.first().click({ timeout: 15_000 });
+  } else {
+    const create = page.getByRole("link", { name: /^Create$/ })
+      .or(page.getByRole("button", { name: /^Create$/ }));
+    await create.first().click({ timeout: 20_000 });
+    await page.waitForTimeout(2500);
+    await page.getByText("Start a post", { exact: true }).first().click({ timeout: 20_000 });
+  }
+  await page.waitForTimeout(4000);
+  // The composer is whichever dialog owns a contenteditable; waiting on that
+  // rather than on "a dialog" skips the Create menu, which is also a dialog.
+  await page.getByRole("dialog").locator('[contenteditable="true"]').first()
+    .waitFor({ state: "visible", timeout: 25_000 });
+}
+
 const ctx = await open({ headless: false });
 const page = ctx.pages()[0] ?? (await ctx.newPage());
 let ok = false;
@@ -157,8 +184,7 @@ try {
 
   await page.goto(`https://www.linkedin.com/company/${PAGE_ID}/admin/dashboard/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(3500);
-  await page.getByRole("link", { name: "Start a post" }).click({ timeout: 20_000 });
-  await page.waitForTimeout(4500);
+  await openComposer(page);
 
   const dialog = page.getByRole("dialog").first();
 

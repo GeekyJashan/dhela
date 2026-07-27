@@ -1,7 +1,8 @@
 ---
 lang: hi
 image: brand/post-hi.png
-status: draft
+status: posted
+posted_at: 2026-07-27T22:42:30.717Z
 needs_proofread: true
 ---
 शाम के सात बजे। मेज़ पर चालीस सप्लायर बिल। और एक ऑपरेटर, जो एक-एक लाइन टाइप कर रहा है — item, quantity, rate, tax।
