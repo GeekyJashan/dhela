@@ -58,3 +58,8 @@ e2e/.auth/
 *.snapshot.yml
 edit-page.yml
 composer.png
+
+# Media generation scratch (dhela-media skill)
+.playwright-video/
+brand/demo-stills/
+brand/demo.webm

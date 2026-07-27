@@ -86,36 +86,26 @@ hashtag stacks, or claiming anything the product does not do. Unverified claims
 to avoid: WhatsApp statements/reminders, and anything about GST *filing* — Dhela
 produces working papers, it does not file.
 
-## Making the card
+## Making the image
 
-1200×1200, brand tokens straight from `src/styles.css`:
-
-| Token | Value |
-|---|---|
-| cream | `oklch(0.985 0.006 90)` |
-| ink | `oklch(0.22 0.03 200)` |
-| teal | `oklch(0.42 0.09 200)` |
-| gold | `oklch(0.78 0.14 65)` |
+**Use the `dhela-media` skill** — it owns every visual: the single 1200×1200
+card, multi-slide carousels, and screen-recorded demo videos of the real app.
 
 ```bash
-node .claude/skills/linkedin-post/card.mjs \
+node .claude/skills/dhela-media/card.mjs \
   --lang en --style light \
   --eyebrow "Per supplier bill" \
-  --headline "45 minutes|→ 2 minutes." \
+  --headline "45 minutes|→ *2 minutes.*" \
   --body "AI reads every line, updates your stock…" \
   --out brand/post-en.png
 ```
 
-`--lang` is `en|hi|pa` (picks the typeface), `--style` is `light|deep|ink`, and
-`|` in `--headline` is a line break. Keep the three styles rotating so a feed
-does not show three identical cards.
+Keep the three styles (`light|deep|ink`) rotating so a feed does not show three
+identical cards. Read that skill before generating anything — it carries the
+brand tokens and several traps worth not rediscovering.
 
-**The landing page's Indic fonts are a 57-character subset** built from
-`src/routes/index.tsx` — they will tofu on new copy. `card.mjs` loads the full
-Noto families from Google Fonts for exactly this reason. Do not "optimise" that.
-
-The card needs the dev server for the self-hosted Latin faces:
-`npm run dev` (port 8080) before rendering. `card.mjs` checks and tells you.
+Note a carousel is a **PDF document post**, not an image: `post.mjs --image`
+attaches an image, so a PDF still has to go on by hand.
 
 ## Publishing
 
