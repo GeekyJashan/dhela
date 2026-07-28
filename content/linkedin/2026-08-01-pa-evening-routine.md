@@ -1,7 +1,8 @@
 ---
 lang: pa
 image: brand/post-pa.png
-status: draft
+status: posted
+posted_at: 2026-07-27T22:57:11.452Z
 needs_proofread: true
 ---
 ਸ਼ਾਮ ਦੇ ਸੱਤ ਵਜੇ। ਮੇਜ਼ ਉੱਤੇ ਚਾਲੀ ਸਪਲਾਇਰ ਬਿੱਲ। ਤੇ ਇੱਕ ਬੰਦਾ, ਜੋ ਇੱਕ-ਇੱਕ ਲਾਈਨ ਟਾਈਪ ਕਰ ਰਿਹਾ ਹੈ — item, quantity, rate, tax।
