@@ -64,12 +64,16 @@ const html = `<!doctype html>${HEAD}
 ${pages}`;
 
 await mkdir("public", { recursive: true });
-await writeFile("public/_media-tmp.html", html);
+// Unique per run. Reusing one filename raced Vite's file watcher: the previous
+// run's unlink was still settling when the next run wrote the same path, and the
+// dev server served a 404 for a file that existed on disk.
+const tmpName = `_media-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.html`;
+await writeFile(`public/${tmpName}`, html);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 1200 } });
 try {
-  await page.goto(`${DEV}/_media-tmp.html`, { waitUntil: "load", timeout: 30_000 });
+  await page.goto(`${DEV}/${tmpName}`, { waitUntil: "load", timeout: 30_000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(1500);
 
@@ -91,5 +95,5 @@ try {
   if (size > 100 * 1024 * 1024) console.warn("warning: over LinkedIn's 100 MB document limit");
 } finally {
   await browser.close();
-  await unlink("public/_media-tmp.html").catch(() => {});
+  await unlink(`public/${tmpName}`).catch(() => {});
 }
