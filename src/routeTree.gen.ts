@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedStatementRouteImport } from './routes/_authenticated/statement'
@@ -48,6 +50,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
@@ -188,6 +200,8 @@ export interface FileRoutesByFullPath {
   '/statement': typeof AuthenticatedStatementRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/upload': typeof AuthenticatedUploadRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/invoices/$id': typeof AuthenticatedInvoicesIdRoute
   '/sales/$id': typeof AuthenticatedSalesIdRoute
   '/sales/new': typeof AuthenticatedSalesNewRoute
@@ -215,6 +229,8 @@ export interface FileRoutesByTo {
   '/statement': typeof AuthenticatedStatementRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/upload': typeof AuthenticatedUploadRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog': typeof BlogIndexRoute
   '/invoices/$id': typeof AuthenticatedInvoicesIdRoute
   '/sales/$id': typeof AuthenticatedSalesIdRoute
   '/sales/new': typeof AuthenticatedSalesNewRoute
@@ -244,6 +260,8 @@ export interface FileRoutesById {
   '/_authenticated/statement': typeof AuthenticatedStatementRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/_authenticated/invoices/$id': typeof AuthenticatedInvoicesIdRoute
   '/_authenticated/sales/$id': typeof AuthenticatedSalesIdRoute
   '/_authenticated/sales/new': typeof AuthenticatedSalesNewRoute
@@ -273,6 +291,8 @@ export interface FileRouteTypes {
     | '/statement'
     | '/suppliers'
     | '/upload'
+    | '/blog/$slug'
+    | '/blog/'
     | '/invoices/$id'
     | '/sales/$id'
     | '/sales/new'
@@ -300,6 +320,8 @@ export interface FileRouteTypes {
     | '/statement'
     | '/suppliers'
     | '/upload'
+    | '/blog/$slug'
+    | '/blog'
     | '/invoices/$id'
     | '/sales/$id'
     | '/sales/new'
@@ -328,6 +350,8 @@ export interface FileRouteTypes {
     | '/_authenticated/statement'
     | '/_authenticated/suppliers'
     | '/_authenticated/upload'
+    | '/blog/$slug'
+    | '/blog/'
     | '/_authenticated/invoices/$id'
     | '/_authenticated/sales/$id'
     | '/_authenticated/sales/new'
@@ -341,6 +365,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   ApiPublicHooksProcessInvoiceQueueRoute: typeof ApiPublicHooksProcessInvoiceQueueRoute
   ApiPublicHooksProcessOrderQueueRoute: typeof ApiPublicHooksProcessOrderQueueRoute
 }
@@ -366,6 +392,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/upload': {
@@ -587,6 +627,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
   ApiPublicHooksProcessInvoiceQueueRoute:
     ApiPublicHooksProcessInvoiceQueueRoute,
   ApiPublicHooksProcessOrderQueueRoute: ApiPublicHooksProcessOrderQueueRoute,

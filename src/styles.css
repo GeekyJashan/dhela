@@ -389,3 +389,80 @@
   50% { box-shadow: 0 0 0 3px oklch(0.42 0.09 200 / 0.12); }
 }
 .hint-glow { animation: hint-glow 2.2s ease-in-out infinite; }
+
+/* ---------------------------------------------------------------------------
+   Article prose. The blog HTML is generated from markdown at build time, so
+   these are plain element selectors inside .prose rather than utility classes.
+   Hand-rolled instead of pulling in a typography plugin: the whole point is
+   that an article looks like it belongs to this brand, and overriding a plugin
+   back to these values is more CSS than writing them.
+   --------------------------------------------------------------------------- */
+.prose { color: var(--foreground); font-size: 1.0625rem; line-height: 1.75; }
+.prose > * + * { margin-top: 1.25em; }
+
+.prose h2 {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1.25;
+  margin-top: 2.4em;
+  margin-bottom: 0.1em;
+  scroll-margin-top: 5rem;          /* clears the sticky header on #anchor jumps */
+}
+.prose h3 {
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin-top: 1.9em;
+  margin-bottom: -0.35em;
+  scroll-margin-top: 5rem;
+}
+
+.prose p { color: oklch(0.36 0.025 200); }
+.dark .prose p { color: oklch(0.84 0.015 90); }
+.prose strong { color: var(--foreground); font-weight: 600; }
+
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklch, var(--primary) 35%, transparent);
+}
+.prose a:hover { text-decoration-color: var(--primary); }
+
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose li { margin-top: 0.5em; color: oklch(0.36 0.025 200); }
+.dark .prose li { color: oklch(0.84 0.015 90); }
+.prose li::marker { color: var(--accent); }
+
+.prose blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.1em;
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+
+.prose code {
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.15em 0.4em;
+  border-radius: 0.3rem;
+}
+
+/* Tables carry the actual answers in these articles — thresholds, digit counts,
+   validity. They must survive a 390px screen, hence the scroll container. */
+.prose table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.prose thead { border-bottom: 1px solid var(--border); }
+.prose th { text-align: left; font-weight: 600; padding: 0.6em 1em 0.6em 0; white-space: nowrap; }
+.prose td { padding: 0.6em 1em 0.6em 0; border-top: 1px solid var(--border); vertical-align: top; }
+
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 2.6em 0; }
+/* The closing note after the rule is a caveat, not body copy. */
+.prose hr + p em { color: var(--muted-foreground); font-size: 0.95rem; }

@@ -377,3 +377,66 @@ test.describe("landing page", () => {
     await ctx.close();
   });
 });
+
+test.describe("blog", () => {
+  test("articles are in the raw HTML, not JS-only", async ({ request }) => {
+    // Same reason the landing page's FAQ had to move out of an Accordion: AI
+    // crawlers do not execute JavaScript, so an article rendered only after
+    // hydration does not exist as far as they are concerned.
+    const r = await request.get("/blog/gstr-1-b2b-b2cl-b2cs-explained");
+    expect(r.status()).toBe(200);
+    const html = await r.text();
+    expect(html).toContain("Notification 12/2024");   // a fact from mid-article
+    expect(html).toContain("<table");                  // the tables carry the answers
+    expect(html).toMatch(/<h2 id="/);                  // headings are anchorable
+    expect(html).toContain('rel="canonical"');
+  });
+
+  test("article schema names an author and both dates", async ({ request }) => {
+    const html = await (await request.get("/blog/e-way-bill-for-distributors")).text();
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)]
+      .map(m => JSON.parse(m[1]));
+    const article = blocks.find(b => b["@type"] === "BlogPosting");
+    expect(article, "BlogPosting schema missing").toBeTruthy();
+    expect(article.author.name).toBe("Jashan Sehgal");
+    expect(article.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(article.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("an unknown slug 404s instead of returning an empty 200", async ({ request }) => {
+    // A 200 with no content is worse than a 404: crawlers index the emptiness.
+    expect((await request.get("/blog/no-such-post")).status()).toBe(404);
+  });
+
+  test("the blog is reachable from the landing page, not just the sitemap", async ({ request }) => {
+    // An orphaned blog gets no internal links and no human visitors.
+    expect(await (await request.get("/")).text()).toContain('href="/blog"');
+
+    const sitemap = await (await request.get("/sitemap.xml")).text();
+    expect(sitemap).toContain("https://dhela.in/blog</loc>");
+    expect(sitemap).toContain("/blog/gstr-1-b2b-b2cl-b2cs-explained");
+  });
+
+  test("index lists every post and each link resolves", async ({ page, request }) => {
+    await page.goto("/blog");
+    const links = page.locator('a[href^="/blog/"]');
+    const n = await links.count();
+    expect(n).toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < n; i++) {
+      const href = await links.nth(i).getAttribute("href");
+      expect((await request.get(href!)).status(), href!).toBe(200);
+    }
+  });
+
+  test("renders with no horizontal scroll on a phone", async ({ browser, baseURL }) => {
+    // The tables are wide by nature; they must scroll inside their own box.
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, baseURL,
+      viewport: { width: 390, height: 844 } });
+    const page = await ctx.newPage();
+    await page.goto("/blog/gstr-1-b2b-b2cl-b2cs-explained");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(await page.evaluate(
+      () => document.body.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    await ctx.close();
+  });
+});

@@ -193,6 +193,9 @@ function SiteHeader() {
           {links.map(([href, label]) => (
             <a key={href} href={href} className="hover:text-foreground transition-colors">{label}</a>
           ))}
+          {/* A route, not a hash, so it needs Link. Without a crawlable path
+              from here the blog is an orphan the sitemap alone has to carry. */}
+          <Link to="/blog" className="hover:text-foreground transition-colors">Guides</Link>
         </nav>
         <div className="flex items-center gap-2">
           <Link to="/auth" className="hidden sm:block"><Button variant="ghost">Sign in</Button></Link>
@@ -207,6 +210,10 @@ function SiteHeader() {
 
       {menuOpen && (
         <nav className="lg:hidden border-t bg-background/95 backdrop-blur-md px-6 py-3 space-y-1">
+          <Link to="/blog" onClick={() => setMenuOpen(false)}
+            className="block rounded-md px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+            Guides
+          </Link>
           {links.map(([href, label]) => (
             <a key={href} href={href} onClick={() => setMenuOpen(false)}
               className="block rounded-md px-3 py-2.5 text-sm hover:bg-muted transition-colors">
@@ -1271,6 +1278,7 @@ function SiteFooter() {
           <a href="#features" className="hover:text-foreground transition-colors">Everything you get</a>
           <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+          <Link to="/blog" className="hover:text-foreground transition-colors">Guides</Link>
           <Link to="/auth" className="hover:text-foreground transition-colors">Sign in</Link>
           {/* A crawlable link, not just a sameAs entry — it is what ties the
               site and the company page together as one entity. */}

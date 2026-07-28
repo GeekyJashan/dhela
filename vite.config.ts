@@ -36,6 +36,11 @@ export default defineConfig(({ command, mode }) => {
             // grouping all of components/ui would drag in every shadcn
             // primitive for the sake of one button.
             if (/\/src\/components\/(ui\/button|logo|reveal)\.tsx$/.test(id)) return "ui";
+            // Every article's rendered HTML lives in blog-data. Two route chunks
+            // share it, so the bundler hoisted it into the entry — putting all
+            // three articles in front of every landing-page visitor. Its own
+            // chunk means it loads only when a /blog route does.
+            if (id.includes("/src/lib/blog-data")) return "blog-data";
           },
         },
       },
