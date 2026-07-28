@@ -1,7 +1,8 @@
 ---
 lang: pa
 image: brand/post-pa-names.png
-status: draft
+status: posted
+posted_at: 2026-07-28T19:42:00.187Z
 needs_proofread: true
 ---
 ਇੱਕ ਪ੍ਰੋਡਕਟ। ਛੇ ਸਪਲਾਇਰ। ਛੇ ਵੱਖਰੇ ਨਾਂ।

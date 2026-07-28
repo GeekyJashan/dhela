@@ -144,6 +144,37 @@ stops. **Show the user the copy and the preview, get a yes, then add
 
 `--text <file> --image <img>` still works for a one-off not worth a file.
 
+## Queuing several at once
+
+There is no "publish all". Publishing four posts together puts them in front of
+the same small audience at the same moment — the later ones get nothing — and a
+burst of automated publishes is the pattern that gets a company page restricted.
+
+Use LinkedIn's own scheduler instead. One command now, posts land days apart,
+nothing has to keep running:
+
+```bash
+node .claude/skills/linkedin-post/post.mjs --schedule-all --from 2026-08-04 --every 3 --at 10:00
+node .claude/skills/linkedin-post/post.mjs --schedule-all --from 2026-08-04 --every 3 --at 10:00 --publish
+```
+
+It prints the plan first (dry run), skips anything flagged `needs_proofread`,
+and runs one child process per post so a failure part-way leaves the rest
+untouched and re-runnable. A single post can be queued with
+`--post <file> --schedule 2026-08-04T10:00 --publish`.
+
+**Scheduling is the one path that cannot be verified.** A company page exposes
+no scheduled-posts list — `/admin/page-posts/scheduled/` redirects to the
+dashboard, and LinkedIn's own "View all scheduled posts" button lands back on
+the Published tab. The script confirms the post did *not* go out immediately
+(if it is live, the schedule silently failed) and marks the file
+`status: scheduled`, which is what stops it being queued twice. Confirm the
+queue by hand in the composer's schedule dialog.
+
+The Time field reports `role=combobox` but is an `<input>` typeahead, not a
+`<select>` — `selectOption()` throws on it. Type the value and pick the matching
+option from the listbox.
+
 ## Not posting the same thing twice
 
 Three independent guards, because no single one is trustworthy:

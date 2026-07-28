@@ -47,6 +47,9 @@ const arg = (k, d = "") => {
 const has = (k) => process.argv.includes(`--${k}`);
 const publish = has("publish");
 const force = has("force");
+const scheduleAt = arg("schedule");   // e.g. 2026-08-06T10:00
+/** A post is "done" if it is out or queued to go out. */
+const isDone = (m) => ["posted", "scheduled"].includes(m.status ?? "draft");
 
 /** Minimal front matter — `key: value` lines between --- fences. */
 function parsePost(src, path) {
@@ -80,10 +83,80 @@ if (has("list")) {
   process.exit(0);
 }
 
+/**
+ * Queue every remaining draft in one command, spaced out.
+ *
+ * This is the answer to "publish all drafts". Publishing them together would
+ * put several posts in front of the same small audience at once — the later
+ * ones get nothing — and a burst of automated publishes is what gets a company
+ * page restricted. Scheduling is LinkedIn's own feature: one command now,
+ * posts land days apart, nothing has to keep running.
+ *
+ *   --schedule-all --from 2026-08-04 --every 3 --at 10:00 [--publish]
+ */
+if (has("schedule-all")) {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+
+  const drafts = (await loadAll()).filter(p => !isDone(p.meta));
+  if (!drafts.length) { console.log("nothing to schedule — every post is out or queued."); process.exit(0); }
+
+  const every = Number(arg("every", "3"));
+  const at = arg("at", "10:00");
+  const from = arg("from") ? new Date(`${arg("from")}T${at}`)
+    : (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })();
+  const [hh, mm] = at.split(":").map(Number);
+  from.setHours(hh, mm ?? 0, 0, 0);
+
+  const plan = drafts.map((p, i) => {
+    const when = new Date(from);
+    when.setDate(when.getDate() + i * every);
+    return { p, when };
+  });
+
+  console.log(`\n${plan.length} post(s) to schedule, ${every} day(s) apart at ${at}:\n`);
+  for (const { p, when } of plan) {
+    const blocked = p.meta.needs_proofread === "true" && !force;
+    console.log(`  ${when.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}  ${p.meta.lang}  ${p.path}`
+      + (blocked ? "   ← BLOCKED: needs_proofread" : ""));
+  }
+  if (!publish) {
+    console.log("\nDRY RUN — nothing scheduled. Add --publish to queue these.");
+    process.exit(0);
+  }
+
+  let done = 0;
+  for (const { p, when } of plan) {
+    if (p.meta.needs_proofread === "true" && !force) {
+      console.log(`\nskipping ${p.path} — needs_proofread`);
+      continue;
+    }
+    // One child process per post: each gets a fresh browser and re-runs every
+    // guard, so a failure part-way leaves the rest untouched and re-runnable.
+    const args = [process.argv[1], "--post", p.path, "--schedule",
+      `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")}`
+      + `T${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`,
+      "--publish", ...(force ? ["--force"] : [])];
+    console.log(`\n── ${p.path}`);
+    try {
+      const { stdout } = await run(process.execPath, args, { maxBuffer: 10 << 20 });
+      process.stdout.write(stdout.split("\n").map(l => `   ${l}`).join("\n") + "\n");
+      done++;
+    } catch (e) {
+      console.error(`   FAILED: ${(e.stdout || "") + (e.stderr || e.message)}`.slice(0, 800));
+      console.error("   stopping — fix this one, then re-run; the rest are untouched.");
+      break;
+    }
+  }
+  console.log(`\n${done}/${plan.length} scheduled.`);
+  process.exit(done === plan.length ? 0 : 1);
+}
+
 let postPath = arg("post");
 if (has("next")) {
   const all = await loadAll();
-  const next = all.find(p => (p.meta.status ?? "draft") !== "posted");
+  const next = all.find(p => !isDone(p.meta));
   if (!next) { console.error(`nothing left to post in ${POSTS_DIR}/ — every file is status: posted`); process.exit(1); }
   postPath = next.path;
   console.log(`next unposted: ${postPath}`);
@@ -151,6 +224,54 @@ async function openComposer(page) {
   // rather than on "a dialog" skips the Create menu, which is also a dialog.
   await page.getByRole("dialog").locator('[contenteditable="true"]').first()
     .waitFor({ state: "visible", timeout: 25_000 });
+}
+
+/**
+ * Hands the post to LinkedIn's own scheduler.
+ *
+ * This is the right way to queue several posts at once. Publishing them in a
+ * burst competes for the same small audience and looks like bulk automation;
+ * scheduling is a first-class LinkedIn feature that spaces them out server-side,
+ * so nothing has to keep running.
+ *
+ * The dialog wants M/D/YYYY and a 12-hour time on a 30-minute grid.
+ */
+async function scheduleInComposer(page, when) {
+  const d = new Date(when);
+  if (Number.isNaN(d.getTime())) throw new Error(`bad --schedule value: ${when}`);
+  const date = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  const mins = d.getMinutes() < 30 ? "00" : "30";
+  const h24 = d.getHours();
+  const time = `${((h24 + 11) % 12) + 1}:${mins} ${h24 < 12 ? "AM" : "PM"}`;
+
+  await page.getByRole("dialog").first()
+    .getByRole("button", { name: /Schedule post/i }).first().click({ timeout: 20_000 });
+  await page.waitForTimeout(3000);
+
+  const dlg = page.getByRole("dialog").last();
+  await dlg.getByRole("textbox", { name: "Date" }).fill(date);
+  await page.waitForTimeout(600);
+
+  // "Time" reports role=combobox but is an <input> typeahead, not a <select>,
+  // so selectOption() cannot drive it. Type the value and take the matching
+  // option from the listbox; fall back to Enter if the list does not open.
+  const timeInput = dlg.getByRole("combobox", { name: "Time" });
+  await timeInput.click();
+  await timeInput.fill(time);
+  await page.waitForTimeout(1200);
+  const opt = page.getByRole("option", { name: time, exact: true });
+  if (await opt.count()) await opt.first().click();
+  else await timeInput.press("Enter");
+  await page.waitForTimeout(800);
+
+  const got = await timeInput.inputValue();
+  if (got.replace(/\s+/g, " ").toUpperCase() !== time.toUpperCase()) {
+    throw new Error(`time did not take: wanted "${time}", field says "${got}"`);
+  }
+  await dlg.getByRole("button", { name: /^Next$/ }).click();
+  await page.waitForTimeout(3000);
+  console.log(`scheduled for ${date} ${time}`);
+  return { date, time };
 }
 
 const ctx = await open({ headless: false });
@@ -254,11 +375,18 @@ try {
   console.log("preview: /tmp/linkedin-preview.png");
 
   if (!publish) {
-    console.log("\nDRY RUN — nothing published. Re-run with --publish once a human has approved it.");
+    console.log(`\nDRY RUN — nothing ${scheduleAt ? "scheduled" : "published"}.`
+      + " Re-run with --publish once a human has approved it.");
     ok = true;
   } else {
-    const btn = page.getByRole("dialog").first().getByRole("button", { name: /^Post$/ });
-    if (!(await btn.count()) || !(await btn.first().isEnabled())) throw new Error("Post button not clickable");
+    if (scheduleAt) await scheduleInComposer(page, scheduleAt);
+
+    // After scheduling, the primary button says "Schedule" instead of "Post".
+    const btn = page.getByRole("dialog").first()
+      .getByRole("button", { name: scheduleAt ? /^Schedule$/ : /^Post$/ });
+    if (!(await btn.count()) || !(await btn.first().isEnabled())) {
+      throw new Error(`${scheduleAt ? "Schedule" : "Post"} button not clickable`);
+    }
     await btn.first().click();
     await page.waitForTimeout(8000);
 
@@ -270,25 +398,46 @@ try {
     await page.waitForTimeout(6000);
     const feed = await page.locator("main").innerText().catch(() => "");
     const markers = feed.match(/Feed post number \d+/g) ?? [];
-    if (!feed.includes(probe)) {
-      throw new Error(`clicked Post but the published tab does not show it — check manually before retrying, or you will double-post`);
+
+    if (scheduleAt) {
+      // A company page exposes no scheduled-posts list: /page-posts/scheduled/
+      // redirects to the dashboard, and LinkedIn's own "View all scheduled
+      // posts" button lands back on Published. So this is the one path that
+      // cannot be positively confirmed. What CAN be checked is that it did not
+      // go out now — if it is already live, the schedule silently did not take.
+      if (feed.includes(probe)) {
+        throw new Error("asked to schedule, but the post is already live on the page."
+          + " The schedule did not take. Delete it before retrying.");
+      }
+      console.log("SCHEDULED (unverified) — it is not live now, which is consistent"
+        + " with being queued. LinkedIn shows no scheduled list for company pages,"
+        + " so confirm it by hand in the composer's schedule dialog.");
+    } else {
+      if (!feed.includes(probe)) {
+        throw new Error(`clicked Post but the published tab does not show it`
+          + ` — check manually before retrying, or you will double-post`);
+      }
+      console.log(`PUBLISHED — ${markers.length} post(s) now on the page`);
     }
-    console.log(`PUBLISHED — ${markers.length} post(s) now on the page`);
     console.log("https://www.linkedin.com/company/dhelaa/posts/");
 
     // Record it in the file itself, so --next moves on and a future session can
     // see what has already gone out without asking LinkedIn.
     if (postPath) {
       const src = (await readFile(postPath, "utf8")).replace(/\r\n/g, "\n");
-      const stamp = new Date().toISOString();
+      // `scheduled` is deliberately distinct from `posted`: it is queued, not
+      // out, and --list should say so until LinkedIn actually publishes it.
+      const state = scheduleAt ? "scheduled" : "posted";
+      const key = scheduleAt ? "scheduled_for" : "posted_at";
+      const stamp = scheduleAt ? scheduleAt : new Date().toISOString();
       let updated = src.includes("\nstatus:")
-        ? src.replace(/\nstatus:.*/, `\nstatus: posted`)
-        : src.replace(/^---\n/, `---\nstatus: posted\n`);
-      updated = updated.includes("\nposted_at:")
-        ? updated.replace(/\nposted_at:.*/, `\nposted_at: ${stamp}`)
-        : updated.replace(/\nstatus: posted/, `\nstatus: posted\nposted_at: ${stamp}`);
+        ? src.replace(/\nstatus:.*/, `\nstatus: ${state}`)
+        : src.replace(/^---\n/, `---\nstatus: ${state}\n`);
+      updated = new RegExp(`\\n${key}:`).test(updated)
+        ? updated.replace(new RegExp(`\\n${key}:.*`), `\n${key}: ${stamp}`)
+        : updated.replace(`\nstatus: ${state}`, `\nstatus: ${state}\n${key}: ${stamp}`);
       await writeFile(postPath, updated);
-      console.log(`marked ${postPath} as posted`);
+      console.log(`marked ${postPath} as ${state}`);
     }
     ok = true;
   }
