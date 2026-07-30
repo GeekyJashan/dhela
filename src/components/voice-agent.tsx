@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 import { X, Mic } from "lucide-react";
 import { askAssistant } from "@/lib/assistant.functions";
+import { synthesizeSpeech } from "@/lib/tts.functions";
 import {
   speechCtor, speechLangFor, diagnoseMic, stripForSpeech, splitForSpeech, pickVoice, type Recognizer,
 } from "@/lib/speech";
@@ -22,11 +23,55 @@ import { Markdown } from "@/components/markdown";
  * holding the microphone open forever.
  */
 
-type Phase = "starting" | "listening" | "thinking" | "speaking" | "stopped" | "error";
+// "preparing" is its own state because server speech takes a few seconds to
+// come back: saying "tap to interrupt" while nothing is playing is a lie,
+// and showing nothing looks like a hang.
+type Phase = "starting" | "listening" | "thinking" | "preparing" | "speaking" | "stopped" | "error";
 
 // Two silent turns is someone who has walked away or is done talking. Holding
 // a live microphone open past that is not something to do to a person.
 const MAX_SILENT_TURNS = 2;
+
+// Server speech is billed per character and each chunk is its own request, so
+// a long answer is capped rather than fanned out. Voice answers are asked to
+// be one to three sentences anyway; this is the guard, not the plan.
+const MAX_TTS_CHUNKS = 4;
+
+/**
+ * Play synthesised chunks strictly in order, starting as soon as the first
+ * one lands rather than waiting for all of them.
+ *
+ * Returns false the moment any chunk failed to synthesise, so the caller can
+ * fall back to the browser voice for the whole answer instead of leaving a
+ * hole in the middle of a sentence.
+ */
+async function playInOrder(
+  pending: Promise<string | null>[],
+  elRef: { current: HTMLAudioElement | null },
+  liveRef: { current: boolean },
+  onStart: () => void,
+): Promise<boolean> {
+  for (const promise of pending) {
+    const base64 = await promise;
+    if (!liveRef.current) return true;   // closed mid-answer: nothing to fall back to
+    if (!base64) return false;
+
+    const audio = new Audio(`data:audio/wav;base64,${base64}`);
+    elRef.current = audio;
+    onStart();
+    const finished = await new Promise<boolean>(resolve => {
+      audio.onended = () => resolve(true);
+      // Autoplay refusal lands here. It shouldn't — the session began with a
+      // tap — but a browser that blocks it must not stall the loop.
+      audio.onerror = () => resolve(false);
+      audio.play().catch(() => resolve(false));
+    });
+    elRef.current = null;
+    if (!liveRef.current) return true;
+    if (!finished) return false;
+  }
+  return true;
+}
 
 export function VoiceAgent({ onClose, onTurn }: {
   onClose: () => void;
@@ -34,6 +79,7 @@ export function VoiceAgent({ onClose, onTurn }: {
 }) {
   const { t, i18n } = useTranslation();
   const ask = useServerFn(askAssistant);
+  const speakServer = useServerFn(synthesizeSpeech);
   const lang = speechLangFor(i18n.language);
 
   const [phase, setPhase] = useState<Phase>("starting");
@@ -45,6 +91,7 @@ export function VoiceAgent({ onClose, onTurn }: {
   const recRef = useRef<Recognizer | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef(0);
   const silentRef = useRef(0);
   // The whole loop runs out of callbacks that outlive the render they were
@@ -60,6 +107,9 @@ export function VoiceAgent({ onClose, onTurn }: {
     // ?? would call stop() as well, since abort() returns undefined.
     if (rec) { try { (rec.abort ?? rec.stop).call(rec); } catch { /* already stopped */ } }
     window.speechSynthesis?.cancel();
+    const audio = audioElRef.current;
+    audioElRef.current = null;
+    if (audio) { audio.pause(); audio.src = ""; }
   }, []);
 
   const stopEverything = useCallback(() => {
@@ -94,23 +144,35 @@ export function VoiceAgent({ onClose, onTurn }: {
 
       const speech = stripForSpeech(res.answer, i18n.language);
       const synth = window.speechSynthesis;
-      // No voice for this language means no point pretending — show the answer
-      // and go back to listening rather than sit in silence waiting for an
-      // "ended" event that will never arrive.
-      if (!synth || !speech) {
+      // Nothing worth saying — go back to listening rather than wait on an
+      // "ended" event that will never arrive. A missing speechSynthesis is no
+      // longer fatal: the server voice does not need it.
+      if (!speech) {
         setPhase("listening");
         listenRef.current();
         return;
       }
+      const chunks = splitForSpeech(speech);
+      synth?.cancel();
+      setPhase("preparing");
+
+      // Gemini's voice reads Devanagari and code-switched Hinglish properly,
+      // which the browser's local voices do not. It costs a few seconds per
+      // chunk, so the chunks are requested at once and played in order — the
+      // wait is the first sentence's, not the whole answer's.
+      const wanted = chunks.slice(0, MAX_TTS_CHUNKS);
+      const pending = wanted.map(chunk =>
+        speakServer({ data: { text: chunk } }).then(r => r.audio).catch(() => null),
+      );
+      const played = await playInOrder(pending, audioElRef, liveRef, () => setPhase("speaking"));
+      if (!liveRef.current) return;
+      if (played) { listenRef.current(); return; }
+
+      // Server speech failed — the browser's own voice is worse but it is
+      // there, and silence would look like the app had hung.
+      if (!synth) { listenRef.current(); return; }
       setPhase("speaking");
       const voice = pickVoice(lang);
-      const chunks = splitForSpeech(speech);
-      synth.cancel();
-
-      // Queued sentence by sentence rather than as one utterance: Chrome cuts
-      // a long utterance off after about fifteen seconds, and per-sentence
-      // utterances let the engine shape each one instead of running them all
-      // together on a flat line.
       chunks.forEach((chunk, n) => {
         const utter = new SpeechSynthesisUtterance(chunk);
         utter.lang = lang;
@@ -133,7 +195,7 @@ export function VoiceAgent({ onClose, onTurn }: {
       setPhase("error");
       stopEverything();
     }
-  }, [ask, i18n.language, lang, onTurn, stopEverything]);
+  }, [ask, speakServer, i18n.language, lang, onTurn, stopEverything]);
 
   const listen = useCallback(() => {
     if (!liveRef.current) return;
@@ -259,8 +321,11 @@ export function VoiceAgent({ onClose, onTurn }: {
 
   // Tapping the orb: interrupt the answer, or restart after it gave up.
   const tapOrb = () => {
-    if (phase === "speaking") {
+    if (phase === "speaking" || phase === "preparing") {
       window.speechSynthesis?.cancel();
+      const audio = audioElRef.current;
+      audioElRef.current = null;
+      if (audio) { audio.pause(); audio.src = ""; }
       listenRef.current();
     } else if (phase === "stopped") {
       liveRef.current = true;
@@ -273,12 +338,13 @@ export function VoiceAgent({ onClose, onTurn }: {
     starting: t("Getting ready…"),
     listening: t("Listening…"),
     thinking: t("Working it out…"),
+    preparing: t("Reading it out…"),
     speaking: t("Tap to interrupt"),
     stopped: t("Tap to talk again"),
     error: t("Voice mode stopped"),
   };
 
-  const busy = phase === "thinking";
+  const busy = phase === "thinking" || phase === "preparing";
   // Only the live microphone drives the orb; during thinking and speaking it
   // breathes on its own so the two states never look identical.
   const scale = phase === "listening" ? 1 + level * 0.45 : 1;

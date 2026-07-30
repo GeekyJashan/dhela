@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import fs from "fs";
 import { SAMPLE_KEYS, LANG_SAMPLES } from "../src/lib/lang-samples";
 import { stripForSpeech, splitForSpeech } from "../src/lib/speech";
+import { pcmToWav, rateFromMime } from "../src/lib/wav";
 
 /**
  * Covers the flows built in this repo that had never been exercised by a
@@ -403,6 +404,38 @@ test.describe("assistant", () => {
     // A single sentence with no full stop still has to be broken up.
     const runOn = Array.from({ length: 40 }, (_, i) => `item ${i}`).join(", ");
     for (const c of splitForSpeech(runOn)) expect(c.length).toBeLessThanOrEqual(180);
+  });
+
+  // The model returns raw PCM; a wrong length field in the container yields
+  // silence or static, which nothing catches until a human listens.
+  test("synthesised audio is wrapped in a valid WAV container", () => {
+    const pcm = Buffer.alloc(4800); // 0.1s of 24kHz 16-bit mono
+    const wav = pcmToWav(pcm, 24000);
+
+    expect(wav.subarray(0, 4).toString()).toBe("RIFF");
+    expect(wav.subarray(8, 12).toString()).toBe("WAVE");
+    // Both length fields have to reconcile with the real buffer.
+    expect(wav.readUInt32LE(4) + 8).toBe(wav.length);
+    expect(wav.readUInt32LE(40)).toBe(wav.length - 44);
+    expect(wav.readUInt16LE(22)).toBe(1);      // mono
+    expect(wav.readUInt32LE(24)).toBe(24000);  // sample rate
+    expect(wav.readUInt16LE(34)).toBe(16);     // bits per sample
+    expect(wav.readUInt32LE(28)).toBe(24000 * 2); // byte rate
+
+    // The rate is read off the model's mime type, not assumed.
+    expect(rateFromMime("audio/L16;codec=pcm;rate=16000")).toBe(16000);
+    expect(rateFromMime(undefined)).toBe(24000);
+  });
+
+  // Server speech is billed per character and validates its input, so a chunk
+  // that exceeds the cap fails the whole answer rather than one sentence.
+  test("speech chunks stay inside the synthesis input cap", () => {
+    const src = fs.readFileSync("src/lib/tts.functions.ts", "utf8");
+    const cap = Number(/max\((\d+)\)/.exec(src)?.[1]);
+    expect(cap).toBeGreaterThan(0);
+
+    const wordy = "एक लाख रुपये का माल खरीदा है, ".repeat(40);
+    for (const chunk of splitForSpeech(wordy)) expect(chunk.length).toBeLessThanOrEqual(cap);
   });
 
   test("voice mode opens from the launcher and closes on Escape", async ({ page, context }) => {
