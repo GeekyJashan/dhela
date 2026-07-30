@@ -802,6 +802,14 @@
   "Ask by voice": "ਬੋਲ ਕੇ ਪੁੱਛੋ",
   "Stop dictating": "ਬੋਲਣਾ ਬੰਦ ਕਰੋ",
   "Listening…": "ਸੁਣ ਰਹੇ ਹਾਂ…",
-  "Microphone blocked. Allow mic access for this site and try again.": "ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਬੰਦ ਹੈ। ਇਸ ਸਾਈਟ ਲਈ ਮਾਈਕ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ ਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
-  "Your browser can't transcribe this language yet.": "ਤੁਹਾਡਾ ਬਰਾਊਜ਼ਰ ਹਾਲੇ ਇਹ ਭਾਸ਼ਾ ਨਹੀਂ ਲਿਖ ਸਕਦਾ।"
+  "Your browser can't transcribe this language yet.": "ਤੁਹਾਡਾ ਬਰਾਊਜ਼ਰ ਹਾਲੇ ਇਹ ਭਾਸ਼ਾ ਨਹੀਂ ਲਿਖ ਸਕਦਾ।",
+  "Voice input only works over a secure (https) connection.": "ਵੌਇਸ ਇਨਪੁੱਟ ਸਿਰਫ਼ ਸੁਰੱਖਿਅਤ (https) ਕਨੈਕਸ਼ਨ ਉੱਤੇ ਚੱਲਦਾ ਹੈ।",
+  "This browser won't let the page use a microphone.": "ਇਹ ਬਰਾਊਜ਼ਰ ਇਸ ਪੰਨੇ ਨੂੰ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਨਹੀਂ ਵਰਤਣ ਦਿੰਦਾ।",
+  "Voice input needs an internet connection.": "ਵੌਇਸ ਇਨਪੁੱਟ ਲਈ ਇੰਟਰਨੈੱਟ ਚਾਹੀਦਾ ਹੈ।",
+  "This browser couldn't reach a speech service. Chrome or Edge handles voice best.": "ਇਹ ਬਰਾਊਜ਼ਰ ਸਪੀਚ ਸੇਵਾ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕਿਆ। ਵੌਇਸ ਲਈ Chrome ਜਾਂ Edge ਸਭ ਤੋਂ ਵਧੀਆ ਹੈ।",
+  "Microphone blocked. Allow mic access for this site in your browser settings, then try again.": "ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਬੰਦ ਹੈ। ਬਰਾਊਜ਼ਰ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਇਸ ਸਾਈਟ ਲਈ ਮਾਈਕ ਦੀ ਇਜਾਜ਼ਤ ਦਿਓ, ਫਿਰ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "No microphone found on this device.": "ਇਸ ਡਿਵਾਈਸ ਉੱਤੇ ਕੋਈ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਨਹੀਂ ਮਿਲਿਆ।",
+  "Another app is using the microphone. Close it and try again.": "ਕੋਈ ਹੋਰ ਐਪ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਵਰਤ ਰਿਹਾ ਹੈ। ਉਹ ਬੰਦ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "Couldn't start voice input.": "ਵੌਇਸ ਇਨਪੁੱਟ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
+  "Microphone allowed. Tap the mic again to start.": "ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਦੀ ਇਜਾਜ਼ਤ ਮਿਲ ਗਈ। ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਮਾਈਕ ਦੁਬਾਰਾ ਦਬਾਓ।"
 }

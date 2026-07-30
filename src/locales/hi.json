@@ -802,6 +802,14 @@
   "Ask by voice": "बोलकर पूछें",
   "Stop dictating": "बोलना बंद करें",
   "Listening…": "सुन रहे हैं…",
-  "Microphone blocked. Allow mic access for this site and try again.": "माइक्रोफ़ोन बंद है। इस साइट के लिए माइक की अनुमति दीजिए और दोबारा कोशिश कीजिए।",
-  "Your browser can't transcribe this language yet.": "आपका ब्राउज़र अभी यह भाषा नहीं लिख सकता।"
+  "Your browser can't transcribe this language yet.": "आपका ब्राउज़र अभी यह भाषा नहीं लिख सकता।",
+  "Voice input only works over a secure (https) connection.": "वॉइस इनपुट सिर्फ़ सुरक्षित (https) कनेक्शन पर चलता है।",
+  "This browser won't let the page use a microphone.": "यह ब्राउज़र इस पेज को माइक्रोफ़ोन इस्तेमाल नहीं करने देता।",
+  "Voice input needs an internet connection.": "वॉइस इनपुट के लिए इंटरनेट चाहिए।",
+  "This browser couldn't reach a speech service. Chrome or Edge handles voice best.": "यह ब्राउज़र स्पीच सेवा तक नहीं पहुँच सका। वॉइस के लिए Chrome या Edge सबसे बेहतर है।",
+  "Microphone blocked. Allow mic access for this site in your browser settings, then try again.": "माइक्रोफ़ोन बंद है। ब्राउज़र सेटिंग्स में इस साइट के लिए माइक की अनुमति दीजिए, फिर दोबारा कोशिश कीजिए।",
+  "No microphone found on this device.": "इस डिवाइस पर कोई माइक्रोफ़ोन नहीं मिला।",
+  "Another app is using the microphone. Close it and try again.": "कोई दूसरा ऐप माइक्रोफ़ोन इस्तेमाल कर रहा है। उसे बंद करके दोबारा कोशिश कीजिए।",
+  "Couldn't start voice input.": "वॉइस इनपुट शुरू नहीं हो सका।",
+  "Microphone allowed. Tap the mic again to start.": "माइक्रोफ़ोन की अनुमति मिल गई। शुरू करने के लिए माइक दोबारा दबाइए।"
 }

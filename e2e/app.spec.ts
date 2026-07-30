@@ -327,6 +327,23 @@ test.describe("assistant", () => {
     await expect(panel.getByText("**", { exact: false })).toHaveCount(0);
     await expect(panel.getByText("|---|", { exact: false })).toHaveCount(0);
   });
+
+  // Playwright's Chromium exposes webkitSpeechRecognition and then never
+  // starts it — no start, no error, no end, ever. Chromium builds shipped
+  // without Google's speech keys behave the same way, so this is a fair stand
+  // -in for a real browser where the mic button would otherwise sit on
+  // "listening" forever with no event to hang a message off.
+  test("dictation that never starts times out instead of hanging", async ({ page, context }) => {
+    await context.grantPermissions(["microphone"]);
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("button", { name: /ask by voice/i }).click();
+
+    await expect(page.getByRole("button", { name: /stop dictating/i })).toBeVisible();
+    await expect(page.getByText(/couldn't reach a speech service/i)).toBeVisible({ timeout: 15000 });
+    // And the button must come back rather than stay stuck.
+    await expect(page.getByRole("button", { name: /ask by voice/i })).toBeVisible();
+  });
 });
 
 test.describe("landing page", () => {

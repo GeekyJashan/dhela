@@ -41,6 +41,7 @@ type Recognizer = {
   continuous: boolean;
   onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
+  onstart: (() => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -53,6 +54,59 @@ const speechCtor = (): SpeechCtor | undefined => {
   const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 };
+
+/**
+ * Work out why dictation failed, and say something the user can act on.
+ *
+ * SpeechRecognition's own error codes are close to useless: "not-allowed"
+ * covers a denied prompt, a page that isn't on https, and a browser whose
+ * speech backend is unavailable, while "service-not-allowed" usually means the
+ * microphone is perfectly fine and the *service* refused — telling someone to
+ * grant mic access there sends them round a loop that can never work.
+ *
+ * So on failure we ask for the microphone directly, which returns a real
+ * DOMException name, and diagnose from that. Only runs after an error, so the
+ * working path never pays for it and never loses its user gesture.
+ */
+async function diagnoseMic(code: string): Promise<string> {
+  // Chrome strips microphone access on insecure origins and reports it as a
+  // flat "not-allowed" — which reads as "you denied this" when in fact the
+  // page is simply on http. Hits anyone opening the dev server by LAN IP.
+  if (!window.isSecureContext) {
+    return "Voice input only works over a secure (https) connection.";
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser won't let the page use a microphone.";
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Release it straight away, or the tab keeps showing as recording.
+    stream.getTracks().forEach(track => track.stop());
+    // Getting here means the microphone is fine and we're allowed to use it.
+    // If recognition had said "not-allowed", the prompt we just showed is what
+    // fixed it — dismissing Chrome's permission bubble reports as a denial, so
+    // this is the common first-run case. Ask for another tap rather than
+    // sending them into browser settings for a permission they now have.
+    if (code === "not-allowed") return "Microphone allowed. Tap the mic again to start.";
+    if (code === "network") return "Voice input needs an internet connection.";
+    // Otherwise the speech backend is what refused: Brave and other Chromium
+    // builds ship without Google's speech keys, and Safari needs Dictation on.
+    return "This browser couldn't reach a speech service. Chrome or Edge handles voice best.";
+  } catch (err) {
+    switch ((err as DOMException)?.name) {
+      case "NotAllowedError":
+      case "SecurityError":
+        return "Microphone blocked. Allow mic access for this site in your browser settings, then try again.";
+      case "NotFoundError":
+      case "OverconstrainedError":
+        return "No microphone found on this device.";
+      case "NotReadableError":
+        return "Another app is using the microphone. Close it and try again.";
+      default:
+        return "Couldn't start voice input.";
+    }
+  }
+}
 
 export function Assistant() {
   const { t, i18n } = useTranslation();
@@ -124,15 +178,34 @@ export function Assistant() {
       }
       setInput(base + settled + interim);
     };
-    rec.onerror = e => {
+    // Some browsers expose SpeechRecognition and then do nothing at all with
+    // it — Playwright's Chromium fires no start, no error and no end, ever.
+    // Without this the button sits on "listening" indefinitely and there is no
+    // event to hang a message off.
+    const watchdog = window.setTimeout(() => {
+      rec.stop();
       setListening(false);
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        toast.error(t("Microphone blocked. Allow mic access for this site and try again."));
-      } else if (e.error === "language-not-supported") {
+      toast.error(t("This browser couldn't reach a speech service. Chrome or Edge handles voice best."));
+    }, 6000);
+    rec.onstart = () => clearTimeout(watchdog);
+
+    rec.onerror = e => {
+      clearTimeout(watchdog);
+      setListening(false);
+      // Saying nothing when someone taps the mic and stays quiet is correct;
+      // "aborted" is what our own stop() raises.
+      if (e.error === "no-speech" || e.error === "aborted") return;
+
+      if (e.error === "language-not-supported" || e.error === "bad-grammar") {
         toast.error(t("Your browser can't transcribe this language yet."));
+        return;
       }
+      // Leaves a breadcrumb for anyone debugging a report of "mic doesn't
+      // work" — the raw code is the one thing the message deliberately hides.
+      console.warn("[assistant] speech recognition error:", e.error);
+      diagnoseMic(e.error).then(msg => toast.error(t(msg)));
     };
-    rec.onend = () => setListening(false);
+    rec.onend = () => { clearTimeout(watchdog); setListening(false); };
 
     recRef.current = rec;
     setListening(true);
