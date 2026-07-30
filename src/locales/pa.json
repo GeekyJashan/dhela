@@ -812,5 +812,12 @@
   "Another app is using the microphone. Close it and try again.": "ਕੋਈ ਹੋਰ ਐਪ ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਵਰਤ ਰਿਹਾ ਹੈ। ਉਹ ਬੰਦ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "Couldn't start voice input.": "ਵੌਇਸ ਇਨਪੁੱਟ ਸ਼ੁਰੂ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
   "Microphone allowed. Tap the mic again to start.": "ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਦੀ ਇਜਾਜ਼ਤ ਮਿਲ ਗਈ। ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਮਾਈਕ ਦੁਬਾਰਾ ਦਬਾਓ।",
-  "Voice input is switched off for this site, not by your device.": "ਵੌਇਸ ਇਨਪੁੱਟ ਇਸ ਸਾਈਟ ਉੱਤੇ ਬੰਦ ਹੈ — ਦਿੱਕਤ ਤੁਹਾਡੇ ਡਿਵਾਈਸ ਦੀ ਨਹੀਂ ਹੈ।"
+  "Voice input is switched off for this site, not by your device.": "ਵੌਇਸ ਇਨਪੁੱਟ ਇਸ ਸਾਈਟ ਉੱਤੇ ਬੰਦ ਹੈ — ਦਿੱਕਤ ਤੁਹਾਡੇ ਡਿਵਾਈਸ ਦੀ ਨਹੀਂ ਹੈ।",
+  "Talk to Dhela": "ਢੇਲਾ ਨਾਲ ਗੱਲ ਕਰੋ",
+  "Getting ready…": "ਤਿਆਰ ਹੋ ਰਹੇ ਹਾਂ…",
+  "Tap to interrupt": "ਰੋਕਣ ਲਈ ਦਬਾਓ",
+  "Tap to talk again": "ਦੁਬਾਰਾ ਬੋਲਣ ਲਈ ਦਬਾਓ",
+  "Voice mode stopped": "ਵੌਇਸ ਮੋਡ ਬੰਦ ਹੋ ਗਿਆ",
+  "Each question uses one AI credit. Press Esc to close.": "ਹਰ ਸਵਾਲ ਉੱਤੇ ਇੱਕ AI ਕ੍ਰੈਡਿਟ ਲੱਗਦਾ ਹੈ। ਬੰਦ ਕਰਨ ਲਈ Esc ਦਬਾਓ।",
+  "Close": "ਬੰਦ ਕਰੋ"
 }

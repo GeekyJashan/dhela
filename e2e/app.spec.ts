@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import fs from "fs";
 import { SAMPLE_KEYS, LANG_SAMPLES } from "../src/lib/lang-samples";
+import { stripForSpeech } from "../src/lib/speech";
 
 /**
  * Covers the flows built in this repo that had never been exercised by a
@@ -345,6 +346,47 @@ test.describe("assistant", () => {
     // Still denied to embedded third parties, and the unused features stay off.
     expect(policy).not.toMatch(/microphone=\(\s*\*\s*\)/);
     expect(policy).toContain("geolocation=()");
+  });
+
+  // The chat panel renders markdown; a speech engine reads it literally. This
+  // is the seam between the two, and getting it wrong means hearing
+  // "star star one lakh star star" or a table read out as pipes and dashes.
+  test("answers are rewritten for the ear before they are spoken", () => {
+    const spoken = stripForSpeech(
+      "Retailers owe you **₹1,42,500** in total.\n\n"
+      + "| Retailer | Outstanding |\n|---|---:|\n"
+      + "| Shree Sanitary House | ₹98,000 |\n\n"
+      + "- Oldest bill is 42 days past due",
+    );
+
+    for (const marker of ["**", "|", "---", "#", "₹"]) {
+      expect(spoken, `"${marker}" would be read aloud`).not.toContain(marker);
+    }
+    expect(spoken).toContain("1,42,500 rupees");
+    // Table rows survive as speakable pairs rather than being dropped.
+    expect(spoken).toContain("Shree Sanitary House, 98,000 rupees");
+    expect(spoken).toContain("Oldest bill is 42 days past due");
+    // Sentence breaks, so the voice pauses between facts instead of running on.
+    expect(spoken).toMatch(/total\./);
+
+    // The rupee word follows the reader's language, not the server's.
+    expect(stripForSpeech("Total ₹500", "hi")).toContain("रुपये");
+    expect(stripForSpeech("Total ₹500", "pa")).toContain("ਰੁਪਏ");
+  });
+
+  test("voice mode opens from the launcher and closes on Escape", async ({ page, context }) => {
+    await context.grantPermissions(["microphone"]);
+    await page.goto("/dashboard");
+
+    await page.getByRole("button", { name: /talk to dhela/i }).first().click();
+    const overlay = page.getByRole("dialog", { name: /talk to dhela/i });
+    await expect(overlay).toBeVisible();
+    await expect(overlay.getByText(/each question uses one ai credit/i)).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(overlay).toBeHidden();
+    // The launcher has to come back, or the feature is a one-shot.
+    await expect(page.getByRole("button", { name: /talk to dhela/i }).first()).toBeVisible();
   });
 
   // Playwright's Chromium exposes webkitSpeechRecognition and then never

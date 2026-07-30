@@ -63,7 +63,19 @@ Other things worth knowing
 If a user asks "how do I do X" or "where do I find X", answer directly from this guide (with the page name and the exact steps/button) — do not call a tool for this, tools are only for pulling their actual data/numbers.
 `;
 
-function systemPrompt(orgName: string) {
+/**
+ * Appended for the hands-free mode. A markdown table read aloud is a stream of
+ * pipes and dashes, and "star star" in the middle of a number is worse than no
+ * emphasis at all — so voice answers are shaped for the ear, not the eye.
+ */
+const VOICE_RULES = `
+This answer will be spoken aloud, not read:
+- Reply in one to three short sentences. No markdown, no tables, no bullet points, no headings, no symbols.
+- Say figures the way a person would: "four lakh eighty two thousand rupees", not "₹4,82,310.00".
+- Lead with the single number or fact they asked for. Offer the breakdown only if they ask for it.
+- If the answer really is a long list, say the top two or three and mention how many others there are.`;
+
+function systemPrompt(orgName: string, mode: "text" | "voice" = "text") {
   const today = new Date().toISOString().slice(0, 10);
   return `You are Dhela Assistant, the built-in business analyst and product guide for "${orgName}", an Indian distributor using the Dhela app. Today is ${today}.
 ${PLATFORM_GUIDE}
@@ -75,7 +87,7 @@ Rules:
 - Reply in the SAME language the user asked in (English, Hindi or Punjabi).
 - Be concise: lead with the direct answer, then a short breakdown if useful. The answer is rendered as markdown, so use it lightly: **bold** for the headline number, "-" bullets, and a pipe table when comparing rows (keep tables to 3 columns — they are read in a narrow panel on a phone). No headings, no code fences, no links.
 - If you spot a discrepancy in the data (totals that don't add up, unpaid amounts that look wrong), state it plainly.
-- If you cannot answer confidently, if data is missing, or the user asks for a feature Dhela doesn't have: say so honestly and add that they can tap "Talk to Jashan" below to reach Jashan Sehgal, the founder, for help or feature requests. Never bluff.`;
+- If you cannot answer confidently, if data is missing, or the user asks for a feature Dhela doesn't have: say so honestly and add that they can tap "Talk to Jashan" below to reach Jashan Sehgal, the founder, for help or feature requests. Never bluff.${mode === "voice" ? VOICE_RULES : ""}`;
 }
 
 async function callGemini(apiKey: string, system: string, contents: Content[]) {
@@ -180,7 +192,12 @@ async function runAnthropic(
 
 export const askAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ question: z.string().min(2).max(2000) }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({
+      question: z.string().min(2).max(2000),
+      // Hands-free mode asks for the same answer shaped to be heard.
+      mode: z.enum(["text", "voice"]).optional(),
+    }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const provider = aiProvider();
@@ -215,7 +232,7 @@ export const askAssistant = createServerFn({ method: "POST" })
 
     log.info("ask:start", { orgId, provider, q: data.question.slice(0, 80) });
     const t0 = Date.now();
-    const system = systemPrompt(orgName);
+    const system = systemPrompt(orgName, data.mode ?? "text");
     const run = provider === "anthropic"
       ? await runAnthropic(apiKey, system, qaHistory, data.question, supabase)
       : await runGemini(apiKey, system, qaHistory, data.question, supabase);

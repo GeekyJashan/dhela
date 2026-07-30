@@ -3,11 +3,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { askAssistant, getAssistantHistory } from "@/lib/assistant.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Send, Loader2, PhoneCall, Mic, Square } from "lucide-react";
+import { X, Send, Loader2, PhoneCall, Mic, Square, AudioLines } from "lucide-react";
 import { DhelaCoin } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Markdown } from "@/components/markdown";
+import { VoiceAgent } from "@/components/voice-agent";
+import { speechCtor, speechLangFor, voiceInputAvailable, diagnoseMic, type Recognizer } from "@/lib/speech";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
@@ -31,105 +33,6 @@ const THINKING = [
   "Writing it up…",
 ];
 
-// BCP-47 tags as Chrome's speech service lists them; Punjabi needs the script
-// subtag or recognition rejects the language outright.
-const SPEECH_LANG: Record<string, string> = { en: "en-IN", hi: "hi-IN", pa: "pa-Guru-IN" };
-
-type Recognizer = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  onstart: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-type SpeechCtor = new () => Recognizer;
-
-const speechCtor = (): SpeechCtor | undefined => {
-  if (typeof window === "undefined") return undefined;
-  const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
-};
-
-/**
- * Whether the document is even permitted a microphone.
- *
- * A Permissions-Policy header can switch the feature off for the whole page,
- * and when it does, the browser reports the same "not-allowed" that a denied
- * prompt gives — so the app tells the user to check permissions they cannot
- * change and the real cause never surfaces. This shipped that way: the header
- * carried microphone=(), whose empty allowlist blocks our own origin too.
- * Non-Chromium browsers don't expose the object, so absence means "no reason
- * to think otherwise", not "blocked".
- */
-const micPolicyAllows = (): boolean => {
-  if (typeof document === "undefined") return true;
-  const policy = (document as { featurePolicy?: { allowsFeature?: (f: string) => boolean } }).featurePolicy;
-  return policy?.allowsFeature ? policy.allowsFeature("microphone") : true;
-};
-
-/**
- * Work out why dictation failed, and say something the user can act on.
- *
- * SpeechRecognition's own error codes are close to useless: "not-allowed"
- * covers a denied prompt, a page that isn't on https, and a browser whose
- * speech backend is unavailable, while "service-not-allowed" usually means the
- * microphone is perfectly fine and the *service* refused — telling someone to
- * grant mic access there sends them round a loop that can never work.
- *
- * So on failure we ask for the microphone directly, which returns a real
- * DOMException name, and diagnose from that. Only runs after an error, so the
- * working path never pays for it and never loses its user gesture.
- */
-async function diagnoseMic(code: string): Promise<string> {
-  // Chrome strips microphone access on insecure origins and reports it as a
-  // flat "not-allowed" — which reads as "you denied this" when in fact the
-  // page is simply on http. Hits anyone opening the dev server by LAN IP.
-  if (!window.isSecureContext) {
-    return "Voice input only works over a secure (https) connection.";
-  }
-  // Nothing the user can do about this one, so say so rather than sending
-  // them into browser settings that will not help.
-  if (!micPolicyAllows()) {
-    return "Voice input is switched off for this site, not by your device.";
-  }
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return "This browser won't let the page use a microphone.";
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // Release it straight away, or the tab keeps showing as recording.
-    stream.getTracks().forEach(track => track.stop());
-    // Getting here means the microphone is fine and we're allowed to use it.
-    // If recognition had said "not-allowed", the prompt we just showed is what
-    // fixed it — dismissing Chrome's permission bubble reports as a denial, so
-    // this is the common first-run case. Ask for another tap rather than
-    // sending them into browser settings for a permission they now have.
-    if (code === "not-allowed") return "Microphone allowed. Tap the mic again to start.";
-    if (code === "network") return "Voice input needs an internet connection.";
-    // Otherwise the speech backend is what refused: Brave and other Chromium
-    // builds ship without Google's speech keys, and Safari needs Dictation on.
-    return "This browser couldn't reach a speech service. Chrome or Edge handles voice best.";
-  } catch (err) {
-    switch ((err as DOMException)?.name) {
-      case "NotAllowedError":
-      case "SecurityError":
-        return "Microphone blocked. Allow mic access for this site in your browser settings, then try again.";
-      case "NotFoundError":
-      case "OverconstrainedError":
-        return "No microphone found on this device.";
-      case "NotReadableError":
-        return "Another app is using the microphone. Close it and try again.";
-      default:
-        return "Couldn't start voice input.";
-    }
-  }
-}
-
 export function Assistant() {
   const { t, i18n } = useTranslation();
   const ask = useServerFn(askAssistant);
@@ -143,6 +46,7 @@ export function Assistant() {
   const [phase, setPhase] = useState(0);
   const [listening, setListening] = useState(false);
   const [micAvailable, setMicAvailable] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const loadedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recRef = useRef<Recognizer | null>(null);
@@ -151,7 +55,7 @@ export function Assistant() {
   // window, and guessing wrong either way is a hydration mismatch.
   // A button that can only ever fail is worse than no button, so the policy
   // check gates it too.
-  useEffect(() => setMicAvailable(!!speechCtor() && micPolicyAllows()), []);
+  useEffect(() => setMicAvailable(voiceInputAvailable()), []);
 
   useEffect(() => {
     if (!busy) { setPhase(0); return; }
@@ -185,7 +89,7 @@ export function Assistant() {
     if (!Ctor) return;
 
     const rec = new Ctor();
-    rec.lang = SPEECH_LANG[i18n.language?.split("-")[0] ?? "en"] ?? "en-IN";
+    rec.lang = speechLangFor(i18n.language);
     rec.interimResults = true;
     rec.continuous = false;
 
@@ -272,20 +176,45 @@ export function Assistant() {
     t("How do I generate an e-way bill?"),
   ];
 
+  // Voice turns are stored server-side like any other, so they show up in the
+  // chat history next session. This keeps the open panel in step too.
+  const recordTurn = (question: string, answer: string) =>
+    setMessages(m => [...m, { role: "user", text: question }, { role: "assistant", text: answer }]);
+
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="dhela-logo fixed bottom-5 right-5 z-40 h-13 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 flex items-center gap-2 hover:opacity-90 transition print:hidden"
-        title={t("Ask Dhela Assistant")}
-      >
-        <DhelaCoin size={20} />
-        <span className="text-sm font-medium">{t("Ask AI")}</span>
-      </button>
+      <>
+        {voiceMode && <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />}
+        <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 print:hidden">
+          {/* Its own launcher rather than a control inside the chat panel: the
+              people who need it most are holding a phone in a warehouse with
+              one hand full, and two taps behind a panel is one too many. */}
+          {micAvailable && (
+            <button
+              onClick={() => setVoiceMode(true)}
+              aria-label={t("Talk to Dhela")}
+              title={t("Talk to Dhela")}
+              className="h-13 w-13 rounded-full border bg-background text-primary shadow-lg flex items-center justify-center hover:bg-muted transition"
+            >
+              <AudioLines className="h-5 w-5" />
+            </button>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="dhela-logo h-13 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 flex items-center gap-2 hover:opacity-90 transition"
+            title={t("Ask Dhela Assistant")}
+          >
+            <DhelaCoin size={20} />
+            <span className="text-sm font-medium">{t("Ask AI")}</span>
+          </button>
+        </div>
+      </>
     );
   }
 
   return (
+    <>
+    {voiceMode && <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />}
     <div
       role="region"
       aria-label={t("Dhela Assistant")}
@@ -301,6 +230,16 @@ export function Assistant() {
             </div>
           )}
         </div>
+        {micAvailable && (
+          <button
+            onClick={() => setVoiceMode(true)}
+            aria-label={t("Talk to Dhela")}
+            title={t("Talk to Dhela")}
+            className="rounded-full p-1.5 text-primary hover:bg-muted transition-colors"
+          >
+            <AudioLines className="h-4 w-4" />
+          </button>
+        )}
         <a href={callLink} target="_blank" rel="noreferrer"
           className="text-xs text-primary inline-flex items-center gap-1 hover:underline">
           <PhoneCall className="h-3 w-3" /> {t("Talk to Jashan")}
@@ -384,5 +323,6 @@ export function Assistant() {
         </Button>
       </div>
     </div>
+    </>
   );
 }
