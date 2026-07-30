@@ -167,6 +167,13 @@ export function stripForSpeech(markdown: string, lang = "en"): string {
 
 /**
  * Best available voice for a language, or undefined to let the engine choose.
+ *
+ * Engines ship wildly different voices under the same language tag, and the
+ * first match is usually the worst one — the flat robotic default most people
+ * mean when they say text-to-speech "sounds monotone". Ranking matters more
+ * than matching: the cloud voices (Google's, and Apple's Enhanced/Premium
+ * downloads) are a different class from the compact local fallbacks.
+ *
  * Chrome populates getVoices() asynchronously, so callers must wait for
  * voiceschanged at least once before trusting an empty list.
  */
@@ -174,14 +181,72 @@ export function pickVoice(lang: string): SpeechSynthesisVoice | undefined {
   if (typeof window === "undefined" || !window.speechSynthesis) return undefined;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return undefined;
+
   const want = lang.toLowerCase();
   const base = want.split("-")[0];
-  return (
-    voices.find(v => v.lang.toLowerCase() === want) ??
-    voices.find(v => v.lang.toLowerCase().replace("_", "-") === want) ??
-    voices.find(v => v.lang.toLowerCase().startsWith(base)) ??
-    undefined
-  );
+  const candidates = voices.filter(v => {
+    const l = v.lang.toLowerCase().replace("_", "-");
+    return l === want || l.startsWith(`${base}-`) || l === base;
+  });
+  if (!candidates.length) return undefined;
+
+  const score = (v: SpeechSynthesisVoice) => {
+    const name = v.name.toLowerCase();
+    let s = 0;
+    // Exact region beats a same-language voice from elsewhere: an en-IN voice
+    // says "lakh" and Indian names far better than en-US.
+    if (v.lang.toLowerCase().replace("_", "-") === want) s += 40;
+    // Cloud voices carry real prosody; the compact local ones are the flat
+    // ones. Apple's downloads are local but explicitly labelled.
+    if (!v.localService) s += 30;
+    if (/google/.test(name)) s += 25;
+    if (/natural|neural|enhanced|premium|siri/.test(name)) s += 20;
+    if (/compact|espeak/.test(name)) s -= 30;
+    if (v.default) s += 5;
+    return s;
+  };
+
+  return [...candidates].sort((a, b) => score(b) - score(a))[0];
+}
+
+/**
+ * Break an answer into speakable chunks.
+ *
+ * Two reasons. Chrome stops speaking after roughly fifteen seconds of a single
+ * utterance — a long answer just cuts off mid-word — and separate utterances
+ * give the engine a clean sentence to shape each time, which is most of the
+ * difference between a delivery that sounds read and one that sounds recited.
+ */
+export function splitForSpeech(text: string, max = 180): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) ?? [text];
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (sentence.length > max) {
+      // One very long sentence: break it at commas rather than mid-word.
+      if (current) { chunks.push(current); current = ""; }
+      let rest = sentence;
+      while (rest.length > max) {
+        const cut = rest.lastIndexOf(",", max);
+        const at = cut > max / 2 ? cut + 1 : max;
+        chunks.push(rest.slice(0, at).trim());
+        rest = rest.slice(at).trim();
+      }
+      if (rest) current = rest;
+      continue;
+    }
+    if ((`${current} ${sentence}`).trim().length > max) {
+      chunks.push(current);
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.filter(Boolean);
 }
 
 /** Whether anything can actually read this language aloud. */

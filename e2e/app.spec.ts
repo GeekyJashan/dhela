@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import fs from "fs";
 import { SAMPLE_KEYS, LANG_SAMPLES } from "../src/lib/lang-samples";
-import { stripForSpeech } from "../src/lib/speech";
+import { stripForSpeech, splitForSpeech } from "../src/lib/speech";
 
 /**
  * Covers the flows built in this repo that had never been exercised by a
@@ -372,6 +372,37 @@ test.describe("assistant", () => {
     // The rupee word follows the reader's language, not the server's.
     expect(stripForSpeech("Total ₹500", "hi")).toContain("रुपये");
     expect(stripForSpeech("Total ₹500", "pa")).toContain("ਰੁਪਏ");
+  });
+
+  // A tool the model is told about but that has no implementation makes the
+  // assistant say it cannot do something it can, and the reverse is dead code
+  // it will never reach. Asking what was on a supplier bill hit exactly this:
+  // purchases had a list-the-headers tool and nothing that could see inside
+  // one, so the answer was an apology and a suggestion to go and look.
+  test("every declared assistant tool is implemented, and vice versa", () => {
+    const src = fs.readFileSync("src/lib/assistant-tools.ts", "utf8");
+    const declared = [...src.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map(m => m[1]);
+    const implemented = [...src.matchAll(/^\s{4}case "([a-z_]+)": \{$/gm)].map(m => m[1]);
+
+    expect(declared.length).toBeGreaterThan(5);
+    expect([...declared].sort()).toEqual([...implemented].sort());
+    // The pair that was missing.
+    expect(declared).toContain("purchases_summary");
+    expect(declared).toContain("get_purchase_invoice");
+  });
+
+  test("speech is chunked so Chrome doesn't cut a long answer off", () => {
+    const long = "You bought four items from Anand Enterprises. " .repeat(20);
+    const chunks = splitForSpeech(long);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const c of chunks) expect(c.length).toBeLessThanOrEqual(180);
+    // Nothing may be dropped on the floor between chunks.
+    expect(chunks.join(" ").replace(/\s+/g, " ").trim()).toBe(long.replace(/\s+/g, " ").trim());
+
+    // A single sentence with no full stop still has to be broken up.
+    const runOn = Array.from({ length: 40 }, (_, i) => `item ${i}`).join(", ");
+    for (const c of splitForSpeech(runOn)) expect(c.length).toBeLessThanOrEqual(180);
   });
 
   test("voice mode opens from the launcher and closes on Escape", async ({ page, context }) => {

@@ -4,8 +4,9 @@ import { useTranslation } from "react-i18next";
 import { X, Mic } from "lucide-react";
 import { askAssistant } from "@/lib/assistant.functions";
 import {
-  speechCtor, speechLangFor, diagnoseMic, stripForSpeech, pickVoice, type Recognizer,
+  speechCtor, speechLangFor, diagnoseMic, stripForSpeech, splitForSpeech, pickVoice, type Recognizer,
 } from "@/lib/speech";
+import { Markdown } from "@/components/markdown";
 
 /**
  * Hands-free conversation with the same assistant the chat panel uses.
@@ -102,15 +103,28 @@ export function VoiceAgent({ onClose, onTurn }: {
         return;
       }
       setPhase("speaking");
-      const utter = new SpeechSynthesisUtterance(speech);
-      utter.lang = lang;
       const voice = pickVoice(lang);
-      if (voice) utter.voice = voice;
-      utter.rate = 1;
-      utter.onend = () => { if (liveRef.current) listenRef.current(); };
-      utter.onerror = () => { if (liveRef.current) listenRef.current(); };
+      const chunks = splitForSpeech(speech);
       synth.cancel();
-      synth.speak(utter);
+
+      // Queued sentence by sentence rather than as one utterance: Chrome cuts
+      // a long utterance off after about fifteen seconds, and per-sentence
+      // utterances let the engine shape each one instead of running them all
+      // together on a flat line.
+      chunks.forEach((chunk, n) => {
+        const utter = new SpeechSynthesisUtterance(chunk);
+        utter.lang = lang;
+        if (voice) utter.voice = voice;
+        // A touch under natural pace: the headline of an answer is a number,
+        // and numbers are what people mishear.
+        utter.rate = 0.96;
+        utter.pitch = 1;
+        if (n === chunks.length - 1) {
+          utter.onend = () => { if (liveRef.current) listenRef.current(); };
+          utter.onerror = () => { if (liveRef.current) listenRef.current(); };
+        }
+        synth.speak(utter);
+      });
     } catch (e) {
       if (!liveRef.current) return;
       // Quota exhaustion and configuration errors both land here, and both are
@@ -313,8 +327,13 @@ export function VoiceAgent({ onClose, onTurn }: {
 
       <div className="mt-4 min-h-24 w-full max-w-lg text-center">
         {heard && <p className="font-display text-2xl leading-snug">{heard}</p>}
+        {/* Rendered, not printed: the models still emit markdown here now and
+            then despite being asked for speech, and raw ** on screen is the
+            one thing worse than a table nobody can hear. */}
         {reply && phase !== "listening" && (
-          <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">{reply}</p>
+          <div className="mt-3 text-sm text-muted-foreground text-left">
+            <Markdown text={reply} />
+          </div>
         )}
         {problem && <p className="text-sm text-destructive">{problem}</p>}
       </div>

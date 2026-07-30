@@ -79,6 +79,28 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: "get_purchase_invoice",
+    description: "Full details of one purchase (supplier) invoice by its number: supplier, date, totals, and every line item with description, quantity, rate, discount, GST and line total. Use this when asked what a particular supplier bill contains.",
+    parameters: {
+      type: "OBJECT",
+      properties: { invoice_number: { type: "STRING", description: "Supplier's invoice number, e.g. INV-45" } },
+      required: ["invoice_number"],
+    },
+  },
+  {
+    name: "purchases_summary",
+    description: "What was actually bought: purchase invoice line items grouped by product, with total quantity and total cost. Optionally filter by supplier name, product name and date range. Use this for 'what did I buy from supplier X', 'how much of product Y did I purchase', or purchase totals over a period.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        supplier_query: { type: "STRING", description: "Optional: part of the supplier name" },
+        product_query: { type: "STRING", description: "Optional: part of the product/item description" },
+        from_date: { type: "STRING", description: "Optional YYYY-MM-DD inclusive" },
+        to_date: { type: "STRING", description: "Optional YYYY-MM-DD inclusive" },
+      },
+    },
+  },
+  {
     name: "party_statement",
     description: "Account statement (ledger) for one retailer or supplier between two dates: every invoice, payment and credit note with running totals, plus opening and closing balance.",
     parameters: {
@@ -245,6 +267,111 @@ export async function executeTool(db: Db, name: string, args: Record<string, any
       if (args.supplier_query) q = q.ilike("supplier_name", `%${args.supplier_query}%`);
       const { data } = await q;
       return data ?? [];
+    }
+
+    case "get_purchase_invoice": {
+      const { data: inv } = await db.from("invoices")
+        .select("id, invoice_number, invoice_date, supplier_name, subtotal, tax_total, grand_total, status, supplier:suppliers(name, gstin)")
+        .eq("invoice_number", args.invoice_number).maybeSingle();
+      if (!inv) return { error: `No purchase invoice ${args.invoice_number}` };
+      const { data: lines } = await db.from("invoice_lines")
+        .select("line_no, raw_description, hsn, quantity, free_quantity, unit, rate, mrp, discount_pct, gst_rate, taxable_value, tax_amount, line_total, batch, expiry_date, needs_review")
+        .eq("invoice_id", (inv as any).id).order("line_no");
+      return {
+        invoice_number: inv.invoice_number, date: inv.invoice_date,
+        // supplier_name is what the extractor read off the bill; the linked
+        // supplier record is the one the books are kept against. They can
+        // differ before a bill is matched, so return both rather than pick.
+        supplier: (inv as any).supplier?.name ?? inv.supplier_name,
+        supplier_on_bill: inv.supplier_name,
+        supplier_gstin: (inv as any).supplier?.gstin ?? null,
+        status: inv.status,
+        subtotal: num(inv.subtotal), tax_total: num(inv.tax_total), grand_total: num(inv.grand_total),
+        line_count: (lines ?? []).length,
+        lines: (lines ?? []).map((l: any) => ({
+          description: l.raw_description, hsn: l.hsn,
+          quantity: num(l.quantity), free_quantity: num(l.free_quantity), unit: l.unit,
+          rate: num(l.rate), mrp: num(l.mrp), discount_pct: num(l.discount_pct),
+          gst_rate: num(l.gst_rate), taxable_value: num(l.taxable_value),
+          tax_amount: num(l.tax_amount), line_total: num(l.line_total),
+          batch: l.batch, expiry: l.expiry_date,
+          // Worth surfacing: an unreviewed line is the extractor's reading,
+          // not a checked figure.
+          needs_review: !!l.needs_review,
+        })),
+      };
+    }
+
+    case "purchases_summary": {
+      let q = db.from("invoice_lines")
+        .select("raw_description, hsn, quantity, free_quantity, unit, rate, taxable_value, tax_amount, line_total, invoice:invoices!inner(invoice_number, invoice_date, supplier_name, status)")
+        .limit(2000);
+      if (args.from_date) q = q.gte("invoice.invoice_date", args.from_date);
+      if (args.to_date) q = q.lte("invoice.invoice_date", args.to_date);
+      if (args.product_query) q = q.ilike("raw_description", `%${args.product_query}%`);
+      const { data, error } = await q;
+      if (error) return { error: error.message };
+
+      let lines = (data ?? []) as any[];
+      // Supplier is filtered in memory: the name lives on the joined row, and
+      // PostgREST cannot filter an embedded column and still return the parent.
+      if (args.supplier_query) {
+        const sq = String(args.supplier_query).toLowerCase();
+        lines = lines.filter(l => (l.invoice?.supplier_name ?? "").toLowerCase().includes(sq));
+      }
+      if (!lines.length) {
+        return {
+          supplier_filter: args.supplier_query ?? null,
+          product_filter: args.product_query ?? null,
+          line_count: 0, items: [],
+          note: "No purchase lines matched. The bills may exist but have no extracted line items yet.",
+        };
+      }
+
+      // Group by description: the same product across several bills is one
+      // answer to "what did I buy", not five.
+      const byItem = new Map<string, any>();
+      for (const l of lines) {
+        const key = (l.raw_description ?? "unknown").trim();
+        const item = byItem.get(key) ?? {
+          description: key, hsn: l.hsn, unit: l.unit,
+          quantity: 0, free_quantity: 0, taxable_value: 0, tax_amount: 0, total: 0,
+          invoices: new Set<string>(),
+        };
+        item.quantity += num(l.quantity);
+        item.free_quantity += num(l.free_quantity);
+        item.taxable_value += num(l.taxable_value);
+        item.tax_amount += num(l.tax_amount);
+        item.total += num(l.line_total);
+        if (l.invoice?.invoice_number) item.invoices.add(l.invoice.invoice_number);
+        byItem.set(key, item);
+      }
+
+      const items = [...byItem.values()]
+        .map(i => ({
+          ...i,
+          quantity: +i.quantity.toFixed(3),
+          free_quantity: +i.free_quantity.toFixed(3),
+          taxable_value: +i.taxable_value.toFixed(2),
+          tax_amount: +i.tax_amount.toFixed(2),
+          total: +i.total.toFixed(2),
+          // Cost per unit as actually billed, which is the number a
+          // distributor compares between suppliers.
+          avg_rate: i.quantity ? +(i.taxable_value / i.quantity).toFixed(2) : null,
+          invoices: [...i.invoices],
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, CAP);
+
+      return {
+        supplier_filter: args.supplier_query ?? null,
+        product_filter: args.product_query ?? null,
+        from: args.from_date ?? null, to: args.to_date ?? null,
+        line_count: lines.length,
+        invoice_count: new Set(lines.map(l => l.invoice?.invoice_number)).size,
+        total_purchased: +lines.reduce((s, l) => s + num(l.line_total), 0).toFixed(2),
+        items,
+      };
     }
 
     case "party_statement": {
