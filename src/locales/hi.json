@@ -811,5 +811,6 @@
   "No microphone found on this device.": "इस डिवाइस पर कोई माइक्रोफ़ोन नहीं मिला।",
   "Another app is using the microphone. Close it and try again.": "कोई दूसरा ऐप माइक्रोफ़ोन इस्तेमाल कर रहा है। उसे बंद करके दोबारा कोशिश कीजिए।",
   "Couldn't start voice input.": "वॉइस इनपुट शुरू नहीं हो सका।",
-  "Microphone allowed. Tap the mic again to start.": "माइक्रोफ़ोन की अनुमति मिल गई। शुरू करने के लिए माइक दोबारा दबाइए।"
+  "Microphone allowed. Tap the mic again to start.": "माइक्रोफ़ोन की अनुमति मिल गई। शुरू करने के लिए माइक दोबारा दबाइए।",
+  "Voice input is switched off for this site, not by your device.": "वॉइस इनपुट इस साइट पर बंद है — दिक्कत आपके डिवाइस की नहीं है।"
 }

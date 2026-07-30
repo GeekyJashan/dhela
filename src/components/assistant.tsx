@@ -56,6 +56,23 @@ const speechCtor = (): SpeechCtor | undefined => {
 };
 
 /**
+ * Whether the document is even permitted a microphone.
+ *
+ * A Permissions-Policy header can switch the feature off for the whole page,
+ * and when it does, the browser reports the same "not-allowed" that a denied
+ * prompt gives — so the app tells the user to check permissions they cannot
+ * change and the real cause never surfaces. This shipped that way: the header
+ * carried microphone=(), whose empty allowlist blocks our own origin too.
+ * Non-Chromium browsers don't expose the object, so absence means "no reason
+ * to think otherwise", not "blocked".
+ */
+const micPolicyAllows = (): boolean => {
+  if (typeof document === "undefined") return true;
+  const policy = (document as { featurePolicy?: { allowsFeature?: (f: string) => boolean } }).featurePolicy;
+  return policy?.allowsFeature ? policy.allowsFeature("microphone") : true;
+};
+
+/**
  * Work out why dictation failed, and say something the user can act on.
  *
  * SpeechRecognition's own error codes are close to useless: "not-allowed"
@@ -74,6 +91,11 @@ async function diagnoseMic(code: string): Promise<string> {
   // page is simply on http. Hits anyone opening the dev server by LAN IP.
   if (!window.isSecureContext) {
     return "Voice input only works over a secure (https) connection.";
+  }
+  // Nothing the user can do about this one, so say so rather than sending
+  // them into browser settings that will not help.
+  if (!micPolicyAllows()) {
+    return "Voice input is switched off for this site, not by your device.";
   }
   if (!navigator.mediaDevices?.getUserMedia) {
     return "This browser won't let the page use a microphone.";
@@ -127,7 +149,9 @@ export function Assistant() {
 
   // Feature-detected after mount, not during render: the server has no
   // window, and guessing wrong either way is a hydration mismatch.
-  useEffect(() => setMicAvailable(!!speechCtor()), []);
+  // A button that can only ever fail is worse than no button, so the policy
+  // check gates it too.
+  useEffect(() => setMicAvailable(!!speechCtor() && micPolicyAllows()), []);
 
   useEffect(() => {
     if (!busy) { setPhase(0); return; }

@@ -328,6 +328,25 @@ test.describe("assistant", () => {
     await expect(panel.getByText("|---|", { exact: false })).toHaveCount(0);
   });
 
+  // The mic button shipped dead: vercel.json carried "microphone=()", whose
+  // empty allowlist blocks the site's own origin, so Chrome refused before
+  // ever showing a prompt and reported it as a plain "not-allowed". Only
+  // production sends this header — the dev server doesn't — so no amount of
+  // local clicking would have caught it. Hence a static check.
+  test("the production headers still permit the microphone they gate", () => {
+    const conf = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
+    const policy = conf.headers
+      .flatMap((h: { headers: { key: string; value: string }[] }) => h.headers)
+      .find((h: { key: string }) => h.key === "Permissions-Policy")?.value ?? "";
+
+    expect(policy, "Permissions-Policy must allow this origin a microphone").toMatch(
+      /microphone=\((self|\*)[^)]*\)/,
+    );
+    // Still denied to embedded third parties, and the unused features stay off.
+    expect(policy).not.toMatch(/microphone=\(\s*\*\s*\)/);
+    expect(policy).toContain("geolocation=()");
+  });
+
   // Playwright's Chromium exposes webkitSpeechRecognition and then never
   // starts it — no start, no error, no end, ever. Chromium builds shipped
   // without Google's speech keys behave the same way, so this is a fair stand
