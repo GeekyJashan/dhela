@@ -3,9 +3,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { askAssistant, getAssistantHistory } from "@/lib/assistant.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Send, Loader2, PhoneCall } from "lucide-react";
+import { X, Send, Loader2, PhoneCall, Mic, Square } from "lucide-react";
 import { DhelaCoin } from "@/components/logo";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { Markdown } from "@/components/markdown";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
@@ -13,8 +15,47 @@ import { whatsappLink } from "@/lib/support";
 
 const founderLink = (text: string) => whatsappLink(text);
 
+/**
+ * Shown one after another while a question is in flight. The server function
+ * returns only the final answer — there is no progress stream — so these are
+ * timed, not measured. They are worded to describe what the agent loop really
+ * does (it calls data tools before answering) and they stop on the last one
+ * rather than cycling, because a status that loops back to the beginning reads
+ * as "stuck" to anyone watching.
+ */
+const THINKING = [
+  "Understanding your question…",
+  "Reading your data…",
+  "Crunching the numbers…",
+  "Checking the figures…",
+  "Writing it up…",
+];
+
+// BCP-47 tags as Chrome's speech service lists them; Punjabi needs the script
+// subtag or recognition rejects the language outright.
+const SPEECH_LANG: Record<string, string> = { en: "en-IN", hi: "hi-IN", pa: "pa-Guru-IN" };
+
+type Recognizer = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechCtor = new () => Recognizer;
+
+const speechCtor = (): SpeechCtor | undefined => {
+  if (typeof window === "undefined") return undefined;
+  const w = window as unknown as { SpeechRecognition?: SpeechCtor; webkitSpeechRecognition?: SpeechCtor };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+};
+
 export function Assistant() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const ask = useServerFn(askAssistant);
   const fetchHistory = useServerFn(getAssistantHistory);
 
@@ -23,8 +64,22 @@ export function Assistant() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [phase, setPhase] = useState(0);
+  const [listening, setListening] = useState(false);
+  const [micAvailable, setMicAvailable] = useState(false);
   const loadedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recRef = useRef<Recognizer | null>(null);
+
+  // Feature-detected after mount, not during render: the server has no
+  // window, and guessing wrong either way is a hydration mismatch.
+  useEffect(() => setMicAvailable(!!speechCtor()), []);
+
+  useEffect(() => {
+    if (!busy) { setPhase(0); return; }
+    const id = setInterval(() => setPhase(p => Math.min(p + 1, THINKING.length - 1)), 2200);
+    return () => clearInterval(id);
+  }, [busy]);
 
   useEffect(() => {
     if (!open || loadedRef.current) return;
@@ -44,7 +99,57 @@ export function Assistant() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy, open]);
 
+  // Dictation. Distributors type Hindi and Punjabi on an English keyboard or
+  // not at all, so speaking the question is often the only realistic input.
+  const toggleMic = () => {
+    if (listening) { recRef.current?.stop(); return; }
+    const Ctor = speechCtor();
+    if (!Ctor) return;
+
+    const rec = new Ctor();
+    rec.lang = SPEECH_LANG[i18n.language?.split("-")[0] ?? "en"] ?? "en-IN";
+    rec.interimResults = true;
+    rec.continuous = false;
+
+    // Dictation appends to whatever is already typed rather than replacing it,
+    // and the interim text is rewritten in place until the phrase is final.
+    const base = input.trim() ? `${input.trim()} ` : "";
+    let settled = "";
+    rec.onresult = e => {
+      let interim = "";
+      for (let n = e.resultIndex; n < e.results.length; n++) {
+        const r = e.results[n];
+        if (r.isFinal) settled += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput(base + settled + interim);
+    };
+    rec.onerror = e => {
+      setListening(false);
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        toast.error(t("Microphone blocked. Allow mic access for this site and try again."));
+      } else if (e.error === "language-not-supported") {
+        toast.error(t("Your browser can't transcribe this language yet."));
+      }
+    };
+    rec.onend = () => setListening(false);
+
+    recRef.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch {
+      setListening(false);
+    }
+  };
+
+  // Leaving a recogniser running after the panel closes keeps the tab's mic
+  // indicator lit.
+  useEffect(() => () => recRef.current?.stop(), []);
+  useEffect(() => { if (!open && listening) recRef.current?.stop(); }, [open, listening]);
+
   const send = async (q?: string) => {
+    if (listening) recRef.current?.stop();
     const question = (q ?? input).trim();
     if (!question || busy) return;
     setInput("");
@@ -84,7 +189,11 @@ export function Assistant() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 w-[380px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-3rem)] bg-background border rounded-xl shadow-2xl flex flex-col print:hidden">
+    <div
+      role="region"
+      aria-label={t("Dhela Assistant")}
+      className="fixed bottom-5 right-5 z-40 w-[380px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-3rem)] bg-background border rounded-xl shadow-2xl flex flex-col print:hidden"
+    >
       <div className="flex items-center gap-2 px-4 py-3 border-b">
         <DhelaCoin size={18} />
         <div className="flex-1">
@@ -123,9 +232,9 @@ export function Assistant() {
             <div className={
               m.role === "user"
                 ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-3 py-2 text-sm max-w-[85%] whitespace-pre-wrap"
-                : "bg-muted rounded-2xl rounded-bl-sm px-3 py-2 text-sm max-w-[90%] whitespace-pre-wrap"
+                : "bg-muted rounded-2xl rounded-bl-sm px-3 py-2 text-sm max-w-[90%]"
             }>
-              {m.text}
+              {m.role === "user" ? m.text : <Markdown text={m.text} />}
               {m.role === "assistant" && i === messages.length - 1 && !busy && (
                 <div className="mt-2 pt-2 border-t border-border/60">
                   <a
@@ -142,7 +251,10 @@ export function Assistant() {
         ))}
         {busy && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("Checking your data…")}
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+            {/* Keyed on the phase so the text fades in on each change instead
+                of swapping abruptly under a spinner that never stops. */}
+            <span key={phase} className="animate-in fade-in duration-500">{t(THINKING[phase])}</span>
           </div>
         )}
       </div>
@@ -154,10 +266,22 @@ export function Assistant() {
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
           }}
-          placeholder={t("e.g. Profit on iphone from 1 July to today?")}
+          placeholder={listening ? t("Listening…") : t("e.g. Profit on iphone from 1 July to today?")}
           rows={1}
           className="min-h-[40px] max-h-28 resize-none text-sm"
         />
+        {micAvailable && (
+          <Button
+            size="icon"
+            variant={listening ? "destructive" : "outline"}
+            onClick={toggleMic}
+            disabled={busy}
+            aria-pressed={listening}
+            title={listening ? t("Stop dictating") : t("Ask by voice")}
+          >
+            {listening ? <Square className="h-3.5 w-3.5 fill-current" /> : <Mic className="h-4 w-4" />}
+          </Button>
+        )}
         <Button size="icon" onClick={() => send()} disabled={busy || !input.trim()}>
           <Send className="h-4 w-4" />
         </Button>

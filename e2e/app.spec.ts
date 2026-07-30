@@ -233,6 +233,102 @@ test.describe("account", () => {
   });
 });
 
+test.describe("sign up", () => {
+  // /auth sends a signed-in visitor to /dashboard, so these have to run
+  // logged out — the default storageState is an authenticated user.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("the eye button reveals the password instead of submitting the form", async ({ page }) => {
+    await page.goto("/auth");
+    const field = page.locator("#signin-password");
+    await field.fill("hunter2");
+    await expect(field).toHaveAttribute("type", "password");
+
+    await page.getByRole("button", { name: /show password/i }).click();
+    await expect(field).toHaveAttribute("type", "text");
+    // A bare <button> in a <form> defaults to submit; peeking must not navigate.
+    await expect(page).toHaveURL(/\/auth/);
+    await expect(field).toHaveValue("hunter2");
+
+    await page.getByRole("button", { name: /hide password/i }).click();
+    await expect(field).toHaveAttribute("type", "password");
+  });
+
+  test("create workspace stays disabled until both passwords match", async ({ page }) => {
+    await page.goto("/auth");
+    await page.getByRole("tab", { name: /create account/i }).click();
+
+    const submit = page.getByRole("button", { name: /create workspace/i });
+    await page.locator("#signup-email").fill("newdistributor@example.com");
+    await page.locator("#signup-password").fill("secret123");
+    await expect(submit).toBeDisabled();
+
+    await page.locator("#signup-confirm").fill("secret124");
+    await expect(page.getByText(/passwords do not match/i)).toBeVisible();
+    await expect(submit).toBeDisabled();
+
+    await page.locator("#signup-confirm").fill("secret123");
+    await expect(page.getByText(/passwords do not match/i)).toBeHidden();
+    await expect(submit).toBeEnabled();
+  });
+
+  // Supabase only returns a session from signUp when "Confirm email" is off.
+  // With it on, the old code navigated to /dashboard anyway and the route
+  // guard threw them back here with cleared fields and no explanation.
+  // Stubbed rather than really registering, so the suite never writes to the
+  // production auth table.
+  test("a signup that needs email confirmation says so instead of bouncing", async ({ page }) => {
+    await page.route("**/auth/v1/signup*", route =>
+      route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({ id: "stub", email: "newdistributor@example.com", session: null }),
+      }));
+    await page.route("**/auth/v1/token*", route =>
+      route.fulfill({
+        status: 400, contentType: "application/json",
+        body: JSON.stringify({ error_code: "email_not_confirmed", msg: "Email not confirmed" }),
+      }));
+
+    await page.goto("/auth");
+    await page.getByRole("tab", { name: /create account/i }).click();
+    await page.locator("#signup-email").fill("newdistributor@example.com");
+    await page.locator("#signup-password").fill("secret123");
+    await page.locator("#signup-confirm").fill("secret123");
+    await page.getByRole("button", { name: /create workspace/i }).click();
+
+    await expect(page.getByText(/confirm your email/i)).toBeVisible();
+    await expect(page.getByText("newdistributor@example.com")).toBeVisible();
+    await expect(page).toHaveURL(/\/auth/);
+  });
+
+  test("a password under the Supabase minimum is caught before the round trip", async ({ page }) => {
+    await page.goto("/auth");
+    await page.getByRole("tab", { name: /create account/i }).click();
+    await page.locator("#signup-password").fill("abc");
+    await page.locator("#signup-confirm").fill("abc");
+    await expect(page.getByText(/at least 6 characters/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /create workspace/i })).toBeDisabled();
+  });
+});
+
+test.describe("assistant", () => {
+  // The stored answer is markdown because that is what the models emit. It
+  // used to be printed raw, so users read "**₹1,42,500**".
+  test("renders markdown instead of printing ** and pipes", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: /ask ai/i }).click();
+
+    const panel = page.getByRole("region", { name: "Dhela Assistant" });
+    await expect(panel.locator("strong").filter({ hasText: "₹1,42,500" })).toBeVisible();
+    await expect(panel.getByRole("cell", { name: "Shree Sanitary House" })).toBeVisible();
+    await expect(panel.getByRole("listitem").filter({ hasText: /42 days past due/ })).toBeVisible();
+
+    // The literal markers must be gone, not merely styled.
+    await expect(panel.getByText("**", { exact: false })).toHaveCount(0);
+    await expect(panel.getByText("|---|", { exact: false })).toHaveCount(0);
+  });
+});
+
 test.describe("landing page", () => {
   // The multilingual demo inlines its strings rather than importing the locale
   // files, which would ship 1,572 keys to render five words. This is the guard

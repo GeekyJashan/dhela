@@ -241,6 +241,18 @@ export async function seed(orgId, userId) {
     line_total: round(cnTaxable + cnTax),
   }]);
 
+  // One stored answer written the way the models actually reply, so the
+  // assistant panel can be tested for markdown rendering without spending an
+  // AI credit or depending on what a model feels like emitting today.
+  await insert("assistant_messages", [{
+    org_id: orgId, user_id: userId,
+    question: "Which retailers owe me the most?",
+    answer: "Retailers owe you **₹1,42,500** in total.\n\n"
+      + "| Retailer | Outstanding |\n|---|---:|\n"
+      + "| Shree Sanitary House | ₹98,000 |\n| Balaji Hardware | ₹44,500 |\n\n"
+      + "- Oldest bill is 42 days past due\n- Nothing has crossed 60 days yet",
+  }]);
+
   return { products: products.length, suppliers: suppliers.length, retailers: retailers.length,
     purchases: purchases.length, sales: sales.length, creditNotes: 1, payments: 3,
     // Exact figures the e2e assertions check against.
