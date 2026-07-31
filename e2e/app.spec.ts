@@ -438,6 +438,32 @@ test.describe("assistant", () => {
     for (const chunk of splitForSpeech(wordy)) expect(chunk.length).toBeLessThanOrEqual(cap);
   });
 
+  test("holding clips exist, are valid WAV, and are wired to the thinking phase", async ({ page, context }) => {
+    await context.grantPermissions(["microphone"]);
+
+    // Every clip the manifest advertises must actually resolve and be audio.
+    const manifest = await (await page.request.get("/speech/manifest.json")).json();
+    for (const [lang, files] of Object.entries(manifest as Record<string, string[]>)) {
+      for (const f of files) {
+        const r = await page.request.get(`/speech/${f}`);
+        expect(r.status(), `${f} missing`).toBe(200);
+        const buf = await r.body();
+        expect(buf.subarray(0, 4).toString(), `${f} not RIFF`).toBe("RIFF");
+        expect(buf.readUInt32LE(4) + 8, `${f} length field`).toBe(buf.length);
+      }
+    }
+
+    // And the overlay preloads them, which is what makes the first one instant.
+    const requested: string[] = [];
+    page.on("request", r => { if (r.url().includes("/speech/")) requested.push(r.url().split("/").pop()!); });
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: /talk to dhela/i }).first().click();
+    await expect(page.getByRole("dialog", { name: /talk to dhela/i })).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(requested).toContain("manifest.json");
+    expect(requested.filter(r => r.endsWith(".wav")).length).toBeGreaterThan(0);
+  });
+
   test("voice mode opens from the launcher and closes on Escape", async ({ page, context }) => {
     await context.grantPermissions(["microphone"]);
     await page.goto("/dashboard");

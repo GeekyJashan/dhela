@@ -37,6 +37,11 @@ const MAX_SILENT_TURNS = 2;
 // be one to three sentences anyway; this is the guard, not the plan.
 const MAX_TTS_CHUNKS = 4;
 
+// Below this, the whole answer goes in one request instead of one per
+// sentence. Voice answers are asked to be one to three sentences, so in
+// practice almost everything takes this path.
+const SINGLE_REQUEST_LIMIT = 420;
+
 /**
  * Play synthesised chunks strictly in order, starting as soon as the first
  * one lands rather than waiting for all of them.
@@ -49,7 +54,7 @@ async function playInOrder(
   pending: Promise<string | null>[],
   elRef: { current: HTMLAudioElement | null },
   liveRef: { current: boolean },
-  onStart: () => void,
+  onStart: () => Promise<void> | void,
 ): Promise<boolean> {
   for (const promise of pending) {
     const base64 = await promise;
@@ -58,7 +63,10 @@ async function playInOrder(
 
     const audio = new Audio(`data:audio/wav;base64,${base64}`);
     elRef.current = audio;
-    onStart();
+    // Awaited: this is where the holding phrase is allowed to finish its
+    // sentence, so the answer follows it instead of cutting across it.
+    await onStart();
+    if (!liveRef.current) return true;
     const finished = await new Promise<boolean>(resolve => {
       audio.onended = () => resolve(true);
       // Autoplay refusal lands here. It shouldn't — the session began with a
@@ -92,16 +100,94 @@ export function VoiceAgent({ onClose, onTurn }: {
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const fillerElRef = useRef<HTMLAudioElement | null>(null);
+  const fillerUrlsRef = useRef<string[]>([]);
+  const fillerStopRef = useRef(true);
   const rafRef = useRef(0);
   const silentRef = useRef(0);
   // The whole loop runs out of callbacks that outlive the render they were
   // created in, so "are we still open" has to be a ref, not state.
   const liveRef = useRef(true);
 
+  /**
+   * Holding phrases — "एक मिनट, मैं आपका डेटा देख रही हूँ" — played while the
+   * agent reads the data and the answer is synthesised.
+   *
+   * Pre-rendered at build time in the same voice as the answers, because
+   * synthesising them on demand would cost the very seconds they exist to
+   * cover. They loop until the answer is ready rather than playing once, since
+   * a tool-heavy question can take longer than any single clip.
+   */
+  const startFillers = useCallback(() => {
+    const urls = fillerUrlsRef.current;
+    if (!urls.length) return;
+    fillerStopRef.current = false;
+    let n = Math.floor(Math.random() * urls.length);
+
+    const playNext = () => {
+      if (fillerStopRef.current || !liveRef.current) return;
+      const audio = new Audio(urls[n % urls.length]);
+      n += 1;
+      fillerElRef.current = audio;
+      const done = () => { fillerElRef.current = null; playNext(); };
+      audio.onended = done;
+      audio.onerror = () => { fillerElRef.current = null; };
+      audio.play().catch(() => { fillerElRef.current = null; });
+    };
+    playNext();
+  }, []);
+
+  /** Stop looping and let the clip that is mid-sentence finish. */
+  const stopFillers = useCallback(
+    () =>
+      new Promise<void>(resolve => {
+        fillerStopRef.current = true;
+        const audio = fillerElRef.current;
+        if (!audio) return resolve();
+        const done = () => { fillerElRef.current = null; resolve(); };
+        audio.onended = done;
+        audio.onerror = done;
+        // No clip is this long. If one somehow stalls, the answer still goes.
+        setTimeout(() => { audio.pause(); done(); }, 5000);
+      }),
+    [],
+  );
+
+  const killFillers = useCallback(() => {
+    fillerStopRef.current = true;
+    const audio = fillerElRef.current;
+    fillerElRef.current = null;
+    if (audio) { audio.pause(); audio.src = ""; }
+  }, []);
+
+  // Only the current language's clips, and only the ones that exist — the
+  // manifest is written by the generator, so a language whose clips were never
+  // rendered simply has no holding phrase rather than a 404 every turn.
+  useEffect(() => {
+    const code = (i18n.language ?? "en").split("-")[0];
+    let cancelled = false;
+    fetch("/speech/manifest.json")
+      .then(r => (r.ok ? r.json() : {}))
+      .then((m: Record<string, string[]>) => {
+        if (cancelled) return;
+        const files = m[code] ?? [];
+        fillerUrlsRef.current = files.map(f => `/speech/${f}`);
+        // Warm the cache now, while the user is still being listened to.
+        for (const url of fillerUrlsRef.current) {
+          const a = new Audio();
+          a.preload = "auto";
+          a.src = url;
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [i18n.language]);
+
   // End the current turn but keep the microphone stream and its meter, so
   // tapping the orb resumes instantly and the orb still reacts to the room.
   const pause = useCallback(() => {
     liveRef.current = false;
+    killFillers();
     const rec = recRef.current;
     recRef.current = null;
     // ?? would call stop() as well, since abort() returns undefined.
@@ -110,7 +196,7 @@ export function VoiceAgent({ onClose, onTurn }: {
     const audio = audioElRef.current;
     audioElRef.current = null;
     if (audio) { audio.pause(); audio.src = ""; }
-  }, []);
+  }, [killFillers]);
 
   const stopEverything = useCallback(() => {
     pause();
@@ -136,6 +222,7 @@ export function VoiceAgent({ onClose, onTurn }: {
     if (!liveRef.current) return;
     setPhase("thinking");
     setReply("");
+    startFillers();
     try {
       const res = await ask({ data: { question, mode: "voice" } });
       if (!liveRef.current) return;
@@ -148,6 +235,7 @@ export function VoiceAgent({ onClose, onTurn }: {
       // "ended" event that will never arrive. A missing speechSynthesis is no
       // longer fatal: the server voice does not need it.
       if (!speech) {
+        killFillers();
         setPhase("listening");
         listenRef.current();
         return;
@@ -157,20 +245,28 @@ export function VoiceAgent({ onClose, onTurn }: {
       setPhase("preparing");
 
       // Gemini's voice reads Devanagari and code-switched Hinglish properly,
-      // which the browser's local voices do not. It costs a few seconds per
-      // chunk, so the chunks are requested at once and played in order — the
-      // wait is the first sentence's, not the whole answer's.
-      const wanted = chunks.slice(0, MAX_TTS_CHUNKS);
+      // which the browser's local voices do not.
+      //
+      // One request for the whole answer when it fits. Splitting it would let
+      // playback start a couple of seconds sooner, but every chunk is a
+      // separate billed request against a per-day cap, and a three-sentence
+      // answer costing three requests is how a day's quota disappears in four
+      // questions. Long answers still split, because the cap is per request.
+      const wanted = speech.length <= SINGLE_REQUEST_LIMIT ? [speech] : chunks.slice(0, MAX_TTS_CHUNKS);
       const pending = wanted.map(chunk =>
         speakServer({ data: { text: chunk } }).then(r => r.audio).catch(() => null),
       );
-      const played = await playInOrder(pending, audioElRef, liveRef, () => setPhase("speaking"));
+      const played = await playInOrder(pending, audioElRef, liveRef, async () => {
+        await stopFillers();
+        setPhase("speaking");
+      });
       if (!liveRef.current) return;
       if (played) { listenRef.current(); return; }
 
       // Server speech failed — the browser's own voice is worse but it is
       // there, and silence would look like the app had hung.
-      if (!synth) { listenRef.current(); return; }
+      if (!synth) { await stopFillers(); listenRef.current(); return; }
+      await stopFillers();
       setPhase("speaking");
       const voice = pickVoice(lang);
       chunks.forEach((chunk, n) => {
@@ -195,7 +291,7 @@ export function VoiceAgent({ onClose, onTurn }: {
       setPhase("error");
       stopEverything();
     }
-  }, [ask, speakServer, i18n.language, lang, onTurn, stopEverything]);
+  }, [ask, speakServer, i18n.language, lang, onTurn, stopEverything, startFillers, stopFillers, killFillers]);
 
   const listen = useCallback(() => {
     if (!liveRef.current) return;
