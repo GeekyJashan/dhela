@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality, type Session } from "@google/genai";
 import { INPUT_RATE, OUTPUT_RATE, PcmPlayer, decodePcm, startCapture } from "./live-audio";
+import { LIVE_IDLE_TIMEOUT_SECONDS as IDLE_TIMEOUT_SECONDS } from "./plans";
 
 /**
  * One realtime conversation: socket, microphone, speaker and tool bridge.
@@ -23,7 +24,9 @@ export type LiveHandlers = {
 };
 
 export type LiveSessionDeps = {
-  mint: () => Promise<{ token: string; model: string }>;
+  mint: () => Promise<{ token: string; model: string; sessionId: string | null; maxSeconds: number }>;
+  /** Reports the session's real duration so the month's meter is accurate. */
+  reportEnd: (sessionId: string, seconds: number) => void;
   runTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   stream: MediaStream;
   audioContext: AudioContext;
@@ -37,12 +40,29 @@ export class LiveConversation {
 
   private heard = "";
   private said = "";
+  private sessionId: string | null = null;
+  private startedAt = 0;
+  private hardStop = 0;
+  private idleTimer = 0;
+  /** Raised when the session ends itself rather than being closed by the user. */
+  onExpired: ((reason: "idle" | "limit") => void) | null = null;
 
   constructor(private deps: LiveSessionDeps, private on: LiveHandlers) {}
 
   async start() {
     this.on.onState("connecting");
-    const { token, model } = await this.deps.mint();
+    const { token, model, sessionId, maxSeconds } = await this.deps.mint();
+    this.sessionId = sessionId;
+    this.startedAt = Date.now();
+
+    // The session is billed by the minute for as long as it is open, so it
+    // closes itself. Two ceilings: one for a conversation that runs long, one
+    // for a tab someone walked away from. Neither is the user's job to notice.
+    this.hardStop = window.setTimeout(() => {
+      this.onExpired?.("limit");
+      this.close();
+    }, maxSeconds * 1000);
+    this.touch();
 
     // Ephemeral token in place of the API key, on v1alpha — the only
     // combination the service accepts. The real key stays on the server.
@@ -121,6 +141,7 @@ export class LiveConversation {
     if (!content) return;
 
     if (content.inputTranscription?.text) {
+      this.touch();
       this.heard += content.inputTranscription.text;
       this.on.onHeard(this.heard, false);
     }
@@ -132,6 +153,7 @@ export class LiveConversation {
     for (const part of content.modelTurn?.parts ?? []) {
       const inline = part.inlineData;
       if (inline?.data && String(inline.mimeType ?? "").includes("audio")) {
+        this.touch();
         this.player?.enqueue(decodePcm(inline.data));
         this.on.onState("speaking");
       }
@@ -150,6 +172,15 @@ export class LiveConversation {
     }
   }
 
+  /** Restart the silence countdown; called whenever anyone actually speaks. */
+  private touch() {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = window.setTimeout(() => {
+      this.onExpired?.("idle");
+      this.close();
+    }, IDLE_TIMEOUT_SECONDS * 1000);
+  }
+
   /** Stop the assistant mid-answer without ending the conversation. */
   interrupt() {
     this.player?.stop();
@@ -157,7 +188,14 @@ export class LiveConversation {
   }
 
   close() {
+    if (this.closed) return;
     this.closed = true;
+    clearTimeout(this.hardStop);
+    clearTimeout(this.idleTimer);
+    if (this.sessionId && this.startedAt) {
+      this.deps.reportEnd(this.sessionId, Math.round((Date.now() - this.startedAt) / 1000));
+      this.sessionId = null;
+    }
     this.stopCapture?.();
     this.stopCapture = null;
     this.player?.close();

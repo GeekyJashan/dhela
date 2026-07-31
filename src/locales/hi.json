@@ -824,5 +824,11 @@
   "Connecting…": "जोड़ रहे हैं…",
   "Listening — just talk": "सुन रहे हैं — बस बोलिए",
   "Voice mode ended": "वॉइस मोड खत्म",
-  "Speak naturally — you can interrupt. Press Esc to close.": "आराम से बोलिए — बीच में रोक भी सकते हैं। बंद करने के लिए Esc दबाइए।"
+  "Speak naturally — you can interrupt. Press Esc to close.": "आराम से बोलिए — बीच में रोक भी सकते हैं। बंद करने के लिए Esc दबाइए।",
+  "Instant voice is a Pro feature. Using standard voice — upgrade on the Billing page.": "इंस्टेंट वॉइस Pro में मिलता है। फ़िलहाल सामान्य वॉइस चल रहा है — Billing पेज से अपग्रेड कीजिए।",
+  "This month's instant voice minutes are used up. Using standard voice.": "इस महीने के इंस्टेंट वॉइस मिनट खत्म हो गए। सामान्य वॉइस चल रहा है।",
+  "{{n}} voice minutes left this month": "इस महीने {{n}} वॉइस मिनट बाकी",
+  "Voice mode closed after a minute of silence.": "एक मिनट चुप्पी के बाद वॉइस मोड बंद हो गया।",
+  "That session hit its length limit. Tap the mic to start another.": "यह सेशन अपनी तय लंबाई तक पहुँच गया। नया शुरू करने के लिए माइक दबाइए।",
+  "Talk to the assistant — {{n}} min / month of instant voice": "असिस्टेंट से बात कीजिए — हर महीने {{n}} मिनट इंस्टेंट वॉइस"
 }

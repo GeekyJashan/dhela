@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 import { X, Mic } from "lucide-react";
-import { createLiveSession, runAssistantTool, storeLiveTurn } from "@/lib/live.functions";
+import { createLiveSession, runAssistantTool, storeLiveTurn, endLiveSession } from "@/lib/live.functions";
 import { LiveConversation, type LiveState } from "@/lib/live-session";
 import { diagnoseMic } from "@/lib/speech";
 import { Markdown } from "@/components/markdown";
@@ -29,12 +29,14 @@ export function VoiceAgentLive({ onClose, onTurn, onUnavailable }: {
   const mint = useServerFn(createLiveSession);
   const runTool = useServerFn(runAssistantTool);
   const storeTurn = useServerFn(storeLiveTurn);
+  const endSession = useServerFn(endLiveSession);
 
   const [state, setState] = useState<LiveState>("connecting");
   const [heard, setHeard] = useState("");
   const [said, setSaid] = useState("");
   const [problem, setProblem] = useState("");
   const [level, setLevel] = useState(0);
+  const [minutesLeft, setMinutesLeft] = useState<number | null>(null);
 
   const convoRef = useRef<LiveConversation | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -104,7 +106,16 @@ export function VoiceAgentLive({ onClose, onTurn, onUnavailable }: {
 
       const convo = new LiveConversation(
         {
-          mint: () => mint({ data: undefined }) as Promise<{ token: string; model: string }>,
+          mint: async () => {
+            const session = await mint({ data: undefined });
+            setMinutesLeft(Math.floor(session.remainingSeconds / 60));
+            return session;
+          },
+          reportEnd: (sessionId, seconds) => {
+            // Best effort. An unreported session is already charged at its cap,
+            // so a failure here costs the workspace minutes, never us.
+            endSession({ data: { sessionId, seconds } }).catch(() => {});
+          },
           runTool: async (name, args) => {
             const res = await runTool({ data: { name, args } });
             return JSON.parse(res.json);
@@ -135,6 +146,15 @@ export function VoiceAgentLive({ onClose, onTurn, onUnavailable }: {
           },
         },
       );
+      convo.onExpired = reason => {
+        if (!liveRef.current) return;
+        // Said plainly rather than silently dropping the connection: a session
+        // that ends on its own is otherwise indistinguishable from a crash.
+        setProblem(reason === "idle"
+          ? t("Voice mode closed after a minute of silence.")
+          : t("That session hit its length limit. Tap the mic to start another."));
+        setState("closed");
+      };
       convoRef.current = convo;
 
       try {
@@ -223,6 +243,9 @@ export function VoiceAgentLive({ onClose, onTurn, onUnavailable }: {
 
       <p className="absolute bottom-8 text-xs text-muted-foreground">
         {t("Speak naturally — you can interrupt. Press Esc to close.")}
+        {minutesLeft !== null && (
+          <> · {t("{{n}} voice minutes left this month", { n: minutesLeft })}</>
+        )}
       </p>
     </div>
   );

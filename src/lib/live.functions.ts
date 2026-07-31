@@ -5,6 +5,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLogger } from "./logger";
 import { TOOL_DECLARATIONS, executeTool } from "./assistant-tools";
 import { systemPrompt } from "./assistant.functions";
+import { getOrgBilling } from "./billing.functions";
+import { PLANS, firstOfMonthISO, LIVE_MAX_SESSION_SECONDS } from "./plans";
+
+/**
+ * Loose handle for voice_sessions. integrations/supabase/types.ts is generated
+ * from the live schema and does not know this table until someone regenerates
+ * it, so the query builder would reject the name outright.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = { from: (t: string) => any };
+const loose = (client: unknown) => client as Db;
 
 /**
  * Realtime voice: session tokens and the tool bridge.
@@ -39,6 +50,30 @@ const LIVE_VOICE = process.env.GEMINI_TTS_VOICE ?? "Kore";
 const TOKEN_TTL_MS = 5 * 60_000;
 const SESSION_START_TTL_MS = 2 * 60_000;
 
+/**
+ * How many seconds of realtime voice this workspace has used this month.
+ *
+ * Sessions that never reported a duration count at their own cap. A tab closed
+ * with the laptop lid never sends its "ended" call, and if that read as zero
+ * the meter would be trivially avoidable by never closing cleanly.
+ */
+async function secondsUsedThisMonth(supabase: Db, orgId: string): Promise<number> {
+  const { data, error } = await loose(supabase).from("voice_sessions")
+    .select("seconds, max_seconds")
+    .eq("org_id", orgId)
+    .gte("started_at", `${firstOfMonthISO()}T00:00:00Z`);
+
+  // Failing closed on purpose. An unreadable meter on a per-minute API is not
+  // a reason to hand out unmetered minutes.
+  if (error) throw new Error(`Voice usage is unavailable (${error.message})`);
+
+  return (data ?? []).reduce(
+    (total: number, row: { seconds: number | null; max_seconds: number | null }) =>
+      total + (row.seconds ?? row.max_seconds ?? LIVE_MAX_SESSION_SECONDS),
+    0,
+  );
+}
+
 export const createLiveSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -50,7 +85,26 @@ export const createLiveSession = createServerFn({ method: "POST" })
       .select("org_id, organization:organizations(name)")
       .eq("user_id", userId).limit(1).maybeSingle();
     if (!mem) throw new Error("No organization");
+    const orgId = mem.org_id as string;
     const orgName = (mem.organization as { name?: string } | null)?.name ?? "your business";
+
+    // The gate lives here rather than in the component. The UI hides the
+    // feature for other plans, but hiding is presentation — this is the part
+    // that stops a crafted request from opening a billed socket.
+    const billing = await getOrgBilling(supabase, orgId);
+    const allowanceSeconds = PLANS[billing.plan].liveVoiceMinutesPerMonth * 60;
+    if (allowanceSeconds <= 0) {
+      throw new Error("LIVE_NOT_ON_PLAN");
+    }
+
+    const used = await secondsUsedThisMonth(supabase, orgId);
+    if (used >= allowanceSeconds) {
+      throw new Error("LIVE_ALLOWANCE_SPENT");
+    }
+
+    // Never mint more than what is left, so the last session of the month
+    // cannot overshoot the allowance by a full cap.
+    const maxSeconds = Math.min(LIVE_MAX_SESSION_SECONDS, allowanceSeconds - used);
 
     const ai = new GoogleGenAI({ apiKey });
     const token = await ai.authTokens.create({
@@ -80,8 +134,20 @@ export const createLiveSession = createServerFn({ method: "POST" })
       },
     });
 
-    log.info("live:token", { orgName });
-    return { token: token.name as string, model: LIVE_MODEL };
+    // Written before the socket opens, so a session that fails halfway is
+    // still on the meter — the API bills from connect, not from first word.
+    const { data: session } = await loose(supabase).from("voice_sessions")
+      .insert({ org_id: orgId, user_id: userId, max_seconds: maxSeconds, model: LIVE_MODEL })
+      .select("id").single();
+
+    log.info("live:token", { orgId, usedSeconds: used, maxSeconds });
+    return {
+      token: token.name as string,
+      model: LIVE_MODEL,
+      sessionId: (session?.id as string) ?? null,
+      maxSeconds,
+      remainingSeconds: allowanceSeconds - used,
+    };
   });
 
 /**
@@ -139,4 +205,56 @@ export const storeLiveTurn = createServerFn({ method: "POST" })
     });
     if (error) log.error("live:store_failed", { err: error.message });
     return { stored: !error };
+  });
+
+/**
+ * Close the meter on a session.
+ *
+ * Client-reported, which is worth being honest about: a user could under-report
+ * their own usage. The cost of that is bounded by max_seconds, since an
+ * unreported session already counts at its cap — so the worst a bad actor
+ * achieves is being billed accurately instead of generously.
+ */
+export const endLiveSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      sessionId: z.string().uuid(),
+      seconds: z.number().int().min(0).max(LIVE_MAX_SESSION_SECONDS),
+    }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await loose(context.supabase).from("voice_sessions")
+      .update({ seconds: data.seconds, ended_at: new Date().toISOString() })
+      .eq("id", data.sessionId)
+      .is("seconds", null);        // first report wins; no rewriting history
+    if (error) log.error("live:end_failed", { err: error.message });
+    return { ok: !error };
+  });
+
+/** Minutes left this month, for the UI to show before it opens a session. */
+export const liveVoiceAllowance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+    if (!mem) return { plan: "free", allowedMinutes: 0, remainingMinutes: 0 };
+
+    const orgId = mem.org_id as string;
+    const billing = await getOrgBilling(supabase, orgId);
+    const allowedMinutes = PLANS[billing.plan].liveVoiceMinutesPerMonth;
+    if (allowedMinutes <= 0) return { plan: billing.plan, allowedMinutes: 0, remainingMinutes: 0 };
+
+    let used = 0;
+    try {
+      used = await secondsUsedThisMonth(supabase, orgId);
+    } catch {
+      // Only a display value here; the real gate is in createLiveSession.
+      return { plan: billing.plan, allowedMinutes, remainingMinutes: 0 };
+    }
+    return {
+      plan: billing.plan,
+      allowedMinutes,
+      remainingMinutes: Math.max(0, Math.floor((allowedMinutes * 60 - used) / 60)),
+    };
   });

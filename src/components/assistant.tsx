@@ -184,6 +184,20 @@ export function Assistant() {
     t("How do I generate an e-way bill?"),
   ];
 
+  /**
+   * Realtime voice refused. Say why once, then quietly use the slower mode —
+   * a paying customer meeting a locked door is worse than a paying customer
+   * waiting a few seconds.
+   */
+  const fallBackToPipeline = (reason: string) => {
+    setLiveDown(true);
+    if (reason.includes("LIVE_NOT_ON_PLAN")) {
+      toast.info(t("Instant voice is a Pro feature. Using standard voice — upgrade on the Billing page."));
+    } else if (reason.includes("LIVE_ALLOWANCE_SPENT")) {
+      toast.info(t("This month's instant voice minutes are used up. Using standard voice."));
+    }
+  };
+
   // Voice turns are stored server-side like any other, so they show up in the
   // chat history next session. This keeps the open panel in step too.
   const recordTurn = (question: string, answer: string) =>
@@ -197,7 +211,7 @@ export function Assistant() {
             {liveDown
               ? <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />
               : <VoiceAgentLive onClose={() => setVoiceMode(false)} onTurn={recordTurn}
-                  onUnavailable={() => setLiveDown(true)} />}
+                  onUnavailable={fallBackToPipeline} />}
           </Suspense>
         )}
         <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 print:hidden">
@@ -234,7 +248,7 @@ export function Assistant() {
             {liveDown
               ? <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />
               : <VoiceAgentLive onClose={() => setVoiceMode(false)} onTurn={recordTurn}
-                  onUnavailable={() => setLiveDown(true)} />}
+                  onUnavailable={fallBackToPipeline} />}
           </Suspense>
         )}
     <div

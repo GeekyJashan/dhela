@@ -92,6 +92,9 @@ function BillingPage() {
             t("Stock and true weighted-average cost"),
             t("English, हिंदी & ਪੰਜਾਬੀ"),
             ...(id !== "free" ? [t("Priority support")] : []),
+            ...(p.liveVoiceMinutesPerMonth > 0
+              ? [t("Talk to the assistant — {{n}} min / month of instant voice", { n: p.liveVoiceMinutesPerMonth })]
+              : []),
             ...(id === "pro" ? [t("Live GSTIN lookup + GST filer rating")] : []),
           ];
           return (

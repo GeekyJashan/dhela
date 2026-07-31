@@ -3,6 +3,7 @@ import fs from "fs";
 import { SAMPLE_KEYS, LANG_SAMPLES } from "../src/lib/lang-samples";
 import { stripForSpeech, splitForSpeech } from "../src/lib/speech";
 import { pcmToWav, rateFromMime } from "../src/lib/wav";
+import { PLANS, LIVE_MAX_SESSION_SECONDS, LIVE_IDLE_TIMEOUT_SECONDS } from "../src/lib/plans";
 
 /**
  * Covers the flows built in this repo that had never been exercised by a
@@ -514,6 +515,30 @@ test.describe("assistant", () => {
     await expect(overlay).toBeHidden();
     // The launcher has to come back, or the feature is a one-shot.
     await expect(page.getByRole("button", { name: /talk to dhela/i }).first()).toBeVisible();
+  });
+
+  // Realtime voice bills per minute of audio, in and out, for as long as the
+  // socket is open — the one meter in this product that runs while nobody is
+  // doing anything. These constants are the whole cost control, so they get a
+  // guard rather than a comment.
+  test("realtime voice stays a Pro allowance with hard ceilings", () => {
+    expect(PLANS.free.liveVoiceMinutesPerMonth).toBe(0);
+    expect(PLANS.standard.liveVoiceMinutesPerMonth).toBe(0);
+    expect(PLANS.pro.liveVoiceMinutesPerMonth).toBeGreaterThan(0);
+
+    // Worst case one Pro workspace can cost us, at the published rate for
+    // gemini-3.1-flash-live-preview: $0.005/min in (the whole session) plus
+    // $0.018/min out (call it a third of it) — about ₹0.90 a minute.
+    const worstCaseRupees = PLANS.pro.liveVoiceMinutesPerMonth * 0.9;
+    const proNetMonthly = PLANS.pro.priceYearly / 12 / 1.18;   // ex-GST
+    expect(worstCaseRupees).toBeLessThan(proNetMonthly * 0.25);
+
+    // A session that is never closed is charged at its cap, so the cap is what
+    // bounds an abandoned tab.
+    expect(LIVE_MAX_SESSION_SECONDS).toBeLessThanOrEqual(15 * 60);
+    expect(LIVE_IDLE_TIMEOUT_SECONDS).toBeLessThanOrEqual(120);
+    // And no single session may exceed the monthly allowance.
+    expect(LIVE_MAX_SESSION_SECONDS).toBeLessThanOrEqual(PLANS.pro.liveVoiceMinutesPerMonth * 60);
   });
 
   // The Gemini SDK is ~350KB. It belongs in a chunk that loads when someone
