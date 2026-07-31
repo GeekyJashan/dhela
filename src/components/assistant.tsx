@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { askAssistant, getAssistantHistory } from "@/lib/assistant.functions";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,11 @@ import { DhelaCoin } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Markdown } from "@/components/markdown";
-import { VoiceAgent } from "@/components/voice-agent";
+// Both voice modes are loaded on demand. The realtime one drags in the Gemini
+// SDK, which is ~200KB — worth it when someone taps the mic, not worth it on
+// every dashboard load for the people who never will.
+const VoiceAgent = lazy(() => import("@/components/voice-agent").then(m => ({ default: m.VoiceAgent })));
+const VoiceAgentLive = lazy(() => import("@/components/voice-agent-live").then(m => ({ default: m.VoiceAgentLive })));
 import { speechCtor, speechLangFor, voiceInputAvailable, diagnoseMic, type Recognizer } from "@/lib/speech";
 
 type Msg = { role: "user" | "assistant"; text: string };
@@ -47,6 +51,10 @@ export function Assistant() {
   const [listening, setListening] = useState(false);
   const [micAvailable, setMicAvailable] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  // Realtime first. If the socket cannot be opened — no billing on the
+  // project, an unsupported browser, a network that blocks it — this drops
+  // to the older request/response pipeline instead of to nothing.
+  const [liveDown, setLiveDown] = useState(false);
   const loadedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recRef = useRef<Recognizer | null>(null);
@@ -184,7 +192,14 @@ export function Assistant() {
   if (!open) {
     return (
       <>
-        {voiceMode && <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />}
+        {voiceMode && (
+          <Suspense fallback={null}>
+            {liveDown
+              ? <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />
+              : <VoiceAgentLive onClose={() => setVoiceMode(false)} onTurn={recordTurn}
+                  onUnavailable={() => setLiveDown(true)} />}
+          </Suspense>
+        )}
         <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 print:hidden">
           {/* Its own launcher rather than a control inside the chat panel: the
               people who need it most are holding a phone in a warehouse with
@@ -214,7 +229,14 @@ export function Assistant() {
 
   return (
     <>
-    {voiceMode && <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />}
+    {voiceMode && (
+          <Suspense fallback={null}>
+            {liveDown
+              ? <VoiceAgent onClose={() => setVoiceMode(false)} onTurn={recordTurn} />
+              : <VoiceAgentLive onClose={() => setVoiceMode(false)} onTurn={recordTurn}
+                  onUnavailable={() => setLiveDown(true)} />}
+          </Suspense>
+        )}
     <div
       role="region"
       aria-label={t("Dhela Assistant")}

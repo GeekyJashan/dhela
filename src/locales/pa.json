@@ -820,5 +820,9 @@
   "Voice mode stopped": "ਵੌਇਸ ਮੋਡ ਬੰਦ ਹੋ ਗਿਆ",
   "Each question uses one AI credit. Press Esc to close.": "ਹਰ ਸਵਾਲ ਉੱਤੇ ਇੱਕ AI ਕ੍ਰੈਡਿਟ ਲੱਗਦਾ ਹੈ। ਬੰਦ ਕਰਨ ਲਈ Esc ਦਬਾਓ।",
   "Close": "ਬੰਦ ਕਰੋ",
-  "Reading it out…": "ਪੜ੍ਹ ਕੇ ਸੁਣਾ ਰਹੇ ਹਾਂ…"
+  "Reading it out…": "ਪੜ੍ਹ ਕੇ ਸੁਣਾ ਰਹੇ ਹਾਂ…",
+  "Connecting…": "ਜੋੜ ਰਹੇ ਹਾਂ…",
+  "Listening — just talk": "ਸੁਣ ਰਹੇ ਹਾਂ — ਬਸ ਬੋਲੋ",
+  "Voice mode ended": "ਵੌਇਸ ਮੋਡ ਖ਼ਤਮ",
+  "Speak naturally — you can interrupt. Press Esc to close.": "ਆਰਾਮ ਨਾਲ ਬੋਲੋ — ਵਿਚਾਲੇ ਰੋਕ ਵੀ ਸਕਦੇ ਹੋ। ਬੰਦ ਕਰਨ ਲਈ Esc ਦਬਾਓ।"
 }

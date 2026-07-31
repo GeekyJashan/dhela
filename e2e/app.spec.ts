@@ -14,6 +14,24 @@ import { pcmToWav, rateFromMime } from "../src/lib/wav";
  * assertions can be exact rather than "greater than zero".
  */
 
+/**
+ * TanStack routes every server function through /_serverFn/<base64url>, where
+ * the segment encodes the source file and export. Matching on the raw URL
+ * therefore never works — it has to be decoded first.
+ *
+ * Stubbing the realtime token mint keeps this suite off a billed API and is
+ * the only way to exercise the fallback deliberately.
+ */
+function isServerFn(url: string, name: string) {
+  const segment = url.split("/_serverFn/")[1]?.split("?")[0];
+  if (!segment) return false;
+  try {
+    return Buffer.from(segment, "base64url").toString("utf8").includes(name);
+  } catch {
+    return false;
+  }
+}
+
 test.describe("navigation", () => {
   test("sidebar reaches every section", async ({ page }, testInfo) => {
     await page.goto("/dashboard");
@@ -453,30 +471,58 @@ test.describe("assistant", () => {
       }
     }
 
-    // And the overlay preloads them, which is what makes the first one instant.
+    // The holding clips belong to the fallback pipeline — realtime voice
+    // answers in about a second and has nothing to cover. So force the
+    // fallback, then assert it preloads them, which is what makes the first
+    // one instant.
+    await page.route("**/_serverFn/**", async route =>
+      isServerFn(route.request().url(), "live.functions")
+        ? route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"no billing"}' })
+        : route.fallback());
+
     const requested: string[] = [];
     page.on("request", r => { if (r.url().includes("/speech/")) requested.push(r.url().split("/").pop()!); });
     await page.goto("/dashboard");
     await page.getByRole("button", { name: /talk to dhela/i }).first().click();
     await expect(page.getByRole("dialog", { name: /talk to dhela/i })).toBeVisible();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2500);
     expect(requested).toContain("manifest.json");
     expect(requested.filter(r => r.endsWith(".wav")).length).toBeGreaterThan(0);
   });
 
-  test("voice mode opens from the launcher and closes on Escape", async ({ page, context }) => {
+  // Realtime voice is the default path now. Its session token is minted by a
+  // server function, so the test stubs that: it keeps the suite off a billed
+  // API, and it is the only way to exercise the fallback deliberately.
+  test("voice mode opens, and falls back to the pipeline when Live can't start", async ({ page, context }) => {
     await context.grantPermissions(["microphone"]);
-    await page.goto("/dashboard");
+    // Fail the token mint. Matching on the payload rather than the URL because
+    // TanStack routes every server function through one endpoint.
+    await page.route("**/_serverFn/**", async route =>
+      isServerFn(route.request().url(), "live.functions")
+        ? route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"no billing"}' })
+        : route.fallback());
 
+    await page.goto("/dashboard");
     await page.getByRole("button", { name: /talk to dhela/i }).first().click();
+
     const overlay = page.getByRole("dialog", { name: /talk to dhela/i });
     await expect(overlay).toBeVisible();
-    await expect(overlay.getByText(/each question uses one ai credit/i)).toBeVisible();
+    // Whichever path won, the user gets a working overlay and a way out.
+    await expect(overlay.getByText(/press esc to close/i)).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(overlay).toBeHidden();
     // The launcher has to come back, or the feature is a one-shot.
     await expect(page.getByRole("button", { name: /talk to dhela/i }).first()).toBeVisible();
+  });
+
+  // The Gemini SDK is ~350KB. It belongs in a chunk that loads when someone
+  // taps the mic, not in the one every authenticated page already pays for.
+  test("the realtime voice SDK is not in the eagerly loaded bundle", () => {
+    const src = fs.readFileSync("src/components/assistant.tsx", "utf8");
+    // A static import here is what would silently undo the split.
+    expect(src).not.toMatch(/^import\s+\{[^}]*VoiceAgentLive/m);
+    expect(src).toMatch(/lazy\(\(\)\s*=>\s*import\("@\/components\/voice-agent-live"\)/);
   });
 
   // Playwright's Chromium exposes webkitSpeechRecognition and then never

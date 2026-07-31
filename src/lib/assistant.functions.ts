@@ -75,7 +75,7 @@ This answer will be spoken aloud, not read:
 - Lead with the single number or fact they asked for. Offer the breakdown only if they ask for it.
 - If the answer really is a long list, say the top two or three and mention how many others there are.`;
 
-function systemPrompt(orgName: string, mode: "text" | "voice" = "text") {
+export function systemPrompt(orgName: string, mode: "text" | "voice" = "text") {
   const today = new Date().toISOString().slice(0, 10);
   return `You are Dhela Assistant, the built-in business analyst and product guide for "${orgName}", an Indian distributor using the Dhela app. Today is ${today}.
 ${PLATFORM_GUIDE}

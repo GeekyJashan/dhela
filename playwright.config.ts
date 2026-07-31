@@ -36,6 +36,12 @@ export default defineConfig({
     storageState: "e2e/.auth/user.json",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // A synthetic microphone, so getUserMedia resolves and the realtime voice
+    // path can actually be exercised. Without a device it fails before it
+    // reaches any of the code worth testing.
+    launchOptions: {
+      args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+    },
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
