@@ -60,6 +60,25 @@ test.describe("navigation", () => {
   });
 });
 
+test.describe("session", () => {
+  // A phone in a lift: the Supabase auth endpoint is unreachable, but the
+  // session in localStorage is perfectly valid.
+  test("a signed-in operator stays signed in when the network drops", async ({ page }) => {
+    await page.route("**/auth/v1/user*", route => route.abort("connectionfailed"));
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+  });
+
+  test("and is still sent to sign-in when there is genuinely no session", async ({ page, context }) => {
+    await context.clearCookies();
+    await page.goto("/dashboard");
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/auth/);
+  });
+});
+
 test.describe("purchases", () => {
   test("seeded invoices are listed", async ({ page }) => {
     await page.goto("/invoices");

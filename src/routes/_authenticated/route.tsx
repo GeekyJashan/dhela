@@ -13,10 +13,32 @@ import { Assistant } from "@/components/assistant";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  /**
+   * Reads the session off the device rather than asking the server who you are.
+   *
+   * getUser() makes a network call on every navigation into the app, and any
+   * failure — a lift, a tunnel, a cold radio, a captive portal — came back as
+   * an error and redirected to the sign-in screen. On laptop wifi that
+   * essentially never happens; on a phone it happens constantly, which is
+   * exactly the difference an operator was seeing between the two.
+   *
+   * getSession() reads what is stored and refreshes only when the access token
+   * has actually expired. A revoked or forged token still gets nowhere: every
+   * server function verifies the JWT itself before touching data. The route
+   * guard's job is to keep signed-out visitors off these screens, not to
+   * re-authenticate a signed-in one on every tap.
+   */
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) throw redirect({ to: "/auth" });
+      return { user: data.session.user };
+    } catch (e) {
+      // A thrown redirect must pass through; anything else means storage is
+      // unreadable, and there is no session to trust.
+      if (e && typeof e === "object" && "to" in e) throw e;
+      throw redirect({ to: "/auth" });
+    }
   },
   component: AuthedLayout,
 });
