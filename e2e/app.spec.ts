@@ -79,6 +79,44 @@ test.describe("session", () => {
   });
 });
 
+test.describe("business pulse", () => {
+  test("the dashboard leads with money, not with upload counts", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByText(/working capital locked/i)).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText(/return on that capital/i)).toBeVisible();
+    await expect(page.getByText(/cash collection/i)).toBeVisible();
+    await expect(page.getByText(/stock cover/i)).toBeVisible();
+
+    // It sits above the invoice list: an owner opening this screen has a
+    // question about the business, not about the last eight uploads.
+    const pulse = await page.getByText(/working capital locked/i).first().boundingBox();
+    const recent = await page.getByText(/recent invoices/i).first().boundingBox();
+    expect(pulse!.y).toBeLessThan(recent!.y);
+  });
+
+  test("a ratio built on almost no data is withheld, not guessed", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByText(/working capital locked/i)).toBeVisible({ timeout: 20000 });
+
+    // The seeded workspace has 3 sales in 90 days. Annualising that into a
+    // return on capital would be a confident number built on nothing, so the
+    // screen says how thin the data is and leaves the ratios blank.
+    await expect(page.getByText(/need a bit more history/i)).toBeVisible();
+    const roc = page.getByText(/return on that capital/i).locator("xpath=..");
+    await expect(roc).toContainText("—");
+  });
+
+  test("every suggested action links somewhere you can act", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByText(/working capital locked/i)).toBeVisible({ timeout: 20000 });
+    const card = page.locator("div").filter({ hasText: /^Worth doing this week/ }).first();
+    if (!(await card.count())) return;              // a spotless workspace has nothing to do
+    for (const href of await card.getByRole("link").evaluateAll(ls => ls.map(l => l.getAttribute("href")))) {
+      expect(href, "an action must lead to a screen").toMatch(/^\/(pricing|payments|retailers|products)$/);
+    }
+  });
+});
+
 test.describe("purchases", () => {
   test("seeded invoices are listed", async ({ page }) => {
     await page.goto("/invoices");

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileUp, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { BusinessPulse } from "@/components/business-pulse";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Dhela" }] }),
@@ -56,6 +57,10 @@ function Dashboard() {
         <StatCard label={t("Approved")} value={stats?.approved ?? 0} icon={<CheckCircle2 className="h-4 w-4 text-success" />} />
         <StatCard label={t("Avg. extraction accuracy")} value={stats?.avgConf ? `${stats.avgConf.toFixed(0)}%` : "—"} />
       </div>
+
+      {/* Above the invoice list on purpose: an owner opening this screen has a
+          question about the business, not about the last eight uploads. */}
+      <BusinessPulse />
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">

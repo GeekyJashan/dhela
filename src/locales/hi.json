@@ -834,5 +834,16 @@
   "Don't approve this — {{bad}} of {{all}} lines don't add up": "इसे अप्रूव मत कीजिए — {{all}} में से {{bad}} लाइनों का हिसाब नहीं बैठता",
   "Quantity x rate doesn't produce the printed amount, so the columns were probably read in the wrong order. Re-extract, or type the figures in yourself.": "क्वांटिटी × रेट से छपी हुई रकम नहीं बनती, यानी कॉलम गलत क्रम में पढ़े गए हैं। दोबारा एक्सट्रैक्ट कीजिए, या आँकड़े खुद भरिए।",
   "What the reader noticed": "रीडर ने क्या देखा",
-  "Cost/unit": "प्रति यूनिट लागत"
+  "Cost/unit": "प्रति यूनिट लागत",
+  "Working capital locked": "फँसी हुई कार्यशील पूँजी",
+  "Return on that capital": "उस पूँजी पर रिटर्न",
+  "Cash collection": "पैसा वसूली",
+  "Stock cover": "स्टॉक कितने दिन चलेगा",
+  "Worth doing this week": "इस हफ़्ते करने लायक",
+  "stock {{s}} + owed to you {{r}} − owed by you {{p}}": "स्टॉक {{s}} + आपको मिलने वाले {{r}} − आपको देने वाले {{p}}",
+  "a year at this rate · healthy is 12–16%": "इसी रफ़्तार से साल भर में · सेहतमंद 12–16% है",
+  "from sale to money in the bank": "बिक्री से बैंक में पैसा आने तक",
+  "at the last {{n}} days' rate": "पिछले {{n}} दिनों की रफ़्तार पर",
+  "{{n}} days": "{{n}} दिन",
+  "Based on {{n}} sale(s) in the last {{d}} days — the ratios below need a bit more history before they mean much.": "पिछले {{d}} दिनों की {{n}} बिक्री पर आधारित — नीचे के अनुपात सही मायने रखने के लिए थोड़ा और इतिहास चाहिए।"
 }
