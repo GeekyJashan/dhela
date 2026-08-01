@@ -292,19 +292,28 @@ FIELD RULES
 - Free schemes ("10+1", "BUY 100 GET 12 FREE"): billed units in quantity, free units in free_quantity.
   A blank Free column means 0.
 - Extract HSN, batch, expiry and mfg date whenever printed.
-- Charges such as cartage, freight or insurance are NOT product lines. Leave them out of `lines`.
+- Rows printed below the product table are not products. Cartage, freight, insurance, packing, loading,
+  round-off, and the tax lines themselves (CGST/SGST/IGST/CESS Output) all belong out of `lines`. A row
+  with no HSN, no quantity and no rate is a charge, not something that goes into stock.
 - Prefer null over guessing, everywhere. Never invent a row to make a total reconcile.
 
-HEADER TOTALS
+HEADER TOTALS, AND PAGES YOU CANNOT SEE
 - The per-line amounts should sum to subtotal, and subtotal + tax_total should equal grand_total.
   If they do not, re-read before answering; if they still do not, return the figures as printed and say
   in `notes` exactly which ones disagree.
+- Many bills run to more than one page. If the page says "continued to page 2", or the totals block is
+  absent or cut off, then the grand total is NOT on this page. Return null for it and say so in `notes`.
+  Do not add the numbers up yourself to produce one. A total you calculated is indistinguishable, to the
+  person approving it, from a total the supplier printed — and if a second page exists, yours is wrong.
+- `notes` is read by the operator reviewing this bill, so write it for them: what is missing, what you
+  could not see, and what to check. One or two plain sentences.
 
 CONFIDENCE MEANS CORRECTNESS, NOT LEGIBILITY
 - confidence (per line): 90+ only when every field is clearly readable AND that line's own
   quantity x rate x (1 - discount) reconciles with its amount. Below 50 whenever you are inferring
   a column or a digit.
-- overall_confidence: below 50 if the totals do not reconcile, or if len(lines) does not equal
+- overall_confidence: always return a number, never null — the operator is shown this and a blank reads
+  as "no idea". Below 50 if the totals do not reconcile, or if len(lines) does not equal
   line_count_on_bill, however sharp the image is.
 - If the image is too poor to parse reliably, return only the lines you are sure of, set
   overall_confidence below 25, and explain what went wrong in `notes`.

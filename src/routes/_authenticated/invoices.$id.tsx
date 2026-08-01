@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
-import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save, Sparkles } from "lucide-react";
+import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save, Sparkles, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
@@ -159,6 +159,13 @@ function InvoiceReview() {
       navigate({ to: "/invoices" });
     } catch (e) { toast.error((e as Error).message); }
   };
+
+  // Stored on every invoice already; nothing reads it today.
+  const extractionNote = (() => {
+    const raw = inv?.raw_extraction as { notes?: string | null } | null | undefined;
+    const note = raw?.notes?.trim();
+    return note && note.length > 1 ? note : null;
+  })();
 
   const unlinkedCount = (lines ?? []).filter(l => !l.matched_product_id).length;
 
@@ -310,6 +317,22 @@ function InvoiceReview() {
                 <div className="mt-1.5"><ExtractionAccuracy value={inv.confidence} /></div>
               </div>
             </CardContent>
+            {extractionNote && (
+              /* The model explains itself — "continued to page number 2",
+                 which totals it could not see, which figures disagree — and
+                 until now that went into raw_extraction and was never read.
+                 A blank Grand total with no reason looks like a broken parser
+                 rather than a bill whose second page was never photographed. */
+              <CardContent className="pt-0">
+                <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+                  <Info className="h-4 w-4 shrink-0 text-warning" />
+                  <div>
+                    <p className="font-medium">{t("What the reader noticed")}</p>
+                    <p className="mt-0.5 text-muted-foreground">{extractionNote}</p>
+                  </div>
+                </div>
+              </CardContent>
+            )}
           </Card>
 
           <Card>
