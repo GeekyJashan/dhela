@@ -506,6 +506,22 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
             result.overall_confidence = 40
 
     for line in result.lines or []:
+        # Models disagree about where the row's amount belongs. Gemini fills
+        # taxable_value; Claude fills line_total and leaves taxable_value null,
+        # which lands as null in the database and silently strips the figure
+        # that stock cost and the GST papers are built from.
+        #
+        # Only copied across when the row's own arithmetic says the two are the
+        # same number — on a bill whose amount column is tax-inclusive they are
+        # not, and copying would overstate the taxable value.
+        if line.taxable_value is None and line.line_total is not None \
+                and line.quantity is not None and line.rate is not None:
+            expected = float(line.quantity) * float(line.rate)
+            if line.discount_pct:
+                expected *= 1 - float(line.discount_pct) / 100.0
+            if abs(expected - float(line.line_total)) <= max(1.0, abs(expected) * 0.01):
+                line.taxable_value = line.line_total
+
         qty, rate, taxable = line.quantity, line.rate, line.taxable_value
         if qty is None or rate is None or taxable is None:
             continue
