@@ -5,6 +5,8 @@
  * context small.
  */
 
+import { computeInsights } from "./insights";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Db = { from: (t: string) => any };
 
@@ -99,6 +101,11 @@ export const TOOL_DECLARATIONS = [
         to_date: { type: "STRING", description: "Optional YYYY-MM-DD inclusive" },
       },
     },
+  },
+  {
+    name: "business_health",
+    description: "The whole business at a glance and what to do about it: working capital tied up in stock and receivables, return on that capital, days to collect, days of stock cover, gross margin, plus ranked problems worth acting on — dead stock, overdue invoices, items sold below cost, retailers who have gone quiet, and products about to run out. Use this for open questions like 'how is my business doing', 'how are we going this month', 'what should I focus on', 'where am I losing money'.",
+    parameters: { type: "OBJECT", properties: {} },
   },
   {
     name: "party_statement",
@@ -372,6 +379,12 @@ export async function executeTool(db: Db, name: string, args: Record<string, any
         total_purchased: +lines.reduce((s, l) => s + num(l.line_total), 0).toFixed(2),
         items,
       };
+    }
+
+    case "business_health": {
+      // Same computation the dashboard runs, so the assistant and the screen
+      // can never quote different numbers for the same question.
+      return await computeInsights(db);
     }
 
     case "party_statement": {

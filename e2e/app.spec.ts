@@ -574,6 +574,24 @@ test.describe("assistant", () => {
     await expect(page.getByRole("button", { name: /talk to dhela/i }).first()).toBeVisible();
   });
 
+  // The assistant and the dashboard answer "how is the business" from one
+  // computation. Two implementations of that question is two sets of numbers
+  // to disagree with each other in front of an owner.
+  test("the assistant reads business health from the same code the dashboard does", () => {
+    const tools = fs.readFileSync("src/lib/assistant-tools.ts", "utf8");
+    expect(tools).toContain('name: "business_health"');
+    expect(tools).toContain('import { computeInsights } from "./insights"');
+
+    const dashboard = fs.readFileSync("src/lib/insights.functions.ts", "utf8");
+    expect(dashboard).toContain('from "./insights"');
+
+    // And the prompt has to tell it how to answer, not just that it can.
+    const prompt = fs.readFileSync("src/lib/assistant.functions.ts", "utf8");
+    expect(prompt).toContain("WHEN SOMEONE ASKS HOW THE BUSINESS IS DOING");
+    // Jargon an owner does not use is jargon the answer should not use.
+    expect(prompt).toMatch(/Never use the words DSO/);
+  });
+
   // Bedrock is an addition, not a replacement: it is tried first when
   // configured and every failure has to fall through to the provider that
   // already works. A distributor asking about their receivables must not care
