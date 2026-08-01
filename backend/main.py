@@ -269,8 +269,8 @@ def _coerce_number(value: Any) -> Any:
 
 _LINE_NUMBERS = ("quantity", "free_quantity", "rate", "mrp", "discount_pct",
                  "gst_rate", "taxable_value", "tax_amount", "line_total", "confidence")
-_HEADER_NUMBERS = ("subtotal", "tax_total", "grand_total", "overall_confidence",
-                   "line_count_on_bill")
+_HEADER_NUMBERS = ("subtotal", "other_charges", "tax_total", "grand_total",
+                   "overall_confidence", "line_count_on_bill")
 
 
 class InvoiceLine(BaseModel):
@@ -310,11 +310,27 @@ class InvoiceExtraction(BaseModel):
     invoice_number: Optional[str] = None
     invoice_date: Optional[str] = None
     subtotal: Optional[float] = None
+    other_charges: Optional[float] = None
     tax_total: Optional[float] = None
     grand_total: Optional[float] = None
     overall_confidence: Optional[float] = None
     notes: Optional[str] = None
     lines: List[InvoiceLine] = Field(default_factory=list)
+
+    @field_validator("lines", mode="before")
+    @classmethod
+    def _lines(cls, v: Any) -> Any:
+        # Claude Haiku has been seen returning something other than a list here.
+        # A malformed shape must not 502 the upload — an empty extraction the
+        # operator can key over is recoverable; a failed upload is not.
+        if v is None:
+            return []
+        if isinstance(v, dict):
+            return [v]
+        if not isinstance(v, list):
+            log.error("extract: 'lines' arrived as %s, discarding", type(v).__name__)
+            return []
+        return [x for x in v if isinstance(x, dict)]
 
     @field_validator(*_HEADER_NUMBERS, mode="before")
     @classmethod
@@ -380,10 +396,12 @@ HEADER TOTALS, AND PAGES YOU CANNOT SEE
 - The per-line amounts should sum to subtotal, and subtotal + tax_total should equal grand_total.
   If they do not, re-read before answering; if they still do not, return the figures as printed and say
   in `notes` exactly which ones disagree.
-- Many bills run to more than one page. If the page says "continued to page 2", or the totals block is
-  absent or cut off, then the grand total is NOT on this page. Return null for it and say so in `notes`.
-  Do not add the numbers up yourself to produce one. A total you calculated is indistinguishable, to the
-  person approving it, from a total the supplier printed — and if a second page exists, yours is wrong.
+- Report the parts, not the sum. Put the line-item total in `subtotal`, cartage/freight/packing in
+  `other_charges`, and the tax in `tax_total`. If a grand total is printed on the page, copy it into
+  `grand_total`; if it is not printed, leave `grand_total` null. Do not add the numbers up yourself —
+  asked to, models get this arithmetic wrong, and the server totals it exactly.
+- Many bills run to more than one page. If the page says "continued to page 2", say so in `notes` so the
+  operator knows to check whether more line items follow.
 - `notes` is read by the operator reviewing this bill, so write it for them: what is missing, what you
   could not see, and what to check. One or two plain sentences.
 
@@ -415,6 +433,8 @@ RESPONSE_SCHEMA: dict[str, Any] = {
         # Self-checks. Counting the rows and then emitting that many is what
         # stopped rows going missing; asking for the header order is what stops
         # numbers being taken from the wrong column.
+        "other_charges": {"type": "NUMBER", "nullable": True,
+                          "description": "Cartage, freight, packing etc. charged on the bill, excluding tax"},
         "line_count_on_bill": {"type": "INTEGER", "nullable": True},
         "column_order": {"type": "STRING", "nullable": True},
         "lines": {
@@ -625,6 +645,37 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
                 line.confidence = 40
             note = f"line {line.line_no or '?'}: {qty} x {rate} = {expected:.2f}, printed {taxable}"
             result.notes = f"{result.notes}; {note}" if result.notes else note
+
+    # Derive the grand total when the supplier did not print one, from parts
+    # that were read rather than parts that were guessed.
+    #
+    # This is deliberately done here and not by the model. Asked to total the
+    # same bill, one model returned 77,547.20 while its own note said
+    # 77,552.20, and another returned 75,914.20; the correct figure is
+    # 77,552.20. Addition is the one part of this job a computer should not be
+    # delegating.
+    if result.grand_total is None and result.subtotal is not None:
+        charges = result.other_charges or 0.0
+        tax = result.tax_total or 0.0
+        result.grand_total = round(float(result.subtotal) + float(charges) + tax, 2)
+        note = (f"Grand total not printed on this page — computed as "
+                f"{result.subtotal:,.2f}"
+                + (f" + {charges:,.2f} charges" if charges else "")
+                + (f" + {tax:,.2f} tax" if tax else "")
+                + f" = {result.grand_total:,.2f}.")
+        result.notes = f"{result.notes}; {note}" if result.notes else note
+
+    # A tax figure that matches the taxable base at the rate the lines carry is
+    # strong evidence the totals block was read correctly. Worth saying, since
+    # the operator is deciding whether to trust a number nobody printed.
+    if result.tax_total and result.subtotal is not None:
+        base = float(result.subtotal) + float(result.other_charges or 0.0)
+        rates = [float(l.gst_rate) for l in (result.lines or []) if l.gst_rate]
+        if base > 0 and rates:
+            implied = max(set(rates), key=rates.count)
+            if abs(base * implied / 100.0 - float(result.tax_total)) <= max(1.0, base * 0.001):
+                note = f"Tax reconciles: {implied:g}% of {base:,.2f} = {result.tax_total:,.2f}."
+                result.notes = f"{result.notes}; {note}" if result.notes else note
 
     # One bad row is a misread digit. Most rows bad means the columns were
     # misidentified for the whole table, and every figure on the page is
