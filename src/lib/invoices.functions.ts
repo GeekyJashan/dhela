@@ -24,6 +24,8 @@ const LineSchema = z.object({
   mfg_date: z.string().nullable().optional(),
   expiry_date: z.string().nullable().optional(),
   confidence: z.number().nullable().optional(),
+  // Set by the extractor when a line fails its own quantity x rate check.
+  needs_review: z.boolean().nullable().optional(),
 });
 
 const ExtractionSchema = z.object({
@@ -117,7 +119,10 @@ async function runExtraction(
       mfg_date: l.mfg_date ?? null,
       expiry_date: l.expiry_date ?? null,
       match_confidence: l.confidence ?? null,
-      needs_review: (l.confidence ?? 0) < 90,
+      // The extractor now flags lines whose own quantity x rate does not match
+      // the printed amount — a figure taken from the wrong column reads as
+      // perfectly plausible, so confidence alone will not catch it.
+      needs_review: !!l.needs_review || (l.confidence ?? 0) < 90,
     }));
     if (linesToInsert.length) {
       const { error: linesErr } = await supabase.from("invoice_lines").insert(linesToInsert);

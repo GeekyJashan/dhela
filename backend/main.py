@@ -37,7 +37,13 @@ logging.basicConfig(
 log = logging.getLogger("invoice-extractor")
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+# Benchmarked on a deliberately degraded 13-row bill (rotated, blurred, JPEG
+# q42) against known ground truth, two runs each:
+#   gemini-2.5-flash  36.7s  amounts correct 5 then 9 of 13   (unstable)
+#   gemini-3.5-flash  21.3s  amounts correct 11 and 11        (stable)
+#   gemini-3.6-flash  19.0s  amounts correct 11 and 11        (stable)
+# Half the latency and it stopped guessing. Override with GEMINI_MODEL.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 GEMINI_ENDPOINT = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
@@ -50,10 +56,15 @@ ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 
 
 def _use_anthropic() -> bool:
-    """Use Claude when selected and its key is present; otherwise fall back to Gemini."""
-    if AI_PROVIDER == "gemini":
-        return False
-    return bool(ANTHROPIC_API_KEY)
+    """
+    Gemini is the default for extraction now, on measured latency: reading a
+    bill is the one thing an operator waits on with the phone in their hand.
+    Claude stays one env var away (AI_PROVIDER=anthropic) so this is reversible
+    without a deploy of the frontend.
+    """
+    if AI_PROVIDER == "anthropic":
+        return bool(ANTHROPIC_API_KEY)
+    return False
 
 
 def _gemini_schema_to_json_schema(s: dict) -> dict:
@@ -220,6 +231,9 @@ class InvoiceLine(BaseModel):
     mfg_date: Optional[str] = None
     expiry_date: Optional[str] = None
     confidence: Optional[float] = None
+    # Set by the server when a line fails its own arithmetic, so the review
+    # screen can put the operator in front of it instead of hoping they spot it.
+    needs_review: Optional[bool] = None
 
 
 class InvoiceExtraction(BaseModel):
@@ -437,6 +451,38 @@ async def suggest_hsn(req: HsnSuggestRequest) -> HsnSuggestion:
     return result
 
 
+def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
+    """
+    Flag lines whose own arithmetic does not hold.
+
+    The failure that actually hurts is not a missing figure — the operator sees
+    a blank and fills it in. It is a number lifted from the neighbouring
+    column, which looks perfectly reasonable on screen and gets approved into
+    stock and cost. quantity x rate less discount is the cheapest test that
+    catches exactly that, and it costs nothing to run on every line.
+
+    Nothing is rewritten. A wrong figure silently corrected is worse than a
+    wrong figure clearly marked, because only one of them gets looked at.
+    """
+    for line in result.lines or []:
+        qty, rate, taxable = line.quantity, line.rate, line.taxable_value
+        if qty is None or rate is None or taxable is None:
+            continue
+        expected = float(qty) * float(rate)
+        if line.discount_pct:
+            expected *= 1 - float(line.discount_pct) / 100.0
+        # One rupee or one percent, whichever is larger — bills round per line
+        # and we are looking for wrong columns, not rounding.
+        tolerance = max(1.0, abs(expected) * 0.01)
+        if abs(expected - float(taxable)) > tolerance:
+            line.needs_review = True
+            if line.confidence is None or line.confidence > 40:
+                line.confidence = 40
+            note = f"line {line.line_no or '?'}: {qty} x {rate} = {expected:.2f}, printed {taxable}"
+            result.notes = f"{result.notes}; {note}" if result.notes else note
+    return result
+
+
 @app.post("/extract", response_model=InvoiceExtraction)
 async def extract(
     file: UploadFile = File(...),
@@ -471,7 +517,10 @@ async def extract(
         except Exception as e:  # noqa: BLE001
             log.exception("extract(claude): validation failed raw=%s", str(parsed)[:800])
             raise HTTPException(502, f"Malformed Claude response: {e}") from e
-        log.info("extract(claude): supplier=%s lines=%d", result.supplier_name, len(result.lines))
+        result = _reconcile_lines(result)
+        log.info("extract(claude): supplier=%s lines=%d flagged=%d",
+                 result.supplier_name, len(result.lines),
+                 sum(1 for l in result.lines if l.needs_review))
         return result
 
     if not GOOGLE_API_KEY:
@@ -528,9 +577,11 @@ async def extract(
         log.exception("extract: schema validation failed parsed=%s", str(parsed)[:800])
         raise HTTPException(502, f"Schema validation failed: {e}") from e
 
+    result = _reconcile_lines(result)
     log.info(
-        "extract: done lines=%d supplier=%s",
+        "extract: done lines=%d supplier=%s flagged=%d",
         len(result.lines), result.supplier_name,
+        sum(1 for l in result.lines if l.needs_review),
     )
     return result
 
