@@ -185,6 +185,28 @@ ALLOWED_ORIGINS = [
 ]
 
 app = FastAPI(title="Invoice Extraction Service", version="1.0.0")
+
+
+# Which model is actually reading bills is the single most consequential thing
+# about this service, and it is decided by environment variables that outlive
+# any deploy. A default changed in code is invisible when the variable is
+# already set — which is how ANTHROPIC_MODEL=claude-haiku-4-5 kept running long
+# after the code stopped recommending it. Say it out loud at startup.
+log.info(
+    "extraction engine: provider=%s model=%s (anthropic_key=%s gemini_key=%s)",
+    "anthropic" if _use_anthropic() else "gemini",
+    ANTHROPIC_MODEL if _use_anthropic() else GEMINI_MODEL,
+    bool(ANTHROPIC_API_KEY), bool(GOOGLE_API_KEY),
+)
+if _use_anthropic() and "haiku" in ANTHROPIC_MODEL.lower():
+    # Measured on a real 13-row bill: Haiku 4.5 returned 12 lines and read the
+    # GST-rate column as quantity on every one of them. Sonnet and Gemini 3.6
+    # Flash both read the same image exactly right.
+    log.warning(
+        "ANTHROPIC_MODEL=%s reads dense invoice tables badly — it misassigns columns. "
+        "Use claude-sonnet-5, or unset AI_PROVIDER to use Gemini.",
+        ANTHROPIC_MODEL,
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ["*"],
