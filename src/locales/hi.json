@@ -830,5 +830,8 @@
   "{{n}} voice minutes left this month": "इस महीने {{n}} वॉइस मिनट बाकी",
   "Voice mode closed after a minute of silence.": "एक मिनट चुप्पी के बाद वॉइस मोड बंद हो गया।",
   "That session hit its length limit. Tap the mic to start another.": "यह सेशन अपनी तय लंबाई तक पहुँच गया। नया शुरू करने के लिए माइक दबाइए।",
-  "Talk to the assistant — {{n}} min / month of instant voice": "असिस्टेंट से बात कीजिए — हर महीने {{n}} मिनट इंस्टेंट वॉइस"
+  "Talk to the assistant — {{n}} min / month of instant voice": "असिस्टेंट से बात कीजिए — हर महीने {{n}} मिनट इंस्टेंट वॉइस",
+  "Don't approve this — {{bad}} of {{all}} lines don't add up": "इसे अप्रूव मत कीजिए — {{all}} में से {{bad}} लाइनों का हिसाब नहीं बैठता",
+  "Quantity x rate doesn't produce the printed amount, so the columns were probably read in the wrong order. Re-extract, or type the figures in yourself.": "क्वांटिटी × रेट से छपी हुई रकम नहीं बनती, यानी कॉलम गलत क्रम में पढ़े गए हैं। दोबारा एक्सट्रैक्ट कीजिए, या आँकड़े खुद भरिए।",
+  "What the reader noticed": "रीडर ने क्या देखा"
 }

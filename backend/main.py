@@ -546,6 +546,26 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
                 line.confidence = 40
             note = f"line {line.line_no or '?'}: {qty} x {rate} = {expected:.2f}, printed {taxable}"
             result.notes = f"{result.notes}; {note}" if result.notes else note
+
+    # One bad row is a misread digit. Most rows bad means the columns were
+    # misidentified for the whole table, and every figure on the page is
+    # suspect — including the ones that happen to look right.
+    #
+    # This is the case that matters: a bill came back with twelve rows whose
+    # quantity x rate could not possibly produce the printed amount, and the
+    # screen still called it 72% accurate, because the model's own confidence
+    # was never contradicted by anything the server checked. A read this wrong
+    # must not be presentable as a read that mostly worked.
+    checkable = [l for l in (result.lines or [])
+                 if l.quantity is not None and l.rate is not None and l.taxable_value is not None]
+    failed = [l for l in checkable if l.needs_review]
+    if checkable and len(failed) * 2 >= len(checkable):
+        result.overall_confidence = min(result.overall_confidence or 100, 10)
+        headline = (f"{len(failed)} of {len(checkable)} lines do not add up — quantity x rate does not "
+                    f"produce the printed amount on any of them, so the columns were most likely read in "
+                    f"the wrong order. Do not approve this; re-extract or key it in.")
+        result.notes = f"{headline} {result.notes}" if result.notes else headline
+
     return result
 
 

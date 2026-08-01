@@ -160,6 +160,15 @@ function InvoiceReview() {
     } catch (e) { toast.error((e as Error).message); }
   };
 
+  /**
+   * A read where most lines fail their own quantity x rate is not a read with
+   * some errors in it — the columns were misidentified for the whole table, so
+   * every figure is suspect, including the ones that happen to look right.
+   * Twelve such lines once reached this screen under a "72% · Medium" badge.
+   */
+  const badLines = (lines ?? []).filter(l => l.needs_review).length;
+  const unusable = !!lines?.length && badLines * 2 >= lines.length;
+
   // Stored on every invoice already; nothing reads it today.
   const extractionNote = (() => {
     const raw = inv?.raw_extraction as { notes?: string | null } | null | undefined;
@@ -317,6 +326,21 @@ function InvoiceReview() {
                 <div className="mt-1.5"><ExtractionAccuracy value={inv.confidence} /></div>
               </div>
             </CardContent>
+            {unusable && inv.status !== "approved" && (
+              <CardContent className="pt-0">
+                <div className="flex gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-xs">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+                  <div>
+                    <p className="font-medium text-destructive">
+                      {t("Don't approve this — {{bad}} of {{all}} lines don't add up", { bad: badLines, all: lines?.length ?? 0 })}
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground">
+                      {t("Quantity x rate doesn't produce the printed amount, so the columns were probably read in the wrong order. Re-extract, or type the figures in yourself.")}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            )}
             {extractionNote && (
               /* The model explains itself — "continued to page number 2",
                  which totals it could not see, which figures disagree — and
