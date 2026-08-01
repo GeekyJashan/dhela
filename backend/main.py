@@ -11,6 +11,7 @@ Deploy to any container host (Render / Fly / Railway / Cloud Run).
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from typing import Any, List, Optional
@@ -21,7 +22,7 @@ import json
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 try:
     from dotenv import load_dotenv
@@ -235,6 +236,43 @@ async def request_logger(request: Request, call_next):
 
 
 # -------- Response schema (mirrors the frontend Zod schema) --------
+# Words a model reaches for when a figure is not on the page. The prompt asks
+# for null and Claude wrote the string "null" into a number field, which
+# pydantic rejected and turned into a 502 — the whole bill failed to upload
+# because one total was legitimately absent. Numbers also come back wearing
+# thousands separators, rupee signs and trailing percent marks.
+_NULLISH = {"", "-", "--", "—", "null", "none", "nil", "n/a", "na", "nan",
+            "not available", "not printed", "not visible", "unknown"}
+
+
+def _coerce_number(value: Any) -> Any:
+    """Best-effort string -> number, and absent -> None, for model output."""
+    if value is None or isinstance(value, (int, float)):
+        return value
+    if not isinstance(value, str):
+        return value
+
+    text = value.strip()
+    if text.lower() in _NULLISH:
+        return None
+    # Case-insensitive: bills and models write "Rs", "rs.", "INR" and "₹".
+    text = re.sub(r"(?i)\b(?:rs\.?|inr)\b|[\u20b9,%]", "", text).strip()
+    # "1234.56 NOS" — a quantity that kept its unit.
+    head = text.split()[0] if text.split() else ""
+    try:
+        return float(head)
+    except ValueError:
+        # Unparseable is closer to "not read" than to zero. Zero would post
+        # into stock and cost as a real figure.
+        return None
+
+
+_LINE_NUMBERS = ("quantity", "free_quantity", "rate", "mrp", "discount_pct",
+                 "gst_rate", "taxable_value", "tax_amount", "line_total", "confidence")
+_HEADER_NUMBERS = ("subtotal", "tax_total", "grand_total", "overall_confidence",
+                   "line_count_on_bill")
+
+
 class InvoiceLine(BaseModel):
     line_no: Optional[int] = None
     raw_description: str = ""
@@ -257,6 +295,11 @@ class InvoiceLine(BaseModel):
     # screen can put the operator in front of it instead of hoping they spot it.
     needs_review: Optional[bool] = None
 
+    @field_validator(*_LINE_NUMBERS, mode="before")
+    @classmethod
+    def _numbers(cls, v: Any) -> Any:
+        return _coerce_number(v)
+
 
 class InvoiceExtraction(BaseModel):
     # Asked for so the server can tell "read 9 rows" from "there were 9 rows".
@@ -272,6 +315,20 @@ class InvoiceExtraction(BaseModel):
     overall_confidence: Optional[float] = None
     notes: Optional[str] = None
     lines: List[InvoiceLine] = Field(default_factory=list)
+
+    @field_validator(*_HEADER_NUMBERS, mode="before")
+    @classmethod
+    def _numbers(cls, v: Any) -> Any:
+        return _coerce_number(v)
+
+    @field_validator("invoice_date", "invoice_number", "supplier_gstin", mode="before")
+    @classmethod
+    def _strings(cls, v: Any) -> Any:
+        # Same problem in the other direction: "null" as a date is a string
+        # pydantic accepts and the app then shows to an operator.
+        if isinstance(v, str) and v.strip().lower() in _NULLISH:
+            return None
+        return v
 
 
 SYSTEM_PROMPT = """You are an expert Indian purchase-invoice parser used by pharma, FMCG, hardware and grocery distributors.
