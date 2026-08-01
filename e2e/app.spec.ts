@@ -517,6 +517,30 @@ test.describe("assistant", () => {
     await expect(page.getByRole("button", { name: /talk to dhela/i }).first()).toBeVisible();
   });
 
+  // Bedrock is an addition, not a replacement: it is tried first when
+  // configured and every failure has to fall through to the provider that
+  // already works. A distributor asking about their receivables must not care
+  // which cloud answered.
+  test("the Bedrock path is additive and cannot break the existing one", () => {
+    const src = fs.readFileSync("src/lib/assistant.functions.ts", "utf8");
+
+    // The attempt is wrapped, and its failure is logged rather than thrown.
+    const attempt = src.slice(src.indexOf("if (bedrockConfigured())"), src.indexOf("if (!run) {"));
+    expect(attempt).toContain("try {");
+    expect(attempt).toContain("ask:bedrock_failed");
+    expect(attempt).not.toMatch(/throw\s/);
+
+    // And the fallback still runs when the attempt produced nothing.
+    expect(src).toMatch(/if \(!run\) \{[\s\S]*runAnthropic[\s\S]*runGemini/);
+
+    // Model ids carry a colon, and SigV4 needs it raw on the wire but encoded
+    // in the string it signs. Encoding both is a signature mismatch, which is
+    // exactly the bug this shipped with first.
+    const bedrock = fs.readFileSync("src/lib/bedrock.ts", "utf8");
+    expect(bedrock).toContain("const path = `/model/${model}/converse`");
+    expect(bedrock).toContain("const canonicalPath = `/model/${encodeURIComponent(model)}/converse`");
+  });
+
   // Realtime voice bills per minute of audio, in and out, for as long as the
   // socket is open — the one meter in this product that runs while nobody is
   // doing anything. These constants are the whole cost control, so they get a

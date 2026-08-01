@@ -5,6 +5,7 @@ import { createLogger } from "./logger";
 import { TOOL_DECLARATIONS, executeTool } from "./assistant-tools";
 import { getOrgBilling } from "./billing.functions";
 import { aiProvider, anthropicModel, geminiModel, toAnthropicTools } from "./ai-provider";
+import { bedrockConverse, bedrockConfigured, bedrockModel, type ConverseMessage } from "./bedrock";
 
 const log = createLogger("assistant.functions");
 
@@ -192,6 +193,64 @@ async function runAnthropic(
   return { answer, toolCalls };
 }
 
+
+/**
+ * Bedrock agentic loop, same tools and same contract as the other two.
+ *
+ * Tried first when it is configured, and allowed to fail: every error here is
+ * caught by the caller and the question is re-run on the existing provider.
+ * A second front door is only worth having if it cannot lock the first one.
+ */
+async function runBedrock(
+  system: string, history: QA[], question: string, db: Db,
+): Promise<{ answer: string; toolCalls: number }> {
+  const tools = toAnthropicTools(TOOL_DECLARATIONS);
+  const messages: ConverseMessage[] = [];
+  for (const h of history) {
+    messages.push({ role: "user", content: [{ text: h.question }] });
+    messages.push({ role: "assistant", content: [{ text: h.answer }] });
+  }
+  messages.push({ role: "user", content: [{ text: question }] });
+
+  let toolCalls = 0;
+  let answer = "";
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const resp = await bedrockConverse({ system, messages, tools });
+    answer = resp.text || answer;
+
+    if (!resp.toolUses.length) break;
+
+    // Converse requires the assistant turn to be replayed verbatim, tool
+    // blocks included, before the results can be attached to it.
+    messages.push({
+      role: "assistant",
+      content: [
+        ...(resp.text ? [{ text: resp.text }] : []),
+        ...resp.toolUses.map(t => ({ toolUse: { toolUseId: t.id, name: t.name, input: t.input } })),
+      ],
+    });
+
+    const results = [];
+    for (const use of resp.toolUses) {
+      toolCalls++;
+      let result: unknown;
+      try { result = await executeTool(db, use.name, use.input ?? {}); }
+      catch (e) { result = { error: (e as Error).message }; }
+      results.push({
+        toolResult: {
+          toolUseId: use.id,
+          // json, not text: Converse keeps the structure, so the model reads
+          // figures as numbers rather than re-parsing a string.
+          content: [{ json: result as Record<string, unknown> }],
+          status: "success",
+        },
+      });
+    }
+    messages.push({ role: "user", content: results });
+  }
+  return { answer, toolCalls };
+}
+
 export const askAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -204,7 +263,9 @@ export const askAssistant = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const provider = aiProvider();
     const apiKey = provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    // Either route is enough to answer. Refusing when only one is present
+    // would make adding Bedrock a way to break a working install.
+    if (!apiKey && !bedrockConfigured()) {
       throw new Error(
         `Assistant is not configured (${provider === "anthropic" ? "ANTHROPIC_API_KEY" : "GOOGLE_API_KEY"} missing on the server)`,
       );
@@ -235,9 +296,26 @@ export const askAssistant = createServerFn({ method: "POST" })
     log.info("ask:start", { orgId, provider, q: data.question.slice(0, 80) });
     const t0 = Date.now();
     const system = systemPrompt(orgName, data.mode ?? "text");
-    const run = provider === "anthropic"
-      ? await runAnthropic(apiKey, system, qaHistory, data.question, supabase)
-      : await runGemini(apiKey, system, qaHistory, data.question, supabase);
+    // Bedrock first when it is configured, with the existing provider as the
+    // safety net. Credentials, model access, throttling and regional outages
+    // are all things that go wrong on someone else's schedule, and none of
+    // them should turn into a failed question for a distributor.
+    let run: { answer: string; toolCalls: number } | null = null;
+    if (bedrockConfigured()) {
+      const t = Date.now();
+      try {
+        run = await runBedrock(system, qaHistory, data.question, supabase);
+        log.info("ask:bedrock", { model: bedrockModel(), ms: Date.now() - t });
+      } catch (e) {
+        log.error("ask:bedrock_failed", { model: bedrockModel(), err: (e as Error).message.slice(0, 200) });
+      }
+    }
+    if (!run) {
+      if (!apiKey) throw new Error("Assistant is unavailable: Bedrock failed and no fallback provider is configured.");
+      run = provider === "anthropic"
+        ? await runAnthropic(apiKey, system, qaHistory, data.question, supabase)
+        : await runGemini(apiKey, system, qaHistory, data.question, supabase);
+    }
     const toolCalls = run.toolCalls;
 
     const answer = run.answer
