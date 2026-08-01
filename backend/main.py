@@ -613,6 +613,41 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
         if result.overall_confidence is None or result.overall_confidence > 40:
             result.overall_confidence = 40
 
+    # Infer a trade discount the reader did not record.
+    #
+    # Indian distributor bills price off a list rate and knock 50-70% off it, and
+    # not every bill labels that column the same way. When quantity x rate
+    # overshoots the printed amount by the same proportion on row after row,
+    # that is a discount column, not a misread — and treating it as a misread
+    # condemns a perfectly good extraction. One row could be a coincidence;
+    # agreement across most of the bill is the supplier's pricing.
+    implied: list[float] = []
+    for line in result.lines or []:
+        if line.discount_pct or not (line.quantity and line.rate and line.taxable_value):
+            continue
+        gross = float(line.quantity) * float(line.rate)
+        if gross <= 0:
+            continue
+        pct = (1 - float(line.taxable_value) / gross) * 100
+        if 0.5 <= pct <= 95:            # a real discount, not noise or nonsense
+            implied.append(round(pct, 2))
+
+    if len(implied) >= 3:
+        common = max(set(implied), key=implied.count)
+        if implied.count(common) * 2 >= len(implied):
+            filled = 0
+            for line in result.lines or []:
+                if line.discount_pct or not (line.quantity and line.rate and line.taxable_value):
+                    continue
+                gross = float(line.quantity) * float(line.rate)
+                if gross > 0 and abs((1 - float(line.taxable_value) / gross) * 100 - common) < 0.5:
+                    line.discount_pct = common
+                    filled += 1
+            if filled:
+                note = (f"A {common:g}% trade discount was not labelled on the bill but is consistent "
+                        f"across {filled} lines — applied so the amounts reconcile.")
+                result.notes = f"{result.notes}; {note}" if result.notes else note
+
     for line in result.lines or []:
         # Models disagree about where the row's amount belongs. Gemini fills
         # taxable_value; Claude fills line_total and leaves taxable_value null,

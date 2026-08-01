@@ -833,5 +833,6 @@
   "Talk to the assistant — {{n}} min / month of instant voice": "ਅਸਿਸਟੈਂਟ ਨਾਲ ਗੱਲ ਕਰੋ — ਹਰ ਮਹੀਨੇ {{n}} ਮਿੰਟ ਇੰਸਟੈਂਟ ਵੌਇਸ",
   "Don't approve this — {{bad}} of {{all}} lines don't add up": "ਇਸਨੂੰ ਅਪਰੂਵ ਨਾ ਕਰੋ — {{all}} ਵਿੱਚੋਂ {{bad}} ਲਾਈਨਾਂ ਦਾ ਹਿਸਾਬ ਨਹੀਂ ਬਣਦਾ",
   "Quantity x rate doesn't produce the printed amount, so the columns were probably read in the wrong order. Re-extract, or type the figures in yourself.": "ਕੁਆਂਟਿਟੀ × ਰੇਟ ਤੋਂ ਛਪੀ ਹੋਈ ਰਕਮ ਨਹੀਂ ਬਣਦੀ, ਯਾਨੀ ਕਾਲਮ ਗਲਤ ਕ੍ਰਮ ਵਿੱਚ ਪੜ੍ਹੇ ਗਏ ਹਨ। ਦੁਬਾਰਾ ਐਕਸਟਰੈਕਟ ਕਰੋ, ਜਾਂ ਅੰਕੜੇ ਖੁਦ ਭਰੋ।",
-  "What the reader noticed": "ਰੀਡਰ ਨੇ ਕੀ ਵੇਖਿਆ"
+  "What the reader noticed": "ਰੀਡਰ ਨੇ ਕੀ ਵੇਖਿਆ",
+  "Cost/unit": "ਪ੍ਰਤੀ ਯੂਨਿਟ ਲਾਗਤ"
 }

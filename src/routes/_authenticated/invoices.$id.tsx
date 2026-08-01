@@ -166,7 +166,19 @@ function InvoiceReview() {
    * every figure is suspect, including the ones that happen to look right.
    * Twelve such lines once reached this screen under a "72% · Medium" badge.
    */
-  const badLines = (lines ?? []).filter(l => l.needs_review).length;
+  /**
+   * needs_review is set for any reason, low confidence included, so counting it
+   * told an operator that thirteen correct lines "don't add up". The banner has
+   * to test the thing it claims: quantity x rate, less the discount the bill
+   * actually charged, against the printed amount.
+   */
+  const failsArithmetic = (l: { quantity: number | null; rate: number | null;
+                                discount_pct: number | null; taxable_value: number | null }) => {
+    if (l.quantity == null || l.rate == null || l.taxable_value == null) return false;
+    const expected = l.quantity * l.rate * (1 - (l.discount_pct ?? 0) / 100);
+    return Math.abs(expected - l.taxable_value) > Math.max(1, Math.abs(expected) * 0.01);
+  };
+  const badLines = (lines ?? []).filter(failsArithmetic).length;
   const unusable = !!lines?.length && badLines * 2 >= lines.length;
 
   // Stored on every invoice already; nothing reads it today.
@@ -385,6 +397,13 @@ function InvoiceReview() {
                     <TableHead>{t("Qty")}</TableHead>
                     <TableHead>{t("Free")}</TableHead>
                     <TableHead>{t("Rate")}</TableHead>
+                    <TableHead>{t("Disc%")}</TableHead>
+                    {/* What the unit actually cost, after the trade discount.
+                        Rate is the list price — on this supplier's bills it is
+                        nearly three times what was paid. Stock cost and every
+                        profit figure downstream are built from this number, so
+                        it is the one worth showing. */}
+                    <TableHead className="text-right">{t("Cost/unit")}</TableHead>
                     <TableHead>{t("GST%")}</TableHead>
                     <TableHead>{t("Batch")}</TableHead>
                     <TableHead>{t("Expiry")}</TableHead>
@@ -416,6 +435,13 @@ function InvoiceReview() {
                       <TableCell className="tabular-nums">{l.quantity}</TableCell>
                       <TableCell className="tabular-nums">{l.free_quantity || "—"}</TableCell>
                       <TableCell className="tabular-nums">{l.rate}</TableCell>
+                      <TableCell className="tabular-nums">{l.discount_pct ? `${l.discount_pct}%` : "—"}</TableCell>
+                      <TableCell className="tabular-nums text-right font-medium">
+                        {l.quantity && l.taxable_value
+                          ? (l.taxable_value / l.quantity).toLocaleString("en-IN",
+                              { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : "—"}
+                      </TableCell>
                       <TableCell className="tabular-nums">{l.gst_rate}</TableCell>
                       <TableCell className="text-xs">{l.batch}</TableCell>
                       <TableCell className="text-xs">{l.expiry_date}</TableCell>
