@@ -237,6 +237,9 @@ class InvoiceLine(BaseModel):
 
 
 class InvoiceExtraction(BaseModel):
+    # Asked for so the server can tell "read 9 rows" from "there were 9 rows".
+    line_count_on_bill: Optional[int] = None
+    column_order: Optional[str] = None
     supplier_name: Optional[str] = None
     supplier_gstin: Optional[str] = None
     invoice_number: Optional[str] = None
@@ -252,34 +255,57 @@ class InvoiceExtraction(BaseModel):
 SYSTEM_PROMPT = """You are an expert Indian purchase-invoice parser used by pharma, FMCG, hardware and grocery distributors.
 Extract every product line and every header field exactly as printed. Never calculate a figure that is not on the page.
 
-The input is often a handheld phone photo of a paper bill: skewed, unevenly lit, creased, curled or
-partially cropped. Read only what you can actually see. Where a figure is obscured, return null.
+The input is usually a handheld phone photo of a paper bill — often a faint carbon or dot-matrix print,
+skewed, shadowed or creased. Read only what you can actually see. Where a figure is obscured, return null.
 A null is useful to the operator reviewing this; a confident wrong number is worse than nothing,
 because it gets approved into their stock and cost.
 
-Rules:
-- Return dates in YYYY-MM-DD when possible; null if unreadable.
-- Quantities and money are plain numbers — no currency symbols, no thousands separators.
-- Detect free schemes ("10+1", "BUY 100 GET 12 FREE"): billed units in quantity, free units in free_quantity.
+THE TWO MISTAKES THAT MATTER MOST
+
+1. Numbers inside the description are not quantities.
+   Product names on these bills are full of numbers: "PVC R ELBOW 160 MM X 110 MM 4 KG", "SWR Y-TEE 110 MM",
+   "ELBOW 90 MM X 45". Sizes, bores, degrees and pack weights all live in the description text.
+   quantity, rate, discount and amount come ONLY from their own numeric columns, never from the
+   description. If a row's description ends in "6 KG" and the Quantity column says 50, the quantity is 50.
+
+2. Do not skip rows.
+   Count the printed product rows first and put that number in `line_count_on_bill`, then emit exactly
+   that many objects in `lines`. Faint rows, tightly-spaced rows and rows near the bottom of the table are
+   the ones that get lost. A description that wraps onto a second visual line is still ONE row. If your
+   `lines` array is shorter than `line_count_on_bill`, you have dropped rows — go back and find them.
+
+READING THE COLUMNS
+- Read the column header row first, left to right, and record it in `column_order` exactly as printed.
+  Identify every number by which column it sits in, not by how large or plausible it looks.
+- A quantity cell often carries its unit in the same cell ("50.00 NOS", "12 PCS", "5 BOX"). Put the number
+  in quantity and the unit in unit. "NOS" is a unit, not a quantity.
+- Indian bills frequently carry a large trade discount (50-70%) and print the amount AFTER it. So the test
+  for every row is: quantity x rate x (1 - discount_pct/100) should equal the amount printed on that row.
+  Use that to confirm you took each number from the right column. If it does not hold, you have picked up
+  a neighbouring column — look along the row for the numbers that do make it hold.
+- A column whose values only ever INCREASE down the page is a running total, never a line amount.
+- MRP is a printed retail price, normally well above rate. Rate is what this supplier charged.
+
+FIELD RULES
+- Dates in YYYY-MM-DD when possible; null if unreadable.
+- Quantities and money are plain numbers — no currency symbols, no thousands separators, no unit words.
+- Free schemes ("10+1", "BUY 100 GET 12 FREE"): billed units in quantity, free units in free_quantity.
+  A blank Free column means 0.
 - Extract HSN, batch, expiry and mfg date whenever printed.
-- Watch the columns. Rate, MRP and line total sit next to each other and are easily swapped, and a
-  running or cumulative total is not a line total. If you cannot tell which column a number belongs
-  to, return null for it.
-- Prefer null over guessing, everywhere.
+- Charges such as cartage, freight or insurance are NOT product lines. Leave them out of `lines`.
+- Prefer null over guessing, everywhere. Never invent a row to make a total reconcile.
 
-Check your own arithmetic before you answer:
-- subtotal + tax_total should equal grand_total.
-- The per-line taxable_value figures should sum to subtotal.
-- On each line, quantity x rate less discount_pct should equal taxable_value.
-If these do not reconcile, read the invoice again before responding. If they still do not reconcile,
-return the figures as printed, lower the confidences accordingly, and state plainly in `notes` which
-figures disagree.
+HEADER TOTALS
+- The per-line amounts should sum to subtotal, and subtotal + tax_total should equal grand_total.
+  If they do not, re-read before answering; if they still do not, return the figures as printed and say
+  in `notes` exactly which ones disagree.
 
-Confidence means correctness, not just legibility:
-- confidence (per line): 90+ only when every field on that line is clearly readable AND that line's own
-  arithmetic works. Below 50 whenever you are inferring a column or a digit.
-- overall_confidence: driven primarily by whether the header totals reconcile. If subtotal + tax_total
-  does not equal grand_total, overall_confidence must be below 50 no matter how sharp the image is.
+CONFIDENCE MEANS CORRECTNESS, NOT LEGIBILITY
+- confidence (per line): 90+ only when every field is clearly readable AND that line's own
+  quantity x rate x (1 - discount) reconciles with its amount. Below 50 whenever you are inferring
+  a column or a digit.
+- overall_confidence: below 50 if the totals do not reconcile, or if len(lines) does not equal
+  line_count_on_bill, however sharp the image is.
 - If the image is too poor to parse reliably, return only the lines you are sure of, set
   overall_confidence below 25, and explain what went wrong in `notes`.
 
@@ -298,6 +324,11 @@ RESPONSE_SCHEMA: dict[str, Any] = {
         "grand_total": {"type": "NUMBER", "nullable": True},
         "overall_confidence": {"type": "NUMBER", "nullable": True},
         "notes": {"type": "STRING", "nullable": True},
+        # Self-checks. Counting the rows and then emitting that many is what
+        # stopped rows going missing; asking for the header order is what stops
+        # numbers being taken from the wrong column.
+        "line_count_on_bill": {"type": "INTEGER", "nullable": True},
+        "column_order": {"type": "STRING", "nullable": True},
         "lines": {
             "type": "ARRAY",
             "items": {
@@ -464,6 +495,16 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
     Nothing is rewritten. A wrong figure silently corrected is worse than a
     wrong figure clearly marked, because only one of them gets looked at.
     """
+    # The model counted the rows before extracting them. If it then emitted
+    # fewer, rows went missing — which is invisible on the review screen,
+    # because nine plausible lines look exactly like a nine-line bill.
+    claimed = result.line_count_on_bill
+    if claimed and claimed > len(result.lines or []):
+        note = f"bill appears to have {claimed} rows, {len(result.lines or [])} were read"
+        result.notes = f"{result.notes}; {note}" if result.notes else note
+        if result.overall_confidence is None or result.overall_confidence > 40:
+            result.overall_confidence = 40
+
     for line in result.lines or []:
         qty, rate, taxable = line.quantity, line.rate, line.taxable_value
         if qty is None or rate is None or taxable is None:
