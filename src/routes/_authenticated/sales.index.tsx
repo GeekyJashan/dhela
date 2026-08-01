@@ -3,6 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
+import { useRef, useState as useReactState } from "react";
+import { importSalesInvoice } from "@/lib/sales-import.functions";
+import { Upload, Loader2 } from "lucide-react";
 import { recordPayment } from "@/lib/payments.functions";
 import { issueSalesInvoice } from "@/lib/sales.functions";
 import { Card } from "@/components/ui/card";
@@ -118,7 +121,14 @@ function SalesList() {
           <h1 className="font-display text-4xl">{t("Sales invoices")}</h1>
           <p className="text-muted-foreground mt-1">{t("Bill retailers, track GST and profit in real time.")}</p>
         </div>
-        <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("New sales invoice")}</Button></Link>
+        <div className="flex items-center gap-2">
+          {/* Reading an invoice the distributor already issued is how six
+              months of history gets into Dhela without anyone retyping it.
+              Secondary to writing a new one — this is a migration tool, not
+              the daily path. */}
+          <ImportSalesInvoice />
+          <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("New sales invoice")}</Button></Link>
+        </div>
       </div>
       <Card>
         <Table>
@@ -229,5 +239,66 @@ function SalesList() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Upload an already-issued sales invoice and get a draft back.
+ *
+ * Always a draft. Issuing deducts stock and locks cost, and a machine reading
+ * of a photograph is not grounds for moving someone's inventory — the operator
+ * checks it and issues it themselves.
+ */
+function ImportSalesInvoice() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const runImport = useServerFn(importSalesInvoice);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useReactState(false);
+
+  const onPick = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const { data: mem } = await supabase.from("memberships")
+        .select("org_id").eq("user_id", userRes.user!.id).limit(1).maybeSingle();
+      if (!mem) throw new Error(t("No workspace"));
+
+      const path = `${mem.org_id}/sales/${crypto.randomUUID()}-${file.name}`;
+      const { error } = await supabase.storage.from("invoices")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw new Error(error.message);
+
+      const res = await runImport({ data: { storagePath: path, mimeType: file.type || "application/octet-stream" } });
+      toast.success(
+        res.retailerCreated
+          ? t("Read {{n}} line(s) and added {{name}} as a new retailer.", { n: res.lineCount, name: res.retailer })
+          : t("Read {{n}} line(s) for {{name}}.", { n: res.lineCount, name: res.retailer }),
+      );
+      if (res.unmatched) {
+        // Said out loud because an unlinked line does not move stock when the
+        // invoice is issued, and that is silent otherwise.
+        toast.warning(t("{{n}} line(s) aren't linked to a product yet — link them before issuing.", { n: res.unmatched }));
+      }
+      navigate({ to: "/sales/$id", params: { id: res.invoiceId } });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden"
+        onChange={e => onPick(e.target.files?.[0])} />
+      <Button size="lg" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()}>
+        {busy
+          ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("Reading…")}</>
+          : <><Upload className="h-4 w-4 mr-2" /> {t("Upload invoice")}</>}
+      </Button>
+    </>
   );
 }

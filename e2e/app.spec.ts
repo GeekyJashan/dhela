@@ -136,6 +136,31 @@ test.describe("purchases", () => {
   });
 });
 
+test.describe("sales import", () => {
+  // Importing already-issued invoices is how a distributor's existing history
+  // gets in without retyping it. It must never issue on their behalf: issuing
+  // deducts stock and locks cost, and a machine reading a photograph is not
+  // grounds for moving someone's inventory.
+  test("importing a sales invoice offers it, and creates a draft not an issue", async ({ page }) => {
+    await page.goto("/sales");
+    await expect(page.getByRole("button", { name: /upload invoice/i })).toBeVisible();
+    // Writing a new invoice stays the primary action; this is a migration tool.
+    await expect(page.getByRole("link", { name: /new sales invoice/i })).toBeVisible();
+
+    const src = fs.readFileSync("src/lib/sales-import.functions.ts", "utf8");
+    expect(src, "an import must land as a draft").toContain('status: "draft"');
+    expect(src).not.toMatch(/status:\s*"issued"/);
+    // Cost comes from our own weighted-average at issue, never from the
+    // customer's copy of the bill.
+    expect(src).toContain("cost_price: 0");
+    // And the counterparty on a sales invoice is the buyer, not us.
+    const backend = fs.readFileSync("backend/main.py", "utf8");
+    expect(backend).toContain("THIS IS A SALES INVOICE THE USER ISSUED");
+    expect(backend).toContain('doc_type: Optional[str] = Form(None)');
+  });
+
+});
+
 test.describe("payments", () => {
   test("history filters by direction", async ({ page }) => {
     await page.goto("/payments");

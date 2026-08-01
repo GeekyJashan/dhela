@@ -347,6 +347,19 @@ class InvoiceExtraction(BaseModel):
         return v
 
 
+# A sales invoice is the same table read from the other side of the counter.
+# Everything about columns, discounts and totals holds; the only thing that
+# inverts is who the counterparty is. Getting that backwards files the
+# distributor's own name as the customer on every invoice they import.
+SALES_CONTEXT = """
+THIS IS A SALES INVOICE THE USER ISSUED, NOT A BILL THEY RECEIVED.
+- The seller is the user's own business. Ignore it.
+- `supplier_name` and `supplier_gstin` must hold the BUYER — the customer the invoice was made out to,
+  usually labelled "Buyer", "Bill To", "Customer" or "M/s". If a separate "Ship To" or "Consignee"
+  differs from "Bill To", use Bill To.
+- Everything else — line items, quantities, rates, discounts, taxes, totals — is read exactly the same way.
+"""
+
 SYSTEM_PROMPT = """You are an expert Indian purchase-invoice parser used by pharma, FMCG, hardware and grocery distributors.
 Extract every product line and every header field exactly as printed. Never calculate a figure that is not on the page.
 
@@ -738,6 +751,8 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
 async def extract(
     file: UploadFile = File(...),
     mime_type: Optional[str] = Form(None),
+    # "purchase" (default) or "sales". Only changes which party is captured.
+    doc_type: Optional[str] = Form(None),
 ) -> InvoiceExtraction:
     raw = await file.read()
     if not raw:
@@ -750,6 +765,7 @@ async def extract(
         file.filename, len(raw), mime,
     )
     b64 = base64.b64encode(raw).decode("ascii")
+    prompt = SYSTEM_PROMPT + (SALES_CONTEXT if (doc_type or "").lower() == "sales" else "")
 
     if _use_anthropic():
         log.info("extract: calling Claude model=%s mime=%s", ANTHROPIC_MODEL, mime)
@@ -760,7 +776,7 @@ async def extract(
         else:
             raise HTTPException(400, f"Claude extraction supports PDF and images, not {mime}")
         parsed = await _anthropic_json(
-            SYSTEM_PROMPT, RESPONSE_SCHEMA,
+            prompt, RESPONSE_SCHEMA,
             [doc_block, {"type": "text", "text": "Extract the full purchase invoice as structured JSON."}],
         )
         try:
@@ -779,12 +795,12 @@ async def extract(
         raise HTTPException(500, "No AI provider configured (set ANTHROPIC_API_KEY or GOOGLE_API_KEY)")
 
     payload = {
-        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "systemInstruction": {"parts": [{"text": prompt}]},
         "contents": [
             {
                 "role": "user",
                 "parts": [
-                    {"text": "Extract the full purchase invoice as structured JSON."},
+                    {"text": "Extract the full invoice as structured JSON."},
                     {"inlineData": {"mimeType": mime, "data": b64}},
                 ],
             }

@@ -845,5 +845,9 @@
   "from sale to money in the bank": "बिक्री से बैंक में पैसा आने तक",
   "at the last {{n}} days' rate": "पिछले {{n}} दिनों की रफ़्तार पर",
   "{{n}} days": "{{n}} दिन",
-  "Based on {{n}} sale(s) in the last {{d}} days — the ratios below need a bit more history before they mean much.": "पिछले {{d}} दिनों की {{n}} बिक्री पर आधारित — नीचे के अनुपात सही मायने रखने के लिए थोड़ा और इतिहास चाहिए।"
+  "Based on {{n}} sale(s) in the last {{d}} days — the ratios below need a bit more history before they mean much.": "पिछले {{d}} दिनों की {{n}} बिक्री पर आधारित — नीचे के अनुपात सही मायने रखने के लिए थोड़ा और इतिहास चाहिए।",
+  "No workspace": "कोई वर्कस्पेस नहीं",
+  "Read {{n}} line(s) and added {{name}} as a new retailer.": "{{n}} लाइन पढ़ीं और {{name}} को नए रिटेलर के रूप में जोड़ा।",
+  "Read {{n}} line(s) for {{name}}.": "{{name}} के लिए {{n}} लाइन पढ़ीं।",
+  "{{n}} line(s) aren't linked to a product yet — link them before issuing.": "{{n}} लाइनें अभी किसी प्रोडक्ट से जुड़ी नहीं हैं — इशू करने से पहले जोड़िए।"
 }
