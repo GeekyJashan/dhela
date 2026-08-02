@@ -880,5 +880,18 @@
   "City — e.g. Ludhiana": "ਸ਼ਹਿਰ — ਜਿਵੇਂ ਲੁਧਿਆਣਾ",
   "Searches business listings for wholesalers and distributors in a trade and city, and adds the ones worth a look with their phone numbers.": "ਕਿਸੇ ਕਾਰੋਬਾਰ ਤੇ ਸ਼ਹਿਰ ਵਿੱਚ ਥੋਕ ਵਿਕਰੇਤਾ ਤੇ ਡਿਸਟ੍ਰੀਬਿਊਟਰ ਦੀਆਂ ਲਿਸਟਿੰਗਾਂ ਖੋਜਦਾ ਹੈ, ਤੇ ਕੰਮ ਦੇ ਨਾਵਾਂ ਨੂੰ ਫ਼ੋਨ ਨੰਬਰ ਸਮੇਤ ਜੋੜ ਦਿੰਦਾ ਹੈ।",
   "These are scored on the listing alone, so they cap lower than a lead with a GSTIN. Add the GSTIN later and it is rescored against the tax registry.": "ਇਹ ਸਿਰਫ਼ ਲਿਸਟਿੰਗ ਦੇ ਆਧਾਰ ਉੱਤੇ ਸਕੋਰ ਹੁੰਦੇ ਹਨ, ਇਸ ਲਈ GSTIN ਵਾਲੀ ਲੀਡ ਤੋਂ ਘੱਟ ਰਹਿੰਦੇ ਹਨ। ਬਾਅਦ ਵਿੱਚ GSTIN ਜੋੜੋ, ਤਾਂ ਟੈਕਸ ਰਜਿਸਟਰੀ ਤੋਂ ਦੁਬਾਰਾ ਸਕੋਰ ਹੋ ਜਾਵੇਗਾ।",
-  "Found {{f}}, added {{a}}, {{d}} already known": "{{f}} ਮਿਲੇ, {{a}} ਜੋੜੇ, {{d}} ਪਹਿਲਾਂ ਤੋਂ ਸਨ"
+  "Found {{f}}, added {{a}}, {{d}} already known": "{{f}} ਮਿਲੇ, {{a}} ਜੋੜੇ, {{d}} ਪਹਿਲਾਂ ਤੋਂ ਸਨ",
+  "Marketing": "ਮਾਰਕੀਟਿੰਗ",
+  "Write a post": "ਪੋਸਟ ਲਿਖੋ",
+  "Writing…": "ਲਿਖ ਰਹੇ ਹਾਂ…",
+  "Post now": "ਹੁਣੇ ਪੋਸਟ ਕਰੋ",
+  "Posted": "ਪੋਸਟ ਹੋ ਗਿਆ",
+  "Copy": "ਕਾਪੀ",
+  "Copied": "ਕਾਪੀ ਹੋ ਗਿਆ",
+  "View post": "ਪੋਸਟ ਵੇਖੋ",
+  "Posted (no link returned)": "ਪੋਸਟ ਹੋ ਗਿਆ (ਲਿੰਕ ਨਹੀਂ ਮਿਲਿਆ)",
+  "Nothing drafted for this channel yet.": "ਇਸ ਚੈਨਲ ਲਈ ਹਾਲੇ ਕੁਝ ਨਹੀਂ ਲਿਖਿਆ।",
+  "Write a post grounded in what Dhela actually does, then put it out.": "ਢੇਲਾ ਅਸਲ ਵਿੱਚ ਕੀ ਕਰਦਾ ਹੈ, ਉਸੇ ਉੱਤੇ ਪੋਸਟ ਲਿਖੋ ਤੇ ਭੇਜ ਦਿਓ।",
+  "What about? Leave empty and it picks an angle you haven't used.": "ਕਿਸ ਬਾਰੇ? ਖਾਲੀ ਛੱਡ ਦਿਓ ਤਾਂ ਕੋਈ ਨਵਾਂ ਐਂਗਲ ਚੁਣ ਲਵੇਗਾ।",
+  "Over the limit by {{n}} characters — trim before posting.": "{{n}} ਅੱਖਰ ਵੱਧ ਹਨ — ਪੋਸਟ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਛੋਟਾ ਕਰੋ।"
 }

@@ -214,6 +214,43 @@ test.describe("leads", () => {
   });
 });
 
+test.describe("marketing", () => {
+  // Publishing twice is the failure that embarrasses, and a retry after a
+  // network wobble is the ordinary way it happens.
+  test("a published post cannot be published again", () => {
+    const src = fs.readFileSync("src/lib/marketing.functions.ts", "utf8");
+    expect(src).toMatch(/status === "published"/);
+    expect(src).toContain("Already published");
+    // A failure is recorded, not swallowed: one that looks like a draft gets
+    // retried forever, one that looks published never gets sent at all.
+    expect(src).toMatch(/status: "failed"/);
+  });
+
+  test("what is on screen is what goes out", () => {
+    const api = fs.readFileSync("src/lib/marketing.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/marketing.tsx", "utf8");
+    // The edited body travels with the publish call rather than being written
+    // by the client first, so one place decides what gets posted.
+    expect(api).toMatch(/body: z\.string\(\)[^\n]*optional\(\)/);
+    expect(ui).toContain("publish({ data: { id: p.id, body } })");
+    expect(ui, "the client must not write the table directly")
+      .not.toContain('supabase.from("marketing_posts")');
+  });
+
+  test("Growth is its own admin-only section", () => {
+    const nav = fs.readFileSync("src/routes/_authenticated/route.tsx", "utf8");
+    const adminOnly = nav.slice(nav.indexOf("const groups: NavGroup[] = isAdmin"), nav.indexOf(": NAV_GROUPS;"));
+    expect(adminOnly).toContain('label: "Growth"');
+    expect(adminOnly).toContain('label: "Marketing"');
+    expect(adminOnly).toContain('label: "Leads"');
+    // And nothing of the sort in the nav every customer gets.
+    const shared = nav.slice(0, nav.indexOf("const groups: NavGroup[]"));
+    for (const label of ["Growth", "Marketing", "Leads"]) {
+      expect(shared, `${label} must not be in the shared nav`).not.toContain(`label: "${label}"`);
+    }
+  });
+});
+
 test.describe("sales import", () => {
   // Importing already-issued invoices is how a distributor's existing history
   // gets in without retyping it. It must never issue on their behalf: issuing

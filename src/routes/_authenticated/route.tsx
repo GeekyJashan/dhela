@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target, Megaphone } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -86,18 +86,20 @@ function AuthedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = Route.useRouteContext();
   const isAdmin = (user?.app_metadata as { platform_admin?: boolean } | undefined)?.platform_admin === true;
-  // Admin and Leads join the existing System group rather than adding a second
-  // one. Leads is the founder's prospecting pipeline for selling Dhela — it is
-  // nothing to do with a distributor's own business, and every customer seeing
-  // it in their sidebar was simply wrong.
+  // Growth is selling Dhela — prospects and the posts that bring them in. It
+  // has nothing to do with a distributor's own business, so it exists only for
+  // platform admins and sits in its own group rather than muddled into System,
+  // which is workspace settings.
   const groups: NavGroup[] = isAdmin
-    ? NAV_GROUPS.map(g => g.label === "System"
-        ? { ...g, items: [
-            ...g.items,
-            { to: "/leads", label: "Leads", icon: Target },
-            { to: "/admin", label: "Admin", icon: ShieldCheck },
-          ] }
-        : g)
+    ? [
+        ...NAV_GROUPS.map(g => g.label === "System"
+          ? { ...g, items: [...g.items, { to: "/admin", label: "Admin", icon: ShieldCheck }] }
+          : g),
+        { label: "Growth", items: [
+          { to: "/leads", label: "Leads", icon: Target },
+          { to: "/marketing", label: "Marketing", icon: Megaphone },
+        ] },
+      ]
     : NAV_GROUPS;
 
   const signOut = async () => {
