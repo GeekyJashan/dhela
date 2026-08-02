@@ -15,7 +15,8 @@
     "seed:e2e": "node e2e/seed.mjs",
     "fonts": "node scripts/build-fonts.mjs",
     "blog": "node scripts/build-blog.mjs",
-    "fillers": "node scripts/build-fillers.mjs"
+    "fillers": "node scripts/build-fillers.mjs",
+    "leads": "node scripts/qualify-leads.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.5",

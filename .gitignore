@@ -63,3 +63,8 @@ composer.png
 .playwright-video/
 brand/demo-stills/
 brand/demo.webm
+
+# Lead qualification: a local cache and an output file that holds
+# prospect details. Neither belongs in the repo.
+.leads-cache.json
+leads-qualified.csv
