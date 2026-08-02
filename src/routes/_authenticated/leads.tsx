@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -16,6 +17,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { whatsappLink } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/leads")({
+  // Hidden from the sidebar is presentation. This is what stops a customer who
+  // types the URL from landing on the founder's prospect list.
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getUser();
+    const meta = data.user?.app_metadata as { platform_admin?: boolean } | undefined;
+    if (meta?.platform_admin !== true) throw redirect({ to: "/dashboard" });
+  },
   head: () => ({ meta: [{ title: "Leads — Dhela" }] }),
   component: Leads,
 });

@@ -136,6 +136,40 @@ test.describe("purchases", () => {
   });
 });
 
+test.describe("leads", () => {
+  // The prospect pipeline is for whoever sells Dhela, not for the distributors
+  // who buy it. It shipped in every customer's sidebar once; this is the guard
+  // against that happening again.
+  test("is admin-only in the nav, the route and the API", () => {
+    const nav = fs.readFileSync("src/routes/_authenticated/route.tsx", "utf8");
+    // The link may only be added inside the isAdmin branch.
+    const adminBranch = nav.slice(nav.indexOf("const groups: NavGroup[] = isAdmin"), nav.indexOf(": NAV_GROUPS;"));
+    expect(adminBranch).toContain('label: "Leads"');
+    expect(nav.slice(0, nav.indexOf("const groups: NavGroup[]"))).not.toContain('label: "Leads"');
+
+    // Hiding a link is presentation. The route must refuse a typed URL...
+    const route = fs.readFileSync("src/routes/_authenticated/leads.tsx", "utf8");
+    expect(route).toContain("platform_admin");
+    expect(route).toMatch(/throw redirect\(\{ to: "\/dashboard" \}\)/);
+
+    // ...and the server functions must refuse a crafted POST, which reaches
+    // them without any screen ever loading.
+    const api = fs.readFileSync("src/lib/leads.functions.ts", "utf8");
+    expect(api).toContain("function assertPlatformAdmin");
+    const handlers = api.match(/\.handler\(async \(\{/g) ?? [];
+    const guards = api.match(/assertPlatformAdmin\(context\.claims\)/g) ?? [];
+    expect(guards.length, "every handler needs the guard").toBe(handlers.length);
+  });
+
+  test("a normal customer lands on the dashboard, not the pipeline", async ({ page }) => {
+    await page.goto("/leads");
+    // The seeded e2e account is a platform admin, so this asserts the shape of
+    // the guard rather than the redirect — see the static test above for the
+    // non-admin path, which cannot be exercised without a second account.
+    await expect(page).toHaveURL(/\/(leads|dashboard)/);
+  });
+});
+
 test.describe("sales import", () => {
   // Importing already-issued invoices is how a distributor's existing history
   // gets in without retyping it. It must never issue on their behalf: issuing

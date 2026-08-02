@@ -42,6 +42,20 @@ export type Lead = {
   source: string | null;
 };
 
+/**
+ * The prospect pipeline belongs to whoever sells Dhela, not to the
+ * distributors who buy it. Hiding the nav item and redirecting the route are
+ * both client-side; this is the check that actually holds, because a crafted
+ * POST reaches these functions without ever loading a screen.
+ *
+ * platform_admin lives in app_metadata, which only the service-role key can
+ * set and which Supabase embeds in the signed JWT, so it cannot be spoofed.
+ */
+function assertPlatformAdmin(claims: Record<string, unknown>) {
+  const meta = claims.app_metadata as { platform_admin?: boolean } | undefined;
+  if (meta?.platform_admin !== true) throw new Error("Forbidden: admin only");
+}
+
 const LOOKUP = "https://tallysolutions.com/wp-content/themes/tally/api/gstin-serach-api.php";
 const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/;
 
@@ -82,6 +96,7 @@ async function lookupGstin(gstin: string): Promise<Registry | null> {
 export const listLeads = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    assertPlatformAdmin(context.claims);
     const db = context.supabase as unknown as Db;
     const { data, error } = await db.from("leads")
       .select("*")
@@ -106,6 +121,7 @@ export const addLeads = createServerFn({ method: "POST" })
       source: z.string().max(120).optional(),
     }).parse(d))
   .handler(async ({ data, context }) => {
+    assertPlatformAdmin(context.claims);
     const db = context.supabase as unknown as Db;
     const { data: mem } = await db.from("memberships")
       .select("org_id").eq("user_id", context.userId).limit(1).maybeSingle();
@@ -195,6 +211,7 @@ export const updateLead = createServerFn({ method: "POST" })
       next_action_on: z.string().nullable().optional(),
     }).parse(d))
   .handler(async ({ data, context }) => {
+    assertPlatformAdmin(context.claims);
     const db = context.supabase as unknown as Db;
     const { id, ...patch } = data;
     const { error } = await db.from("leads")
@@ -207,6 +224,7 @@ export const deleteLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    assertPlatformAdmin(context.claims);
     const db = context.supabase as unknown as Db;
     const { error } = await db.from("leads").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
