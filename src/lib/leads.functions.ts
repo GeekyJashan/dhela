@@ -250,9 +250,21 @@ export const discoverLeads = createServerFn({ method: "POST" })
     assertPlatformAdmin(context.claims);
     const key = process.env.GOOGLE_MAPS_API_KEY;
     if (!key) {
+      // "Not set" is the same message whether it was never added, added to the
+      // wrong environment, or added and never redeployed — and those need
+      // different fixes. Naming the other server-side variables that ARE
+      // visible separates them: if none are, the function is not seeing the
+      // environment at all; if the others are, this one specifically is
+      // missing or the deployment predates it. Names only, never values.
+      const visible = ["GOOGLE_API_KEY", "SUPABASE_URL", "ANTHROPIC_API_KEY", "EXTRACTION_API_URL"]
+        .filter(k => !!process.env[k]);
+      log.error("discover:no_key", { visible });
       throw new Error(
-        "Discovery needs GOOGLE_MAPS_API_KEY — a Maps Platform key with Places API enabled. " +
-        "The Gemini key will not work; they are separate products.",
+        "GOOGLE_MAPS_API_KEY is not set on this deployment. " +
+        (visible.length
+          ? `Other server variables are visible (${visible.join(", ")}), so add this one in Vercel → Settings → Environment Variables and redeploy — an existing deployment keeps the environment it was built with.`
+          : "No server variables are visible at all, which points at the deployment rather than this one key.") +
+        " It must be a Maps Platform key with Places API (New) enabled; the Gemini key is rejected by Places.",
       );
     }
     const db = context.supabase as unknown as Db;
