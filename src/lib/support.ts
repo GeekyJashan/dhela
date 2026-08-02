@@ -17,8 +17,19 @@ export function supportPhoneDisplay(): string {
   return `+91 ${local.slice(0, 5)} ${local.slice(5)}`;
 }
 
-export function whatsappLink(text: string): string {
-  return `https://wa.me/${supportPhoneDigits()}?text=${encodeURIComponent(text)}`;
+/**
+ * A WhatsApp deep link. Defaults to the founder's number, which is what every
+ * support link in the app wants; pass a number to message someone else, as the
+ * leads screen does. An Indian mobile typed without a country code would open
+ * the wrong chat, so a bare 10-digit number gets 91 in front of it.
+ */
+export function whatsappLink(text: string, phone?: string | null): string {
+  let to = supportPhoneDigits();
+  if (phone) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length >= 10) to = digits.length === 10 ? `91${digits}` : digits;
+  }
+  return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
 }
 
 export function emailLink(subject: string, body: string): string {

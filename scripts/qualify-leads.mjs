@@ -32,6 +32,10 @@
  * Scores are a sort order, not a verdict. The `why` column is the useful part:
  * "wholesale with a warehouse, proprietor, trading 9 years" is something to
  * open a call with. "Score 82" is not.
+ *
+ * Most people should use the Leads screen instead — it does the same lookup,
+ * keeps the pipeline, and needs no terminal. This stays for a one-off list of
+ * a few hundred that you want as a spreadsheet.
  */
 import fs from "node:fs";
 import path from "node:path";

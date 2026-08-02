@@ -568,9 +568,12 @@ test.describe("assistant", () => {
     await page.goto("/dashboard");
     await page.getByRole("button", { name: /talk to dhela/i }).first().click();
     await expect(page.getByRole("dialog", { name: /talk to dhela/i })).toBeVisible();
-    await page.waitForTimeout(2500);
-    expect(requested).toContain("manifest.json");
-    expect(requested.filter(r => r.endsWith(".wav")).length).toBeGreaterThan(0);
+    // Polled rather than slept on. A fixed wait passes alone and fails under
+    // a loaded suite, and a test that fails for timing teaches you to ignore
+    // it — which is exactly how a real failure gets waved through.
+    await expect.poll(() => requested, { timeout: 15_000 }).toContain("manifest.json");
+    await expect.poll(() => requested.filter(r => r.endsWith(".wav")).length,
+                      { timeout: 15_000 }).toBeGreaterThan(0);
   });
 
   // Realtime voice is the default path now. Its session token is minted by a

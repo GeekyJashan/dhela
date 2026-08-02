@@ -23,6 +23,7 @@ import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPricingRouteImport } from './routes/_authenticated/pricing'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
 import { Route as AuthenticatedGstRouteImport } from './routes/_authenticated/gst'
 import { Route as AuthenticatedEwayRouteImport } from './routes/_authenticated/eway'
@@ -105,6 +106,11 @@ const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
 const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/eway': typeof AuthenticatedEwayRoute
   '/gst': typeof AuthenticatedGstRoute
   '/insights': typeof AuthenticatedInsightsRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/payments': typeof AuthenticatedPaymentsRoute
   '/pricing': typeof AuthenticatedPricingRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/eway': typeof AuthenticatedEwayRoute
   '/gst': typeof AuthenticatedGstRoute
   '/insights': typeof AuthenticatedInsightsRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/payments': typeof AuthenticatedPaymentsRoute
   '/pricing': typeof AuthenticatedPricingRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/_authenticated/eway': typeof AuthenticatedEwayRoute
   '/_authenticated/gst': typeof AuthenticatedGstRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/payments': typeof AuthenticatedPaymentsRoute
   '/_authenticated/pricing': typeof AuthenticatedPricingRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/eway'
     | '/gst'
     | '/insights'
+    | '/leads'
     | '/orders'
     | '/payments'
     | '/pricing'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/eway'
     | '/gst'
     | '/insights'
+    | '/leads'
     | '/orders'
     | '/payments'
     | '/pricing'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/_authenticated/eway'
     | '/_authenticated/gst'
     | '/_authenticated/insights'
+    | '/_authenticated/leads'
     | '/_authenticated/orders'
     | '/_authenticated/payments'
     | '/_authenticated/pricing'
@@ -471,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/insights': {
       id: '/_authenticated/insights'
       path: '/insights'
@@ -580,6 +599,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEwayRoute: typeof AuthenticatedEwayRoute
   AuthenticatedGstRoute: typeof AuthenticatedGstRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRoute
   AuthenticatedPricingRoute: typeof AuthenticatedPricingRoute
@@ -604,6 +624,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEwayRoute: AuthenticatedEwayRoute,
   AuthenticatedGstRoute: AuthenticatedGstRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRoute,
   AuthenticatedPricingRoute: AuthenticatedPricingRoute,
