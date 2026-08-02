@@ -179,6 +179,32 @@ test.describe("leads", () => {
     expect(api, "leads must not be filtered by organisation").not.toContain("org_id");
   });
 
+  // Discovery scoring was written before any real listing had been seen, and
+  // all three of these were wrong against actual Ludhiana results.
+  test("discovery reads the business name, not Google's category taxonomy", () => {
+    const src = fs.readFileSync("src/lib/lead-discovery.ts", "utf8");
+
+    // 1. "store" appears in nearly every Places type — home_goods_store,
+    //    building_materials_store — so matching it branded real wholesalers
+    //    as retail. The retail list must not contain it.
+    const retail = src.slice(src.indexOf("const RETAIL"), src.indexOf("const CONSUMER_TYPES"));
+    expect(retail).not.toMatch(/"store"/);
+
+    // 2. Indian boards say "Sales Corp", not "sales corporation".
+    const wholesale = src.slice(src.indexOf("const WHOLESALE"), src.indexOf("/** Only unambiguous"));
+    for (const word of ["sales corp", "dealer", "traders", "agencies", "enterprises"]) {
+      expect(wholesale, `"${word}" is on real signage`).toContain(`"${word}"`);
+    }
+
+    // 3. Whole-word matching, or "mart" matches "market" and every wholesale
+    //    market in India reads as a retail shop.
+    expect(src).toContain("hasWord");
+
+    // A consumer business short-circuits: a popular restaurant collects
+    // hundreds of reviews and would otherwise outrank a small wholesaler.
+    expect(src).toMatch(/return \{\s*score: 5,/);
+  });
+
   test("a normal customer lands on the dashboard, not the pipeline", async ({ page }) => {
     await page.goto("/leads");
     // The seeded e2e account is a platform admin, so this asserts the shape of

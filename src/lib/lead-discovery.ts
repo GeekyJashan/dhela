@@ -39,12 +39,33 @@ export type Discovered = {
   open: boolean;
 };
 
-/** Words an Indian distributor puts on the board, and words a retailer does. */
-const WHOLESALE = ["wholesale", "wholesaler", "distributor", "distributors", "agencies",
-                   "traders", "trading", "enterprises", "supply", "suppliers", "depot",
-                   "stockist", "marketing", "sales corporation", "& sons", "and sons"];
-const RETAIL = ["retail", "showroom", "boutique", "store", "mart", "bazaar", "restaurant",
-                "cafe", "hotel", "salon", "clinic", "hospital", "school"];
+/**
+ * Read the business's own name, not Google's category.
+ *
+ * Places types come from a fixed taxonomy in which nearly every commercial
+ * listing is some kind of "_store" — a real wholesaler in Ludhiana came back
+ * as home_goods_store, building_materials_store. Matching "store" against
+ * types therefore branded almost every genuine distributor as retail. The name
+ * is where an Indian trader actually declares what they are: Sales Corp,
+ * Enterprises, Traders, Agencies, & Sons.
+ */
+const WHOLESALE = ["wholesale", "wholesaler", "distributor", "distributors", "distribution",
+                   "agency", "agencies", "traders", "trading", "enterprise", "enterprises",
+                   "supply", "supplies", "suppliers", "depot", "stockist", "marketing",
+                   "sales corp", "sales corporation", "corporation", "dealer", "dealers",
+                   "sons", "brothers", "bros", "industries", "impex"];
+
+/** Only unambiguous consumer businesses. "Store" is not one — see above. */
+const RETAIL = ["showroom", "boutique", "restaurant", "cafe", "hotel", "salon", "spa",
+                "clinic", "hospital", "school", "college", "gym", "bakery", "supermarket"];
+
+/** Google types that genuinely mean "sells to the public and nobody else". */
+const CONSUMER_TYPES = ["restaurant", "cafe", "bar", "beauty_salon", "hospital", "school",
+                        "gym", "lodging", "bakery", "supermarket", "convenience_store"];
+
+/** Whole words only: "mart" must not match "market", "bros" must not match "brothers-in". */
+const hasWord = (haystack: string, word: string) =>
+  new RegExp(`(^|[^a-z])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-z])`, "i").test(haystack);
 
 export function scoreDiscovered(d: Discovered): { score: number; reasons: string[] } {
   const reasons: string[] = [];
@@ -52,16 +73,23 @@ export function scoreDiscovered(d: Discovered): { score: number; reasons: string
 
   if (!d.open) return { score: 0, reasons: ["listed as permanently closed"] };
 
-  const hay = `${d.name} ${d.types.join(" ")}`.toLowerCase();
-  const wholesale = WHOLESALE.filter(w => hay.includes(w));
-  const retail = RETAIL.filter(w => hay.includes(w));
+  const name = d.name.toLowerCase();
+  const wholesale = WHOLESALE.filter(w => hasWord(name, w));
+  const retail = RETAIL.filter(w => hasWord(name, w));
+  const consumerType = d.types.some(t => CONSUMER_TYPES.includes(t));
 
-  if (wholesale.length) {
+  if (wholesale.length && !consumerType) {
     s += 35;
-    reasons.push(`calls itself "${wholesale[0]}" — trade, not counter`);
-  } else if (retail.length) {
-    s += 5;
-    reasons.push(`looks like ${retail[0]} — probably sells to the public`);
+    reasons.push(`"${wholesale[0]}" in the name — trade, not counter`);
+  } else if (consumerType || retail.length) {
+    // Decisive, not merely a low score. A popular restaurant collects hundreds
+    // of reviews and would otherwise out-rank a small genuine wholesaler on
+    // review count alone — but no amount of popularity makes a bakery a
+    // distributor, so this short-circuits before anything else can add to it.
+    return {
+      score: 5,
+      reasons: [`${retail[0] ?? "consumer business"} — sells to the public, not a distributor`],
+    };
   } else {
     s += 15;
     reasons.push("trade unclear from the listing");
