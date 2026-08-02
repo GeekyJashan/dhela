@@ -161,6 +161,24 @@ test.describe("leads", () => {
     expect(guards.length, "every handler needs the guard").toBe(handlers.length);
   });
 
+  // The pipeline belongs to whoever sells the product, not to any workspace,
+  // so it must survive an admin switching orgs to debug a customer issue.
+  test("the pipeline is global to platform admins, not scoped to a workspace", () => {
+    const sql = fs.readFileSync("supabase/migrations/20260803090000_leads.sql", "utf8");
+    expect(sql).not.toContain("org_id");
+    expect(sql).toContain("is_platform_admin()");
+    // Four verbs, one rule. A missing policy is a table nobody can write to,
+    // or worse, one anybody can.
+    for (const verb of ["FOR SELECT", "FOR INSERT", "FOR UPDATE", "FOR DELETE"]) {
+      expect(sql, `${verb} policy missing`).toContain(verb);
+    }
+    // The claim is read from the signed JWT, never from a client-supplied field.
+    expect(sql).toContain("auth.jwt() -> 'app_metadata' ->> 'platform_admin'");
+
+    const api = fs.readFileSync("src/lib/leads.functions.ts", "utf8");
+    expect(api, "leads must not be filtered by organisation").not.toContain("org_id");
+  });
+
   test("a normal customer lands on the dashboard, not the pipeline", async ({ page }) => {
     await page.goto("/leads");
     // The seeded e2e account is a platform admin, so this asserts the shape of

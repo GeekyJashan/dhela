@@ -123,10 +123,6 @@ export const addLeads = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     assertPlatformAdmin(context.claims);
     const db = context.supabase as unknown as Db;
-    const { data: mem } = await db.from("memberships")
-      .select("org_id").eq("user_id", context.userId).limit(1).maybeSingle();
-    if (!mem) throw new Error("No organization");
-    const orgId = mem.org_id as string;
 
     const rows = data.text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
       // Tolerate a pasted header row.
@@ -159,7 +155,6 @@ export const addLeads = createServerFn({ method: "POST" })
       const res = scoreProspect(reg);
 
       const row = {
-        org_id: orgId,
         gstin,
         name: reg.tradeName || reg.legalName || words[0] || gstin,
         city: reg.city, state: reg.state,
@@ -169,13 +164,14 @@ export const addLeads = createServerFn({ method: "POST" })
         activity: reg.activity, constitution: reg.constitution,
         taxpayer_type: reg.taxpayerType, registration_date: reg.registrationDate,
         source: data.source ?? null,
+        added_by: context.userId,
         updated_at: new Date().toISOString(),
       };
 
       // Re-importing a list must refresh a lead, never duplicate it — but must
       // not wipe a phone number someone typed in with a null from the registry.
       const { data: existing } = await db.from("leads")
-        .select("id, phone, email, contact_person").eq("org_id", orgId).eq("gstin", gstin).maybeSingle();
+        .select("id, phone, email, contact_person").eq("gstin", gstin).maybeSingle();
       if (existing) {
         const { error } = await db.from("leads").update({
           ...row,
