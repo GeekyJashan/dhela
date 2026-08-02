@@ -5,8 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, Phone, Loader2, Trash2, Search } from "lucide-react";
-import { addLeads, listLeads, updateLead, deleteLead } from "@/lib/leads.functions";
+import { Plus, Phone, Loader2, Trash2, Search, Radar } from "lucide-react";
+import { addLeads, listLeads, updateLead, deleteLead, discoverLeads } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,12 +45,17 @@ function Leads() {
   const add = useServerFn(addLeads);
   const patch = useServerFn(updateLead);
   const remove = useServerFn(deleteLead);
+  const discover = useServerFn(discoverLeads);
 
   const [paste, setPaste] = useState("");
   const [source, setSource] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const [trade, setTrade] = useState("");
+  const [city, setCity] = useState("");
+  const [finding, setFinding] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const [stage, setStage] = useState<string>("open");
 
   const { data } = useQuery({ queryKey: ["leads"], queryFn: () => load({ data: undefined }) });
@@ -110,6 +115,40 @@ function Leads() {
             {t("{{open}} open · {{worth}} worth calling first · {{won}} won", counts)}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        <Dialog open={findOpen} onOpenChange={setFindOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" variant="outline"><Radar className="h-4 w-4 mr-2" /> {t("Find prospects")}</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{t("Find prospects")}</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {t("Searches business listings for wholesalers and distributors in a trade and city, and adds the ones worth a look with their phone numbers.")}
+            </p>
+            <Input placeholder={t("Trade — e.g. sanitary ware, pharma, FMCG")} value={trade}
+              onChange={e => setTrade(e.target.value)} />
+            <Input placeholder={t("City — e.g. Ludhiana")} value={city}
+              onChange={e => setCity(e.target.value)} />
+            <p className="text-xs text-muted-foreground">
+              {t("These are scored on the listing alone, so they cap lower than a lead with a GSTIN. Add the GSTIN later and it is rescored against the tax registry.")}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setFindOpen(false)}>{t("Cancel")}</Button>
+              <Button disabled={finding || trade.length < 2 || city.length < 2} onClick={async () => {
+                setFinding(true);
+                try {
+                  const r = await discover({ data: { trade, city, limit: 20 } });
+                  toast.success(t("Found {{f}}, added {{a}}, {{d}} already known", { f: r.found, a: r.added, d: r.already }));
+                  setFindOpen(false);
+                  qc.invalidateQueries({ queryKey: ["leads"] });
+                } catch (e) { toast.error((e as Error).message); }
+                finally { setFinding(false); }
+              }}>
+                {finding ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("Searching…")}</> : t("Search")}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("Add prospects")}</Button>
@@ -132,6 +171,7 @@ function Leads() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

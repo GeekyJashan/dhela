@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLogger } from "./logger";
 import { scoreProspect, type Registry } from "./lead-score";
+import { scoreDiscovered, searchPhrases, type Discovered } from "./lead-discovery";
 
 /**
  * The sales pipeline: add prospects, score them from the public GST registry,
@@ -225,4 +226,106 @@ export const deleteLead = createServerFn({ method: "POST" })
     const { error } = await db.from("leads").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+
+/**
+ * Find prospects rather than qualify given ones.
+ *
+ * Needs GOOGLE_MAPS_API_KEY — a Maps Platform key, not the Gemini key. They
+ * are different products on the same account and the Gemini one is rejected
+ * here, which is worth saying plainly because the error Google returns
+ * ("API keys are not supported by this API") sounds like the key is wrong
+ * rather than the API being disabled.
+ */
+export const discoverLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      trade: z.string().min(2).max(60),   // "sanitary ware", "pharma", "FMCG"
+      city: z.string().min(2).max(60),
+      limit: z.number().int().min(1).max(60).default(20),
+    }).parse(d))
+  .handler(async ({ data, context }) => {
+    assertPlatformAdmin(context.claims);
+    const key = process.env.GOOGLE_MAPS_API_KEY;
+    if (!key) {
+      throw new Error(
+        "Discovery needs GOOGLE_MAPS_API_KEY — a Maps Platform key with Places API enabled. " +
+        "The Gemini key will not work; they are separate products.",
+      );
+    }
+    const db = context.supabase as unknown as Db;
+
+    const seen = new Map<string, Discovered>();
+    for (const query of searchPhrases(data.trade, data.city)) {
+      if (seen.size >= data.limit) break;
+      const resp = await fetch("https://places.googleapis.com/v1/places:searchText", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+          // Billed per field group, so ask for exactly what is scored and no more.
+          "X-Goog-FieldMask": [
+            "places.displayName", "places.formattedAddress", "places.nationalPhoneNumber",
+            "places.websiteUri", "places.types", "places.userRatingCount", "places.businessStatus",
+          ].join(","),
+        },
+        body: JSON.stringify({ textQuery: query, maxResultCount: 20, regionCode: "IN" }),
+      });
+      if (!resp.ok) {
+        const body = (await resp.text()).slice(0, 200);
+        log.error("discover:places", { status: resp.status, body });
+        throw new Error(`Places API ${resp.status}: ${body}`);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json: any = await resp.json();
+      for (const p of json.places ?? []) {
+        const name = p.displayName?.text as string | undefined;
+        if (!name) continue;
+        // The same business comes back under several phrasings; keyed on name
+        // and address rather than the Places id, because the id changes when a
+        // listing is edited and a duplicate in a call list wastes a call.
+        const key2 = `${name}|${p.formattedAddress ?? ""}`.toLowerCase();
+        if (seen.has(key2)) continue;
+        seen.set(key2, {
+          name,
+          address: p.formattedAddress ?? null,
+          phone: p.nationalPhoneNumber ?? null,
+          website: p.websiteUri ?? null,
+          types: p.types ?? [],
+          reviews: Number(p.userRatingCount ?? 0),
+          open: (p.businessStatus ?? "OPERATIONAL") === "OPERATIONAL",
+        });
+      }
+    }
+
+    let added = 0, already = 0, closed = 0;
+    for (const d of [...seen.values()].slice(0, data.limit)) {
+      const res = scoreDiscovered(d);
+      if (res.score === 0) { closed++; continue; }
+
+      // Matched on phone first, then name: a business found by discovery has
+      // no GSTIN, so the unique index cannot do this for us.
+      const { data: dupe } = await db.from("leads")
+        .select("id")
+        .or(d.phone ? `phone.eq.${d.phone},name.ilike.${d.name}` : `name.ilike.${d.name}`)
+        .maybeSingle();
+      if (dupe) { already++; continue; }
+
+      const { error } = await db.from("leads").insert({
+        name: d.name,
+        city: data.city,
+        phone: d.phone,
+        score: res.score,
+        why: res.reasons.join("; "),
+        activity: d.types.slice(0, 4).join(", ") || null,
+        source: `Places · ${data.trade} in ${data.city}`,
+        added_by: context.userId,
+      });
+      if (!error) added++;
+    }
+
+    log.info("discover", { trade: data.trade, city: data.city, found: seen.size, added, already, closed });
+    return { found: seen.size, added, already, closed };
   });
