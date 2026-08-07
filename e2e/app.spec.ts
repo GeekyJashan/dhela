@@ -214,6 +214,35 @@ test.describe("leads", () => {
   });
 });
 
+test.describe("analytics", () => {
+  // Session replay records what is on screen. On a signed-in page that is a
+  // distributor's bills, their retailers and what they are owed. Sending that
+  // to a third party so we can see where people click is not a trade worth
+  // making, so the recorder must never start there.
+  test("session replay stays off every signed-in screen", async ({ page }) => {
+    const thirdParty: string[] = [];
+    page.on("request", r => {
+      if (/clarity\.ms|hotjar|fullstory|logrocket|smartlook/i.test(r.url())) thirdParty.push(r.url());
+    });
+
+    for (const path of ["/dashboard", "/invoices", "/payments", "/retailers"]) {
+      await page.goto(path);
+      await page.waitForTimeout(600);
+    }
+    expect(thirdParty, "a recorder loaded on a signed-in page").toEqual([]);
+  });
+
+  test("the gate names the public paths, and stops on leaving them", () => {
+    const src = fs.readFileSync("src/components/site-analytics.tsx", "utf8");
+    // Not merely "don't start" — a client-side navigation from the landing
+    // page into the app would otherwise keep an already-running recorder alive.
+    expect(src).toContain('window.clarity?.("stop")');
+    expect(src).toMatch(/const PUBLIC = \["\/", "\/blog", "\/auth"\]/);
+    // And it is opt-in: no id set, nothing loads at all.
+    expect(src).toContain("if (!id) return");
+  });
+});
+
 test.describe("marketing", () => {
   // Publishing twice is the failure that embarrasses, and a retry after a
   // network wobble is the ordinary way it happens.

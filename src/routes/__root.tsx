@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SiteAnalytics } from "@/components/site-analytics";
 import { applySavedLanguage } from "@/i18n";
 
 function NotFoundComponent() {
@@ -114,6 +116,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster richColors position="top-right" />
+      {/* Page counts everywhere: a path and a referrer, no screen content, no
+          cookie, so it is safe on the signed-in screens too. Heatmaps and
+          replay are handled separately and stay off them. */}
+      <Analytics />
+      <SiteAnalytics />
     </QueryClientProvider>
   );
 }
