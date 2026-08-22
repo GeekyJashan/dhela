@@ -68,3 +68,7 @@ brand/demo.webm
 # prospect details. Neither belongs in the repo.
 .leads-cache.json
 leads-qualified.csv
+
+# /brag video output — build artefact, regenerate with the plan + composition
+brag-output/*.mp4
+brag-output/*.jpg
