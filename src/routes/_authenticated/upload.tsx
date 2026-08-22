@@ -11,6 +11,8 @@ import { Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from
 import { CaptureInput, previewUrl } from "@/components/capture-input";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices, extractInvoice } from "@/lib/invoices.functions";
+import { proposeInvoiceGroups, saveInvoiceGroups, MAX_PAGES_PER_BATCH, type ProposedDocument } from "@/lib/invoice-batch.functions";
+import { InvoiceGroupReview, type PhotoThumb } from "@/components/invoice-group-review";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
@@ -56,6 +58,8 @@ function Upload() {
   const getOrg = useServerFn(getCurrentOrg);
   const enqueue = useServerFn(enqueueInvoices);
   const runExtract = useServerFn(extractInvoice);
+  const propose = useServerFn(proposeInvoiceGroups);
+  const saveGroups = useServerFn(saveInvoiceGroups);
   const [rows, setRows] = useState<Row[]>([]);
   const [engine, setEngine] = useState<Engine>("ai");
   const fetchBilling = useServerFn(getBillingInfo);
@@ -69,6 +73,18 @@ function Upload() {
   const pendingCount = rows.filter((r) => r.status === "pending").length;
   const overQuota = aiRemaining != null && pendingCount > aiRemaining;
   const pollRef = useRef<number | null>(null);
+
+  /**
+   * A read waiting to be confirmed. Held on the client on purpose: nothing is
+   * written until the operator has looked at the grouping, because a wrong
+   * merge is invisible once it is in the ledger.
+   */
+  const [proposal, setProposal] = useState<{
+    documents: ProposedDocument[];
+    unassigned: number[];
+    items: { storagePath: string; mimeType?: string | null }[];
+    photos: PhotoThumb[];
+  } | null>(null);
 
   const addFiles = (files: File[] | FileList | null) => {
     if (!files) return;
@@ -155,6 +171,32 @@ function Upload() {
         return;
       }
 
+      // Two to a dozen photos on the AI engine go to the reader together, so a
+      // bill that runs to several pages comes back as one bill rather than
+      // several thirds of one. Beyond that a batch is many separate bills by
+      // nature, and the queue handles it as before; OCR has no grouping to do.
+      if (engine === "ai" && uploaded.length > 1 && uploaded.length <= MAX_PAGES_PER_BATCH) {
+        const items = uploaded.map(u => ({ storagePath: u.path, mimeType: u.mime }));
+        uploaded.forEach(u => patch(u.key, { status: "processing" }));
+        try {
+          const res = await propose({ data: { items, docType: "purchase" } });
+          setProposal({
+            documents: res.documents as ProposedDocument[],
+            unassigned: res.unassignedPageIndexes,
+            items,
+            photos: uploaded.map((u, i) => ({
+              index: i,
+              name: rows.find(r => r.key === u.key)?.file.name ?? `Photo ${i + 1}`,
+              preview: rows.find(r => r.key === u.key)?.preview,
+            })),
+          });
+        } catch (e) {
+          uploaded.forEach(u => patch(u.key, { status: "failed", error: (e as Error).message }));
+          toast.error((e as Error).message);
+        }
+        return;
+      }
+
       // Enqueue in one call
       const { ids } = await enqueue({
         data: {
@@ -193,6 +235,62 @@ function Upload() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmProposal = async () => {
+    if (!proposal) return;
+    setBusy(true);
+    try {
+      const { invoices } = await saveGroups({
+        data: { items: proposal.items, documents: proposal.documents },
+      });
+      setProposal(null);
+      setRows(prev => {
+        prev.forEach(r => r.preview && URL.revokeObjectURL(r.preview));
+        return [];
+      });
+      if (invoices.length === 1) {
+        navigate({ to: "/invoices/$id", params: { id: invoices[0].id } });
+      } else {
+        toast.success(t("{{n}} bill(s) imported", { n: invoices.length }));
+        navigate({ to: "/invoices" });
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * The operator has corrected the grouping. That is now a fact, so the bills
+   * are read again from scratch under it rather than reshuffled on screen —
+   * nothing records which photo a row was read from, so moving photos between
+   * bills cannot move their line items with them.
+   */
+  const regroupProposal = async (groups: number[][]) => {
+    if (!proposal) return;
+    setBusy(true);
+    try {
+      const res = await propose({
+        data: { items: proposal.items, docType: "purchase", groups },
+      });
+      setProposal({
+        ...proposal,
+        documents: res.documents as ProposedDocument[],
+        unassigned: res.unassignedPageIndexes,
+      });
+      toast.success(t("Read again as {{n}} bill(s)", { n: res.documents.length }));
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const discardProposal = () => {
+    setProposal(null);
+    setRows(prev => prev.map(r => (r.status === "processing" ? { ...r, status: "pending" } : r)));
   };
 
   // Poll status for queued/processing rows
@@ -243,8 +341,25 @@ function Upload() {
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
-        {t("Drop one or many. A single file is read instantly and opens for review; larger batches process in the background (up to {{n}}).", { n: MAX_FILES })}
+        {t("Drop one or many. Photograph every page of a long bill and they are read together as one bill. A single file opens straight for review; large batches process in the background (up to {{n}}).", { n: MAX_FILES })}
       </p>
+
+      {/* Shown instead of the picker while a read is waiting to be confirmed:
+          the grouping is the decision on this screen, and nothing else on the
+          page matters until it is made. */}
+      {proposal && (
+        <div className="mb-6">
+          <InvoiceGroupReview
+            documents={proposal.documents}
+            photos={proposal.photos}
+            unassigned={proposal.unassigned}
+            busy={busy}
+            onConfirm={confirmProposal}
+            onRegroup={regroupProposal}
+            onCancel={discardProposal}
+          />
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardHeader>
@@ -258,7 +373,7 @@ function Upload() {
             <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ai" ? "border-primary bg-primary/5" : ""}`}>
               <RadioGroupItem value="ai" id="ai" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI (Gemini 2.5 Flash)</div>
+                <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI (Gemini)</div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.")}
                 </p>

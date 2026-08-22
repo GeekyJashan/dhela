@@ -347,6 +347,43 @@ class InvoiceExtraction(BaseModel):
         return v
 
 
+class DocumentExtraction(InvoiceExtraction):
+    """One bill, plus which of the uploaded photos it was read from."""
+
+    page_indexes: List[int] = Field(default_factory=list)
+    duplicate_page_indexes: List[int] = Field(default_factory=list)
+    page_labels: List[Optional[str]] = Field(default_factory=list)
+    missing_page_numbers: List[int] = Field(default_factory=list)
+    grouping_reason: Optional[str] = None
+    grouping_confidence: Optional[float] = None
+
+    @field_validator("page_indexes", "duplicate_page_indexes", "missing_page_numbers", mode="before")
+    @classmethod
+    def _int_list(cls, v: Any) -> Any:
+        # Models return "0", 0.0 and sometimes a bare int here. A page index that
+        # fails to parse would silently drop a photo, so coerce rather than 502.
+        if v is None:
+            return []
+        if isinstance(v, (int, float, str)):
+            v = [v]
+        if not isinstance(v, list):
+            return []
+        out: List[int] = []
+        for x in v:
+            try:
+                out.append(int(float(x)))
+            except (TypeError, ValueError):
+                continue
+        return out
+
+
+class BatchExtraction(BaseModel):
+    documents: List[DocumentExtraction] = Field(default_factory=list)
+    # Photos the model never mentioned. Never silently swallowed: an unread page
+    # is line items the distributor paid for and would never receive.
+    unassigned_page_indexes: List[int] = Field(default_factory=list)
+
+
 # A sales invoice is the same table read from the other side of the counter.
 # Everything about columns, discounts and totals holds; the only thing that
 # inverts is who the counterparty is. Getting that backwards files the
@@ -358,6 +395,100 @@ THIS IS A SALES INVOICE THE USER ISSUED, NOT A BILL THEY RECEIVED.
   usually labelled "Buyer", "Bill To", "Customer" or "M/s". If a separate "Ship To" or "Consignee"
   differs from "Bill To", use Bill To.
 - Everything else — line items, quantities, rates, discounts, taxes, totals — is read exactly the same way.
+"""
+
+
+# Appended when several photos arrive together. Everything in SYSTEM_PROMPT
+# still applies to each bill; this only adds the question of which photos are
+# the same bill.
+#
+# The rules below are deliberately lopsided. A wrong merge is silent and
+# corrupting — two suppliers fused into one invoice writes wrong stock and a
+# wrong weighted-average cost, and it looks entirely plausible on the review
+# screen. A missed merge is loud and harmless: the operator sees two half-bills
+# and says so. So every ambiguous case is told to split, never to join.
+MULTIPAGE_CONTEXT = """
+
+YOU HAVE BEEN GIVEN SEVERAL PHOTOS AT ONCE. THEY ARE NOT NECESSARILY ONE BILL.
+
+They are numbered from 0 in the order given. Decide which photos belong to which
+bill, then extract each bill once. Return one entry in `documents` per real bill,
+listing its photos in `page_indexes` in READING order — page 1 first — regardless
+of the order they were given to you.
+
+WHEN TWO PHOTOS ARE THE SAME BILL
+Join two photos only on positive evidence. Any of these is enough:
+- They print the same invoice number AND the same supplier (GSTIN, or the name
+  if no GSTIN is printed).
+- One says "Page 1 of 3" and another "Page 2 of 3" with the same bill identity.
+- One photo has no header of its own — it opens straight into a continuing
+  line-item table — and its first line number continues where another photo's
+  table stopped. A continuation page often carries no supplier and no invoice
+  number at all; the line numbers are what tie it to its parent.
+
+WHEN THEY ARE NOT
+- Different supplier GSTIN means different bills. Always. Never join across
+  suppliers however similar the paper looks.
+- Different invoice numbers means different bills, even from the same supplier on
+  the same day — distributors receive several bills from one supplier daily.
+- The same invoice number from two different suppliers is a coincidence, not one
+  bill. Invoice numbers are not unique across suppliers.
+- If you cannot find positive evidence, leave the photo as its own bill and say
+  why in `grouping_reason`. Splitting a bill that should have been joined is a
+  small, visible problem. Joining two bills that are not one corrupts the stock
+  ledger silently. Prefer to split.
+
+THE SAME PAGE PHOTOGRAPHED TWICE
+Operators re-shoot a page when the first came out blurred, and bills are printed
+in Original / Duplicate / Transporter copies that are identical but for a label.
+Both look like extra pages and both would double the goods received.
+- If two photos show the SAME page — same page label, or the same first and last
+  line items — keep the clearer one in `page_indexes` and put the other in
+  `duplicate_page_indexes`. Do not extract its rows twice.
+- If two photos are each a COMPLETE bill with the same invoice number — each has
+  its own header and its own totals block — they are copies of one bill, not two
+  pages. Keep one, list the rest as duplicates.
+- A real page 2 continues the line numbering. A duplicate repeats it. That is the
+  test.
+
+READING A BILL THAT SPANS PAGES
+- The header — supplier, GSTIN, invoice number, date — is usually printed only on
+  the first page. Use it for the whole bill.
+- The totals are usually printed only on the last page. Take `grand_total`,
+  `tax_total` and the tax summary from there.
+- Many bills print a running carry-forward on every page: "B/F", "C/F", "Carried
+  Forward", "Total This Page". THESE ARE NOT EXTRA MONEY AND THEY ARE NOT LINE
+  ITEMS. Never add page carry-forwards together, and never put one in `lines`.
+  A per-page subtotal is a subset of the final total, not something to add to it.
+- `line_count_on_bill` is the number of product rows on the WHOLE bill, across
+  every page, and `lines` must hold that many objects.
+- Line numbering usually runs unbroken across pages — 1 to 20 on page 1, 21 to 40
+  on page 2. Emit them in that order, and use a break in the sequence as a sign
+  a page is missing.
+- A product row cut in half by the page break is still ONE row. Join it.
+- If the pages say "1 of 4" but you were given only three of them, list the
+  numbers you did not get in `missing_page_numbers` and say so in `notes`. Extract
+  what you have. Do not invent the missing rows, and do not let the printed grand
+  total make you believe you read them.
+
+PER BILL, ALSO RETURN
+- `page_indexes`: the photos that make up this bill, in reading order.
+- `duplicate_page_indexes`: photos of this bill you deliberately did not read
+  twice.
+- `page_labels`: what each kept page says about itself, e.g. "1 of 3", or null
+  where nothing is printed.
+- `missing_page_numbers`: pages the bill refers to that you were not given.
+- `grouping_reason`: one plain sentence on why these photos are one bill, written
+  for the operator checking your work — "same invoice number HIND-4471 and GSTIN
+  on both", or "no invoice number on this photo, kept separate".
+- `grouping_confidence`: 0-100. Below 60 whenever you joined photos on anything
+  weaker than a shared invoice number or a printed page sequence.
+
+EVERY PHOTO MUST BE ACCOUNTED FOR EXACTLY ONCE, in some bill's `page_indexes` or
+`duplicate_page_indexes`. A photo you silently drop is a page of stock the
+distributor paid for and never receives. If a photo is too dark or blurred to
+read at all, still return it as its own bill with empty `lines`, an
+`overall_confidence` under 25, and a note saying what went wrong.
 """
 
 SYSTEM_PROMPT = """You are an expert Indian purchase-invoice parser used by pharma, FMCG, hardware and grocery distributors.
@@ -479,6 +610,194 @@ RESPONSE_SCHEMA: dict[str, Any] = {
     },
     "required": ["lines"],
 }
+
+
+# Thinking tokens are charged against the SAME output budget as the answer, and
+# these models think hard about a 40-row bill: one measured 4,273 thinking
+# tokens beside 4,752 of JSON. Left at the default the model runs out mid-answer
+# and — because a response schema is in force — Gemini closes the JSON *validly*
+# but short. That does not raise: it arrives as a well-formed bill with some of
+# the rows missing, which an operator then approves into stock. Hence a generous
+# ceiling, and a hard check on why generation stopped.
+MAX_OUTPUT_TOKENS = 32768
+
+
+def _gemini_text_or_die(data: dict, where: str) -> str:
+    """Pull the JSON text out of a Gemini response, refusing a truncated one."""
+    try:
+        cand = data["candidates"][0]
+    except (KeyError, IndexError) as e:
+        log.error("%s: no candidate raw=%s", where, str(data)[:800])
+        raise HTTPException(502, f"Malformed Gemini response: {e}") from e
+
+    reason = cand.get("finishReason")
+    if reason and reason not in ("STOP", "FINISH_REASON_STOP"):
+        usage = data.get("usageMetadata", {})
+        log.error("%s: generation stopped early reason=%s usage=%s", where, reason, usage)
+        if reason == "MAX_TOKENS":
+            # Never fall through to parsing this. A short bill that looks whole
+            # is worse than a failed upload the operator can retry.
+            raise HTTPException(
+                502,
+                "The bill was too long to read in one pass — the model ran out of room "
+                "part-way through. Split it into fewer pages per upload and try again.",
+            )
+        raise HTTPException(502, f"Extraction stopped early ({reason})")
+
+    try:
+        return cand["content"]["parts"][0]["text"]
+    except (KeyError, IndexError) as e:
+        log.error("%s: no text part raw=%s", where, str(data)[:800])
+        raise HTTPException(502, f"Malformed Gemini response: {e}") from e
+
+
+def _batch_response_schema() -> dict[str, Any]:
+    """RESPONSE_SCHEMA, wrapped as a list of bills with their page assignments.
+
+    Built from the single-invoice schema rather than written out again, so the
+    two can never drift — a field added for one-page bills is automatically
+    asked for on multi-page ones too.
+    """
+    doc = json.loads(json.dumps(RESPONSE_SCHEMA))  # deep copy
+    doc["properties"].update({
+        "page_indexes": {
+            "type": "ARRAY", "items": {"type": "INTEGER"},
+            "description": "0-based photo numbers making up this bill, in reading order",
+        },
+        "duplicate_page_indexes": {
+            "type": "ARRAY", "items": {"type": "INTEGER"},
+            "description": "Photos of this same bill that were deliberately not read twice",
+        },
+        "page_labels": {"type": "ARRAY", "items": {"type": "STRING", "nullable": True}},
+        "missing_page_numbers": {"type": "ARRAY", "items": {"type": "INTEGER"}},
+        "grouping_reason": {"type": "STRING", "nullable": True},
+        "grouping_confidence": {"type": "NUMBER", "nullable": True},
+    })
+    doc["required"] = ["lines", "page_indexes"]
+    return {
+        "type": "OBJECT",
+        "properties": {"documents": {"type": "ARRAY", "items": doc}},
+        "required": ["documents"],
+    }
+
+
+BATCH_RESPONSE_SCHEMA: dict[str, Any] = _batch_response_schema()
+
+
+def _parse_groups(raw: Optional[str], page_count: int) -> Optional[list[list[int]]]:
+    """Validate an operator-supplied grouping, or refuse it.
+
+    This overrides the model's own judgement, so it is checked rather than
+    trusted: a malformed grouping that silently fell back to auto-grouping would
+    look to the operator like their correction had been applied when it had not.
+    """
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, f"groups is not valid JSON: {e}") from e
+    if not isinstance(parsed, list) or not parsed:
+        raise HTTPException(400, "groups must be a non-empty list of lists")
+
+    seen: set[int] = set()
+    out: list[list[int]] = []
+    for g in parsed:
+        if not isinstance(g, list) or not g:
+            raise HTTPException(400, "each group must be a non-empty list of photo numbers")
+        page: list[int] = []
+        for x in g:
+            try:
+                i = int(x)
+            except (TypeError, ValueError):
+                raise HTTPException(400, f"{x!r} is not a photo number") from None
+            if i < 0 or i >= page_count:
+                raise HTTPException(400, f"photo {i} does not exist (there are {page_count})")
+            if i in seen:
+                raise HTTPException(400, f"photo {i} is in more than one group")
+            seen.add(i)
+            page.append(i)
+        out.append(page)
+    missing = [i for i in range(page_count) if i not in seen]
+    if missing:
+        raise HTTPException(400, f"photo(s) {missing} are not in any group")
+    return out
+
+
+def _batch_shortfalls(batch: BatchExtraction) -> list[str]:
+    """Reasons to believe this read is incomplete, in the model's own terms.
+
+    Measured on gemini-3.6-flash against a known two-bill batch: the same
+    request returns [18, 3] lines across two bills on one attempt and a single
+    bill with one line on the next. Nothing distinguishes them in the transport
+    — both are HTTP 200, finishReason STOP, schema-valid JSON. The only way to
+    tell a lazy answer from a real one is to check it against what the model
+    itself said was on the paper, which is exactly what `line_count_on_bill`
+    and the page assignment are for.
+    """
+    bad: list[str] = []
+    if batch.unassigned_page_indexes:
+        bad.append(f"{len(batch.unassigned_page_indexes)} photo(s) not assigned to any bill")
+    if not batch.documents:
+        bad.append("no bills returned")
+    for doc in batch.documents:
+        stated = doc.line_count_on_bill
+        got = len(doc.lines)
+        if stated and got < stated:
+            bad.append(f"bill {doc.invoice_number or '?'}: {got} rows read of {stated} counted")
+        elif not stated and got <= 1 and len(doc.page_indexes) > 1:
+            # A bill spanning several photos with one row on it is not a bill
+            # anyone photographs twice.
+            bad.append(f"bill {doc.invoice_number or '?'}: {got} row(s) across {len(doc.page_indexes)} pages")
+    return bad
+
+
+def _settle_page_assignment(batch: BatchExtraction, page_count: int) -> BatchExtraction:
+    """Make the model's page assignment actually true.
+
+    The prompt asks for every photo exactly once. Models mostly comply, but the
+    two ways they fail both cost real money: a page claimed by two bills doubles
+    those goods into stock, and a page claimed by none is a page of stock that
+    was paid for and never arrives. Neither is visible on the review screen,
+    because each bill looks internally consistent.
+
+    So the assignment is repaired here rather than trusted:
+      - an index out of range is dropped (it refers to no photo),
+      - a repeat keeps its first claimant, which is the bill that also carries
+        the surrounding pages,
+      - anything left over is reported, not swallowed.
+    """
+    seen: set[int] = set()
+    for doc in batch.documents:
+        kept: List[int] = []
+        for idx in doc.page_indexes:
+            if idx < 0 or idx >= page_count:
+                log.warning("batch: dropping out-of-range page_index=%s (have %d photos)", idx, page_count)
+                continue
+            if idx in seen:
+                log.warning("batch: page %d claimed twice, leaving it with the first bill", idx)
+                continue
+            seen.add(idx)
+            kept.append(idx)
+        doc.page_indexes = kept
+        # Duplicates count as accounted-for — they were looked at and rejected —
+        # but their rows are never read a second time.
+        dupes: List[int] = []
+        for idx in doc.duplicate_page_indexes:
+            if idx < 0 or idx >= page_count or idx in seen:
+                continue
+            seen.add(idx)
+            dupes.append(idx)
+        doc.duplicate_page_indexes = dupes
+
+    # A bill left with no pages at all is not a bill.
+    batch.documents = [d for d in batch.documents if d.page_indexes]
+
+    batch.unassigned_page_indexes = [i for i in range(page_count) if i not in seen]
+    if batch.unassigned_page_indexes:
+        log.error("batch: %d photo(s) unaccounted for: %s",
+                  len(batch.unassigned_page_indexes), batch.unassigned_page_indexes)
+    return batch
 
 
 @app.get("/health")
@@ -747,6 +1066,185 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
     return result
 
 
+# One call for the whole batch, not one per photo. Beyond reading a bill that
+# runs to several pages, this is what lets the model see that photo 2 continues
+# photo 1 — a per-file loop cannot know that, and it also costs N requests where
+# this costs one, which matters against a per-minute rate limit.
+MAX_BATCH_PAGES = 12
+
+
+@app.post("/extract-batch", response_model=BatchExtraction)
+async def extract_batch(
+    files: List[UploadFile] = File(...),
+    doc_type: Optional[str] = Form(None),
+    # JSON like [[0,1],[2]] — the operator has corrected the grouping and this
+    # is now a fact, not a question. Sent when they regroup on the review panel.
+    # Line items cannot be moved between bills after the fact, because nothing
+    # records which photo a given row was read from, so a corrected grouping
+    # means a fresh read rather than a patched one.
+    groups: Optional[str] = Form(None),
+) -> BatchExtraction:
+    if not files:
+        raise HTTPException(400, "No files")
+    if len(files) > MAX_BATCH_PAGES:
+        raise HTTPException(
+            400,
+            f"{len(files)} photos in one bill group is more than this reads at once "
+            f"(limit {MAX_BATCH_PAGES}). Split it into two uploads.",
+        )
+
+    blobs: list[tuple[bytes, str]] = []
+    for f in files:
+        raw = await f.read()
+        if not raw:
+            raise HTTPException(400, f"Empty file: {f.filename}")
+        mime = f.content_type or "application/octet-stream"
+        if not (mime.startswith("image/") or mime == "application/pdf"):
+            raise HTTPException(400, f"Unsupported type {mime} for {f.filename}")
+        blobs.append((raw, mime))
+
+    log.info("extract_batch: %d file(s) mimes=%s", len(blobs), [m for _, m in blobs])
+    prompt = (
+        SYSTEM_PROMPT
+        + (SALES_CONTEXT if (doc_type or "").lower() == "sales" else "")
+        + MULTIPAGE_CONTEXT
+    )
+    # The model is told which photo is which by position, so the label goes in
+    # front of each image and the order here is the order of page_indexes.
+    instruction = (
+        f"There are {len(blobs)} photos, numbered 0 to {len(blobs) - 1} in the order given. "
+        "Group them into bills and extract each bill once."
+    )
+
+    forced = _parse_groups(groups, len(blobs))
+    if forced is not None:
+        instruction = (
+            f"There are {len(blobs)} photos, numbered 0 to {len(blobs) - 1} in the order given.\n"
+            "The operator has already told you which photos are which bill. Do NOT regroup them:\n"
+            + "\n".join(
+                f"  bill {i + 1}: photos {g}" for i, g in enumerate(forced)
+            )
+            + "\nReturn exactly one entry in `documents` per bill above, with page_indexes exactly "
+              "as listed, and extract each bill from those photos. If two of a bill's photos turn "
+              "out to be the same page, still keep the grouping and put the repeat in "
+              "duplicate_page_indexes."
+        )
+        log.info("extract_batch: operator-supplied grouping %s", forced)
+
+    async def attempt(nudge: str = "") -> BatchExtraction:
+        return await _run_batch(blobs, prompt, instruction + nudge)
+
+    batch = await attempt()
+    shortfalls = _batch_shortfalls(batch)
+    if shortfalls:
+        # One retry, and only ever one: a second lazy answer is information, a
+        # third request is just spending the operator's rate limit. The retry is
+        # told what was wrong the first time, because "you missed a page" is a
+        # far stronger instruction than repeating the original ask.
+        log.warning("extract_batch: incomplete read (%s) — retrying once", "; ".join(shortfalls))
+        retry = await attempt(
+            "\n\nA previous attempt at these same photos came back incomplete: "
+            + "; ".join(shortfalls)
+            + ". Read every photo and every product row this time, and make sure each photo "
+              "appears in exactly one bill's page_indexes or duplicate_page_indexes."
+        )
+        if not _batch_shortfalls(retry) or len(retry.documents) > len(batch.documents):
+            batch = retry
+        else:
+            log.error("extract_batch: retry no better, returning the first read")
+
+    # Each bill goes through exactly the same arithmetic checking a single-page
+    # upload gets. Multi-page changes which photos a bill came from, not what
+    # makes its numbers trustworthy.
+    #
+    # _reconcile_lines mutates in place, and DocumentExtraction is an
+    # InvoiceExtraction, so the page fields ride along untouched.
+    for doc in batch.documents:
+        _reconcile_lines(doc)
+
+    remaining = _batch_shortfalls(batch)
+    if remaining:
+        # Said out loud on the bill rather than buried in a log. The operator is
+        # the last line of defence against a short bill being approved.
+        note = "Automatic check: " + "; ".join(remaining) + ". Please compare against the paper."
+        for doc in batch.documents:
+            doc.notes = f"{doc.notes}; {note}" if doc.notes else note
+            if doc.overall_confidence is None or doc.overall_confidence > 45:
+                doc.overall_confidence = 45
+
+    log.info(
+        "extract_batch: %d photo(s) -> %d bill(s) pages=%s dupes=%s unassigned=%s",
+        len(blobs), len(batch.documents),
+        [d.page_indexes for d in batch.documents],
+        [d.duplicate_page_indexes for d in batch.documents],
+        batch.unassigned_page_indexes,
+    )
+    return batch
+
+
+async def _run_batch(
+    blobs: list[tuple[bytes, str]], prompt: str, instruction: str,
+) -> BatchExtraction:
+    """One grouping-and-extraction pass over the whole batch."""
+    if _use_anthropic():
+        blocks: list[dict] = [{"type": "text", "text": instruction}]
+        for i, (raw, mime) in enumerate(blobs):
+            b64 = base64.b64encode(raw).decode("ascii")
+            blocks.append({"type": "text", "text": f"Photo {i}:"})
+            blocks.append(
+                {"type": "document", "source": {"type": "base64", "media_type": mime, "data": b64}}
+                if mime == "application/pdf"
+                else {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}
+            )
+        parsed = await _anthropic_json(prompt, BATCH_RESPONSE_SCHEMA, blocks)
+    else:
+        if not GOOGLE_API_KEY:
+            raise HTTPException(500, "No AI provider configured (set ANTHROPIC_API_KEY or GOOGLE_API_KEY)")
+        parts: list[dict] = [{"text": instruction}]
+        for i, (raw, mime) in enumerate(blobs):
+            parts.append({"text": f"Photo {i}:"})
+            parts.append({"inlineData": {"mimeType": mime, "data": base64.b64encode(raw).decode("ascii")}})
+        payload = {
+            "systemInstruction": {"parts": [{"text": prompt}]},
+            "contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": BATCH_RESPONSE_SCHEMA,
+                "temperature": 0.1,
+                "maxOutputTokens": MAX_OUTPUT_TOKENS,
+            },
+        }
+        t0 = time.time()
+        try:
+            # Longer than the single-file timeout: this is several photos and a
+            # grouping decision in one pass.
+            async with httpx.AsyncClient(timeout=300) as client:
+                resp = await client.post(GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Gemini transport error: {e}") from e
+        log.info("extract_batch: Gemini status=%s in %.1fms", resp.status_code, (time.time() - t0) * 1000)
+        if resp.status_code >= 400:
+            log.error("extract_batch: Gemini error body=%s", resp.text[:1000])
+            raise HTTPException(resp.status_code, f"Gemini error: {resp.text[:500]}")
+        data = resp.json()
+        try:
+            parsed = json.loads(_gemini_text_or_die(data, "extract_batch"))
+        except json.JSONDecodeError as e:
+            log.exception("extract_batch: malformed response raw=%s", str(data)[:800])
+            raise HTTPException(502, f"Malformed Gemini response: {e}") from e
+
+    try:
+        batch = BatchExtraction.model_validate(parsed)
+    except Exception as e:  # noqa: BLE001
+        log.exception("extract_batch: validation failed raw=%s", str(parsed)[:800])
+        raise HTTPException(502, f"Malformed batch response: {e}") from e
+
+    # Reconciliation deliberately does NOT happen here — a retry compares two
+    # raw reads, and arithmetic repair would make a lazy answer look tidier
+    # than it is. The caller reconciles whichever read it keeps.
+    return _settle_page_assignment(batch, len(blobs))
+
+
 @app.post("/extract", response_model=InvoiceExtraction)
 async def extract(
     file: UploadFile = File(...),
@@ -809,6 +1307,7 @@ async def extract(
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
             "temperature": 0.1,
+            "maxOutputTokens": MAX_OUTPUT_TOKENS,
         },
     }
 
@@ -832,9 +1331,8 @@ async def extract(
 
     data = resp.json()
     try:
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        parsed = json.loads(text)
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        parsed = json.loads(_gemini_text_or_die(data, "extract"))
+    except json.JSONDecodeError as e:
         log.exception("extract: malformed Gemini response raw=%s", str(data)[:800])
         raise HTTPException(502, f"Malformed Gemini response: {e}") from e
 

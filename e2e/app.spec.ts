@@ -1105,3 +1105,138 @@ test.describe("blog", () => {
     await ctx.close();
   });
 });
+
+// A bill that runs to several pages arrives as several photos. Read one photo
+// at a time it becomes several invoices, each with a fraction of the rows and a
+// total that means nothing. These guard the rules that stop that, and the
+// sharper failure in the other direction: two suppliers merged into one bill.
+test.describe("multi-page bills", () => {
+  const py = () => fs.readFileSync("backend/main.py", "utf8");
+
+  test("the whole batch goes to the model in one call, not one call per photo", () => {
+    const src = py();
+    expect(src).toContain('@app.post("/extract-batch"');
+    // A continuation page usually carries no supplier and no invoice number —
+    // only line numbers that carry on. Nothing looking at one photo alone can
+    // place it, so the grouping has to happen where every photo is visible.
+    expect(src).toContain("MULTIPAGE_CONTEXT");
+    expect(src).toMatch(/There are \{len\(blobs\)\} photos/);
+  });
+
+  test("grouping is told to split when unsure, never to join", () => {
+    // DocumentExtraction is declared BEFORE this block, so bound the slice by the
+    // prompt's own closing quotes rather than by a later symbol.
+    const all = py();
+    const from = all.indexOf('MULTIPAGE_CONTEXT = """');
+    const p = all.slice(from, all.indexOf('"""', from + 30));
+    expect(p.length).toBeGreaterThan(500);
+    // The asymmetry that has to drive every rule: a wrong merge writes one
+    // supplier's goods under another's name and looks plausible afterwards.
+    expect(p).toMatch(/Prefer to split/i);
+    expect(p).toMatch(/Different supplier GSTIN means different bills/i);
+    expect(p).toMatch(/not unique across suppliers/i);
+    // Retakes and Original/Duplicate/Transporter copies both look like extra
+    // pages and both would double the goods received.
+    expect(p).toMatch(/duplicate_page_indexes/);
+    expect(p).toMatch(/B\/F|carry-forward|Carried\s*Forward/i);
+  });
+
+  test("every photo is accounted for, and an unread one is reported not swallowed", () => {
+    const src = py();
+    expect(src).toContain("def _settle_page_assignment");
+    expect(src).toContain("unassigned_page_indexes");
+    // A page claimed by two bills doubles those goods; a page claimed by none
+    // is stock that was paid for and never arrives. Neither shows on screen.
+    expect(src).toMatch(/claimed twice/);
+    expect(src).toMatch(/log\.error\(\s*"batch: %d photo\(s\) unaccounted for/);
+  });
+
+  test("a truncated read is refused rather than shown as a whole bill", () => {
+    const src = py();
+    // Thinking tokens are charged to the same output budget as the answer, and
+    // with a response schema in force Gemini closes the JSON validly but short.
+    // That arrives as a well-formed bill missing rows, which is worse than an
+    // error the operator can retry.
+    expect(src).toContain("MAX_OUTPUT_TOKENS");
+    expect(src).toContain("def _gemini_text_or_die");
+    expect(src).toMatch(/reason == "MAX_TOKENS"/);
+    // Both call paths must go through it — the single-file one had this bug too.
+    const uses = src.match(/_gemini_text_or_die\(data, "(extract|extract_batch)"\)/g) ?? [];
+    expect(uses.length, "both /extract and /extract-batch must check finishReason").toBe(2);
+    expect(src.match(/"maxOutputTokens": MAX_OUTPUT_TOKENS/g)?.length).toBe(2);
+  });
+
+  test("an incomplete read is retried once, against the model's own row count", () => {
+    const src = py();
+    expect(src).toContain("def _batch_shortfalls");
+    // Measured: the same request returns [18, 3] rows on one attempt and a
+    // single bill with one row on the next, both HTTP 200 / STOP / schema-valid.
+    // line_count_on_bill is the only thing that separates them.
+    expect(src).toMatch(/line_count_on_bill/);
+    expect(src).toMatch(/retrying once/);
+    // Reconciliation must not run before the retry compares the two reads, or
+    // arithmetic repair makes a lazy answer look tidier than it is.
+    // _run_batch is immediately followed by @app.post("/extract"), which DOES
+    // reconcile — an unbounded slice sweeps that in and the assertion passes
+    // for the wrong reason.
+    const rbFrom = src.indexOf("async def _run_batch");
+    const rbTo = src.indexOf("\n@app.", rbFrom);
+    const runBatch = src.slice(rbFrom, rbTo > 0 ? rbTo : undefined);
+    expect(rbTo).toBeGreaterThan(rbFrom);
+    expect(runBatch, "_run_batch must not reconcile").not.toContain("_reconcile_lines");
+  });
+
+  test("a bill costs one extraction however many photos it took", () => {
+    const api = fs.readFileSync("src/lib/invoice-batch.functions.ts", "utf8");
+    // Quota is checked before the read but spent only on save, so an operator
+    // who abandons a proposal has not paid for it.
+    expect(api).toContain("export const proposeInvoiceGroups");
+    expect(api).toContain("export const saveInvoiceGroups");
+    expect(api).toMatch(/data\.documents\.length > remaining/);
+    expect(api, "quota must not be counted per photo")
+      .not.toMatch(/data\.items\.length > remaining/);
+  });
+
+  test("page 1 stays where every existing screen already looks for it", () => {
+    const api = fs.readFileSync("src/lib/invoice-batch.functions.ts", "utf8");
+    // invoices.storage_path keeps holding the first page, so thumbnails,
+    // re-extract and storage cleanup go on working without knowing multi-page
+    // bills exist.
+    expect(api).toContain("storage_path: first.storagePath");
+    const sql = fs.readFileSync("supabase/migrations/20260822120000_invoice_pages.sql", "utf8");
+    expect(sql).toContain("invoice_pages_page_unique unique (invoice_id, page_no)");
+    expect(sql).toContain("invoice_pages_path_unique unique (invoice_id, storage_path)");
+    expect(sql).toContain("is_org_member(org_id)");
+    for (const verb of ["for select", "for insert", "for update", "for delete"]) {
+      expect(sql.toLowerCase(), `${verb} policy missing`).toContain(verb);
+    }
+  });
+
+  test("nothing is written until the operator has seen the grouping", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    const panel = fs.readFileSync("src/components/invoice-group-review.tsx", "utf8");
+    // propose() writes nothing; save happens only from the confirm handler.
+    expect(ui).toContain("proposeInvoiceGroups");
+    expect(ui).toContain("const confirmProposal");
+    expect(ui).toMatch(/saveGroups\(\{/);
+    expect(panel).toMatch(/Nothing is saved\s*\n?\s*yet/);
+
+    // A regroup must re-read rather than reshuffle: nothing records which photo
+    // a row came from, so moving photos between bills cannot move their rows.
+    expect(ui).toContain("const regroupProposal");
+    expect(ui).toMatch(/groups\s*\}/);
+    const py = fs.readFileSync("backend/main.py", "utf8");
+    expect(py).toContain("def _parse_groups");
+    // An invalid operator grouping must be refused, never silently fall back to
+    // auto-grouping — that would look like the correction had been applied.
+    expect(py).toMatch(/is in more than one group/);
+    expect(py).toMatch(/are not in any group/);
+  });
+
+  test("only 2..12 photos on the AI engine take the grouping path", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    // One file keeps the instant path; a big dump is many separate bills and
+    // keeps the queue; OCR has no grouping to do.
+    expect(ui).toMatch(/engine === "ai" && uploaded\.length > 1 && uploaded\.length <= MAX_PAGES_PER_BATCH/);
+  });
+});

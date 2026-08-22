@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   graphql_public: {
     Tables: {
@@ -481,6 +481,57 @@ export type Database = {
           },
         ]
       }
+      invoice_pages: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          is_duplicate: boolean
+          mime_type: string | null
+          org_id: string
+          page_label: string | null
+          page_no: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          is_duplicate?: boolean
+          mime_type?: string | null
+          org_id: string
+          page_label?: string | null
+          page_no: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          is_duplicate?: boolean
+          mime_type?: string | null
+          org_id?: string
+          page_label?: string | null
+          page_no?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_pages_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_pages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           approved_at: string | null
@@ -570,6 +621,123 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leads: {
+        Row: {
+          activity: string | null
+          added_by: string | null
+          city: string | null
+          constitution: string | null
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          gstin: string | null
+          id: string
+          name: string
+          next_action_on: string | null
+          notes: string | null
+          phone: string | null
+          registration_date: string | null
+          score: number | null
+          source: string | null
+          state: string | null
+          status: string
+          taxpayer_type: string | null
+          updated_at: string
+          why: string | null
+        }
+        Insert: {
+          activity?: string | null
+          added_by?: string | null
+          city?: string | null
+          constitution?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          name: string
+          next_action_on?: string | null
+          notes?: string | null
+          phone?: string | null
+          registration_date?: string | null
+          score?: number | null
+          source?: string | null
+          state?: string | null
+          status?: string
+          taxpayer_type?: string | null
+          updated_at?: string
+          why?: string | null
+        }
+        Update: {
+          activity?: string | null
+          added_by?: string | null
+          city?: string | null
+          constitution?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          name?: string
+          next_action_on?: string | null
+          notes?: string | null
+          phone?: string | null
+          registration_date?: string | null
+          score?: number | null
+          source?: string | null
+          state?: string | null
+          status?: string
+          taxpayer_type?: string | null
+          updated_at?: string
+          why?: string | null
+        }
+        Relationships: []
+      }
+      marketing_posts: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          external_id: string | null
+          external_url: string | null
+          id: string
+          language: string
+          published_at: string | null
+          status: string
+          topic: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          external_id?: string | null
+          external_url?: string | null
+          id?: string
+          language?: string
+          published_at?: string | null
+          status?: string
+          topic?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          external_id?: string | null
+          external_url?: string | null
+          id?: string
+          language?: string
+          published_at?: string | null
+          status?: string
+          topic?: string | null
+        }
+        Relationships: []
       }
       memberships: {
         Row: {
@@ -1522,6 +1690,50 @@ export type Database = {
           },
         ]
       }
+      voice_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          max_seconds: number
+          model: string | null
+          org_id: string
+          seconds: number | null
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          max_seconds?: number
+          model?: string | null
+          org_id: string
+          seconds?: number | null
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          max_seconds?: number
+          model?: string | null
+          org_id?: string
+          seconds?: number | null
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       party_balances: {
@@ -1561,6 +1773,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string }; Returns: boolean }
+      is_platform_admin: { Args: never; Returns: boolean }
       next_credit_note_number: { Args: { _org: string }; Returns: string }
       next_order_number: { Args: { _org: string }; Returns: string }
       next_sales_invoice_number: { Args: { _org: string }; Returns: string }
