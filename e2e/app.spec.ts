@@ -280,6 +280,65 @@ test.describe("marketing", () => {
   });
 });
 
+// Granting platform admin is the most dangerous write in the product: it hands
+// over every tenant's books at once. These are the properties that stop it
+// being a one-click mistake or a way back in for someone just removed.
+test.describe("granting platform admin", () => {
+  const api = () => fs.readFileSync("src/lib/admin.functions.ts", "utf8");
+
+  test("cannot be used to demote yourself", () => {
+    const src = api();
+    const handler = src.slice(src.indexOf("export const setPlatformAdmin"));
+    // Without this the flag can only be restored by hand-editing JSON in the
+    // Supabase dashboard, because the admin page is gated on the same flag.
+    // It is also what guarantees the platform never reaches zero admins.
+    expect(handler).toContain("data.userId === context.userId && !data.admin");
+    expect(handler).toMatch(/throw new Error\("You can't remove your own admin access/);
+  });
+
+  test("re-checks the caller against the database, not the token they arrived with", () => {
+    const src = api();
+    const handler = src.slice(src.indexOf("export const setPlatformAdmin"), src.indexOf("export const generateUserMagicLink"));
+
+    // context.claims is the JWT payload, minted at sign-in and refreshed about
+    // hourly. Trusting it here would leave a demoted admin holding a token that
+    // still says admin — long enough to promote themselves straight back.
+    expect(handler).toContain("assertPlatformAdmin(context.claims");
+    expect(handler, "the token alone is not enough on this handler")
+      .toContain("getUserById(context.userId)");
+    expect(handler).toContain("if (!callerIsAdmin) throw new Error(\"Forbidden: admin only\")");
+
+    // The live check must run before the write, or it checks nothing.
+    expect(handler.indexOf("callerIsAdmin"))
+      .toBeLessThan(handler.indexOf("updateUserById"));
+  });
+
+  test("writes one flag so the rest of app_metadata survives", () => {
+    const handler = api().slice(api().indexOf("export const setPlatformAdmin"));
+    // updateUserById merges app_metadata keys. Sending a rebuilt object would
+    // be the way to silently drop provider/providers.
+    expect(handler).toContain("app_metadata: { platform_admin: data.admin }");
+  });
+
+  test("is recorded at warn level with who did it", () => {
+    const handler = api().slice(api().indexOf("export const setPlatformAdmin"));
+    expect(handler).toContain('log.warn("platform_admin:changed"');
+    expect(handler).toContain("by: context.userId");
+  });
+
+  test("the screen warns what the grant actually covers, and that it is not instant", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/admin.tsx", "utf8");
+    // A bare switch reads like a per-workspace role. It is not one.
+    expect(ui).toContain("AlertDialog");
+    expect(ui).toMatch(/see every account|access to all of them/);
+    // The propagation delay is a real property of JWT-carried claims. Hiding it
+    // makes a revoked admin look revoked when they are not, for up to an hour.
+    expect(ui).toMatch(/up to an hour/);
+    // And the client must never try to write the flag itself.
+    expect(ui, "the flag is service-role only").not.toContain("app_metadata:");
+  });
+});
+
 test.describe("sales import", () => {
   // Importing already-issued invoices is how a distributor's existing history
   // gets in without retyping it. It must never issue on their behalf: issuing
