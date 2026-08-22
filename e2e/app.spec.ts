@@ -1239,4 +1239,31 @@ test.describe("multi-page bills", () => {
     // keeps the queue; OCR has no grouping to do.
     expect(ui).toMatch(/engine === "ai" && uploaded\.length > 1 && uploaded\.length <= MAX_PAGES_PER_BATCH/);
   });
+
+  test("oversized photos are shrunk before they are sent", () => {
+    const py = fs.readFileSync("backend/main.py", "utf8");
+    expect(py).toContain("def _downscale");
+    // Measured on six of these bills: sending them full-size exceeded the
+    // service's 300s ceiling and returned nothing; at 1600px the same six read
+    // correctly in ~90s. Input size, not answer length, was the binding cost.
+    expect(py).toMatch(/MAX_IMAGE_EDGE = int\(os\.environ\.get\("MAX_IMAGE_EDGE", "1600"\)\)/);
+    // A PDF has no pixels to shrink, and a resize failure must never lose an
+    // upload — a bill that reads slowly beats a bill that does not arrive.
+    expect(py).toMatch(/if not mime\.startswith\("image\/"\):\s*\n\s*return raw, mime/);
+    expect(py).toMatch(/except Exception as e:.*\n.*\n.*log\.warning\("downscale: skipped/);
+    expect(py).toContain("blobs.append(_downscale(raw, mime))");
+  });
+
+  test("the batch limit is the size that was measured to work", () => {
+    const py = fs.readFileSync("backend/main.py", "utf8");
+    const api = fs.readFileSync("src/lib/invoice-batch.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    // Ten photos exceeded the 300s ceiling even downscaled; six took ~90s.
+    expect(py).toMatch(/MAX_BATCH_PAGES = int\(os\.environ\.get\("MAX_BATCH_PAGES", "6"\)\)/);
+    expect(api).toContain("export const MAX_PAGES_PER_BATCH = 6");
+    // And the screen must not promise more than that.
+    expect(ui).toContain("MAX_PAGES_PER_BATCH");
+    // A minute and a half of silence reads as a hang, so the wait says why.
+    expect(ui).toMatch(/Reading \{\{n\}\} photos together/);
+  });
 });

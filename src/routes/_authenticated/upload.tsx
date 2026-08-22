@@ -85,6 +85,8 @@ function Upload() {
     items: { storagePath: string; mimeType?: string | null }[];
     photos: PhotoThumb[];
   } | null>(null);
+  /** Photos currently being read together, so the wait can say why it is long. */
+  const [reading, setReading] = useState(0);
 
   const addFiles = (files: File[] | FileList | null) => {
     if (!files) return;
@@ -178,6 +180,7 @@ function Upload() {
       if (engine === "ai" && uploaded.length > 1 && uploaded.length <= MAX_PAGES_PER_BATCH) {
         const items = uploaded.map(u => ({ storagePath: u.path, mimeType: u.mime }));
         uploaded.forEach(u => patch(u.key, { status: "processing" }));
+        setReading(uploaded.length);
         try {
           const res = await propose({ data: { items, docType: "purchase" } });
           setProposal({
@@ -193,6 +196,8 @@ function Upload() {
         } catch (e) {
           uploaded.forEach(u => patch(u.key, { status: "failed", error: (e as Error).message }));
           toast.error((e as Error).message);
+        } finally {
+          setReading(0);
         }
         return;
       }
@@ -341,12 +346,30 @@ function Upload() {
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
-        {t("Drop one or many. Photograph every page of a long bill and they are read together as one bill. A single file opens straight for review; large batches process in the background (up to {{n}}).", { n: MAX_FILES })}
+        {t("Photograph every page of a bill and drop them in together — up to {{g}} pages are read as one bill. A single file opens straight for review. Larger piles ({{n}} max) are read a photo at a time in the background.", { g: MAX_PAGES_PER_BATCH, n: MAX_FILES })}
       </p>
 
       {/* Shown instead of the picker while a read is waiting to be confirmed:
           the grouping is the decision on this screen, and nothing else on the
           page matters until it is made. */}
+      {/* Reading several photos together takes about a minute and a half — long
+          enough that a bare spinner reads as a hang. */}
+      {reading > 0 && !proposal && (
+        <Card className="mb-6 border-primary/30">
+          <CardContent className="flex items-center gap-3 p-5">
+            <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+            <div>
+              <div className="font-medium">
+                {t("Reading {{n}} photos together…", { n: reading })}
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("They go to the reader in one pass so pages of the same bill end up on one bill. This usually takes a minute or two — you can leave this page open.")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {proposal && (
         <div className="mb-6">
           <InvoiceGroupReview

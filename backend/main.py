@@ -684,6 +684,40 @@ def _batch_response_schema() -> dict[str, Any]:
 BATCH_RESPONSE_SCHEMA: dict[str, Any] = _batch_response_schema()
 
 
+# A phone camera produces a 3000-4000px bill photo. The model cannot read
+# anything at that scale that it cannot read at 1600, and every extra pixel is
+# input tokens and upload time. Kept generously high because the thing being
+# read is a dense table of small digits — this is about discarding pixels the
+# model never uses, not about compressing the bill.
+MAX_IMAGE_EDGE = int(os.environ.get("MAX_IMAGE_EDGE", "1600"))
+
+
+def _downscale(raw: bytes, mime: str) -> tuple[bytes, str]:
+    """Shrink an oversized photo. Never fails an upload over a resize."""
+    if not mime.startswith("image/"):
+        return raw, mime
+    try:
+        import io as _io
+        from PIL import Image as _Image  # imported here: the module-level one
+                                         # is declared further down, in the OCR
+                                         # section, and may be absent entirely.
+        im = _Image.open(_io.BytesIO(raw))
+        if max(im.size) <= MAX_IMAGE_EDGE:
+            return raw, mime
+        before = im.size
+        im.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), _Image.LANCZOS)
+        buf = _io.BytesIO()
+        im.convert("RGB").save(buf, "JPEG", quality=88, optimize=True)
+        out = buf.getvalue()
+        log.info("downscale: %sx%s -> %sx%s, %dKB -> %dKB",
+                 *before, *im.size, len(raw) // 1024, len(out) // 1024)
+        return out, "image/jpeg"
+    except Exception as e:  # noqa: BLE001
+        # A bill that reads slowly beats a bill that does not arrive.
+        log.warning("downscale: skipped (%s)", e)
+        return raw, mime
+
+
 def _parse_groups(raw: Optional[str], page_count: int) -> Optional[list[list[int]]]:
     """Validate an operator-supplied grouping, or refuse it.
 
@@ -1070,7 +1104,13 @@ def _reconcile_lines(result: "InvoiceExtraction") -> "InvoiceExtraction":
 # runs to several pages, this is what lets the model see that photo 2 continues
 # photo 1 — a per-file loop cannot know that, and it also costs N requests where
 # this costs one, which matters against a per-minute rate limit.
-MAX_BATCH_PAGES = 12
+#
+# Six, because that is where it was measured to still work. Reading many photos
+# together is superlinear in both thinking and answer length, and against these
+# same bills: six photos take ~90s, ten exceed the 300s ceiling and fail
+# outright. A bill long enough to need more than six photos is rare; a batch
+# that never returns is not something to ship for it.
+MAX_BATCH_PAGES = int(os.environ.get("MAX_BATCH_PAGES", "6"))
 
 
 @app.post("/extract-batch", response_model=BatchExtraction)
@@ -1089,8 +1129,9 @@ async def extract_batch(
     if len(files) > MAX_BATCH_PAGES:
         raise HTTPException(
             400,
-            f"{len(files)} photos in one bill group is more than this reads at once "
-            f"(limit {MAX_BATCH_PAGES}). Split it into two uploads.",
+            f"{len(files)} photos is more than this reads in one go "
+            f"(limit {MAX_BATCH_PAGES}). Upload the pages of one bill together, "
+            f"and other bills separately.",
         )
 
     blobs: list[tuple[bytes, str]] = []
@@ -1101,7 +1142,7 @@ async def extract_batch(
         mime = f.content_type or "application/octet-stream"
         if not (mime.startswith("image/") or mime == "application/pdf"):
             raise HTTPException(400, f"Unsupported type {mime} for {f.filename}")
-        blobs.append((raw, mime))
+        blobs.append(_downscale(raw, mime))
 
     log.info("extract_batch: %d file(s) mimes=%s", len(blobs), [m for _, m in blobs])
     prompt = (

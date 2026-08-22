@@ -81,8 +81,12 @@ const ItemSchema = z.object({
   mimeType: z.string().nullable().optional(),
 });
 
-/** Mirrors the backend's own ceiling so the user is told before the upload. */
-export const MAX_PAGES_PER_BATCH = 12;
+/**
+ * Mirrors the backend's own ceiling so the user is told before the upload.
+ * Six is where reading photos together was measured to still work: six take
+ * about 90 seconds, ten exceed the service's 300s ceiling and fail.
+ */
+export const MAX_PAGES_PER_BATCH = 6;
 
 // The middleware hands back a fully generic Supabase client; naming its type
 // here would pin this file to the generated Database type for no benefit.
