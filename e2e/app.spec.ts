@@ -1525,3 +1525,42 @@ test.describe("stopping an upload", () => {
     expect(ui).toMatch(/if \(work\?\.phase !== "batch"\) return;/);
   });
 });
+
+// The operator checks a figure against the paper it was printed on, and until
+// now the screen only ever showed the first photo of a multi-page bill.
+test.describe("reviewing a multi-page bill", () => {
+  const ui = () => fs.readFileSync("src/routes/_authenticated/invoices.$id.tsx", "utf8");
+
+  test("every page is shown, including the ones read only once", () => {
+    const c = ui();
+    expect(c).toContain('from("invoice_pages")');
+    // A bill uploaded before invoice_pages existed still has to show its file.
+    expect(c).toMatch(/Fall back to the invoice's own file/);
+    expect(c).toMatch(/is_duplicate/);
+    // A rejected photo is shown, dimmed and labelled, rather than disappearing.
+    expect(c).toMatch(/same page again — not read twice/);
+  });
+
+  test("a page opens full screen and Escape closes it", () => {
+    const c = ui();
+    expect(c).toMatch(/setZoomed\(i\)/);
+    expect(c).toMatch(/e\.key === "Escape"/);
+    expect(c).toMatch(/ArrowRight|ArrowLeft/);
+    expect(c).toMatch(/aria-modal="true"/);
+    expect(c).toMatch(/Esc to close/);
+  });
+
+  test("the reader summary is one bulleted list with the wrong figures in bold", () => {
+    const c = ui();
+    // Everything in one place: totals that do not reconcile, rows whose own
+    // arithmetic fails, and what the reader said in its own words.
+    expect(c).toContain("const readerNotes");
+    expect(c).toMatch(/for \(const issue of arithmeticIssues\)/);
+    expect(c).toMatch(/comes to \{\{expected\}\}, but the amount reads \{\{amount\}\}/);
+    expect(c).toMatch(/n\.problem \? "font-medium text-foreground"/);
+    // The per-row check is recomputed, not read off needs_review, which is
+    // also set by low confidence and once told an operator that thirteen
+    // correct lines did not add up.
+    expect(c).toMatch(/recomputed here rather than read off needs_review/);
+  });
+});

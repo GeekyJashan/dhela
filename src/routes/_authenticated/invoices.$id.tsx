@@ -34,7 +34,19 @@ function InvoiceReview() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const updateHeader = useServerFn(updatePurchaseInvoice);
   const removeInvoice = useServerFn(deletePurchaseInvoice);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  /**
+   * Every photo the bill was read from, not just the first.
+   *
+   * A multi-page bill lives in invoice_pages; page one is also on the invoice
+   * row itself for everything that predates that table. An operator checking a
+   * figure needs the page it was printed on, and until now the screen only
+   * ever showed the first one.
+   */
+  const [pages, setPages] = useState<
+    { url: string; label: string | null; duplicate: boolean; mime: string | null }[]
+  >([]);
+  /** Index of the page opened full-screen, or null when minimised. */
+  const [zoomed, setZoomed] = useState<number | null>(null);
   const [hdr, setHdr] = useState<{
     supplier_name: string; supplier_gstin: string; invoice_number: string;
     invoice_date: string; subtotal: string; tax_total: string; grand_total: string;
@@ -68,12 +80,49 @@ function InvoiceReview() {
     },
   });
 
+  // Read off the invoice once so the effect depends on the two values it uses
+  // rather than on the whole row, which changes identity on every refetch.
+  const invPath = inv?.storage_path;
+  const invMime = inv?.mime_type;
   useEffect(() => {
-    if (!inv?.storage_path) return;
-    supabase.storage.from("invoices").createSignedUrl(inv.storage_path, 600).then(({ data }) => {
-      if (data?.signedUrl) setPreviewUrl(data.signedUrl);
-    });
-  }, [inv?.storage_path]);
+    if (!invPath) return;
+    let cancelled = false;
+    (async () => {
+      const { data: rows } = await supabase
+        .from("invoice_pages")
+        .select("page_no, storage_path, mime_type, page_label, is_duplicate")
+        .eq("invoice_id", id)
+        .order("page_no");
+
+      // Fall back to the invoice's own file for every bill uploaded before
+      // multi-page existed, so nothing loses its preview.
+      const wanted = rows?.length
+        ? rows.map(r => ({
+            path: r.storage_path, label: r.page_label,
+            duplicate: r.is_duplicate, mime: r.mime_type,
+          }))
+        : [{ path: invPath, label: null, duplicate: false, mime: invMime ?? null }];
+
+      const signed = await Promise.all(wanted.map(async w => {
+        const { data } = await supabase.storage.from("invoices").createSignedUrl(w.path, 600);
+        return data?.signedUrl ? { url: data.signedUrl, label: w.label, duplicate: w.duplicate, mime: w.mime } : null;
+      }));
+      if (!cancelled) setPages(signed.filter((x): x is NonNullable<typeof x> => !!x));
+    })();
+    return () => { cancelled = true; };
+  }, [id, invPath, invMime]);
+
+  // Esc closes the full-screen page. Registered once rather than per image.
+  useEffect(() => {
+    if (zoomed === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomed(null);
+      if (e.key === "ArrowRight") setZoomed(z => (z === null ? z : Math.min(pages.length - 1, z + 1)));
+      if (e.key === "ArrowLeft") setZoomed(z => (z === null ? z : Math.max(0, z - 1)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomed, pages.length]);
 
   useEffect(() => {
     if (!inv) return;
@@ -129,6 +178,80 @@ function InvoiceReview() {
     return issues;
   }, [inv?.subtotal, inv?.tax_total, inv?.grand_total, lines, t]);
 
+  /**
+   * Everything worth knowing about this read, in one list.
+   *
+   * Three sources: the totals that do not reconcile, the individual rows whose
+   * own quantity x rate less discount does not match their amount, and what
+   * the reader said in its own words. Problems are marked so they can be set
+   * in bold — an operator scanning this needs the wrong number to jump out,
+   * not to be one sentence among several.
+   *
+   * The per-row check is recomputed here rather than read off needs_review,
+   * because that flag is also set by low confidence. Counting it once told an
+   * operator that thirteen perfectly correct lines did not add up.
+   */
+  /**
+   * needs_review is set for any reason, low confidence included, so counting it
+   * told an operator that thirteen correct lines "don't add up". The banner has
+   * to test the thing it claims: quantity x rate, less the discount the bill
+   * actually charged, against the printed amount.
+   */
+  const failsArithmetic = (l: { quantity: number | null; rate: number | null;
+                                discount_pct: number | null; taxable_value: number | null }) => {
+    if (l.quantity == null || l.rate == null || l.taxable_value == null) return false;
+    const expected = l.quantity * l.rate * (1 - (l.discount_pct ?? 0) / 100);
+    return Math.abs(expected - l.taxable_value) > Math.max(1, Math.abs(expected) * 0.01);
+  };
+  const badLines = (lines ?? []).filter(failsArithmetic).length;
+  const unusable = !!lines?.length && badLines * 2 >= lines.length;
+
+  // Stored on every invoice already; nothing reads it today.
+  const extractionNote = (() => {
+    const raw = inv?.raw_extraction as { notes?: string | null } | null | undefined;
+    const note = raw?.notes?.trim();
+    return note && note.length > 1 ? note : null;
+  })();
+
+  const readerNotes = useMemo(() => {
+    const out: { text: string; problem: boolean }[] = [];
+    const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
+    const fmt = (v: number) => `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+    for (const issue of arithmeticIssues) out.push({ text: issue, problem: true });
+
+    for (const l of lines ?? []) {
+      const qty = num(l.quantity), rate = num(l.rate), amount = num(l.taxable_value);
+      if (qty == null || rate == null || amount == null) continue;
+      const expected = qty * rate * (1 - (num(l.discount_pct) ?? 0) / 100);
+      if (Math.abs(expected - amount) > Math.max(1, Math.abs(amount) * 0.01)) {
+        out.push({
+          problem: true,
+          text: t('Line {{n}} "{{desc}}": {{qty}} x {{rate}}{{disc}} comes to {{expected}}, but the amount reads {{amount}}.', {
+            n: l.line_no ?? "?",
+            desc: (l.raw_description ?? "").slice(0, 40),
+            qty, rate: fmt(rate),
+            disc: num(l.discount_pct) ? ` less ${num(l.discount_pct)}%` : "",
+            expected: fmt(Math.round(expected * 100) / 100),
+            amount: fmt(amount),
+          }),
+        });
+      }
+    }
+
+    // The reader writes for the operator and joins its points with semicolons.
+    // The reader joins its points with semicolons, so the fragments after the
+    // first arrive lower-cased and unpunctuated. As bullets they each need to
+    // read as a sentence.
+    for (const part of (extractionNote ?? "").split(/;|\n/).map(x => x.trim()).filter(Boolean)) {
+      const sentence = part.charAt(0).toUpperCase() + part.slice(1);
+      out.push({ text: /[.!?]$/.test(sentence) ? sentence : `${sentence}.`, problem: false });
+    }
+    return out;
+  }, [arithmeticIssues, lines, extractionNote, t]);
+
+  const problemCount = readerNotes.filter(n => n.problem).length;
+
   if (!inv) return <div className="p-4 sm:p-8">{t("Loading…")}</div>;
 
   const saveHeader = async () => {
@@ -167,27 +290,6 @@ function InvoiceReview() {
    * every figure is suspect, including the ones that happen to look right.
    * Twelve such lines once reached this screen under a "72% · Medium" badge.
    */
-  /**
-   * needs_review is set for any reason, low confidence included, so counting it
-   * told an operator that thirteen correct lines "don't add up". The banner has
-   * to test the thing it claims: quantity x rate, less the discount the bill
-   * actually charged, against the printed amount.
-   */
-  const failsArithmetic = (l: { quantity: number | null; rate: number | null;
-                                discount_pct: number | null; taxable_value: number | null }) => {
-    if (l.quantity == null || l.rate == null || l.taxable_value == null) return false;
-    const expected = l.quantity * l.rate * (1 - (l.discount_pct ?? 0) / 100);
-    return Math.abs(expected - l.taxable_value) > Math.max(1, Math.abs(expected) * 0.01);
-  };
-  const badLines = (lines ?? []).filter(failsArithmetic).length;
-  const unusable = !!lines?.length && badLines * 2 >= lines.length;
-
-  // Stored on every invoice already; nothing reads it today.
-  const extractionNote = (() => {
-    const raw = inv?.raw_extraction as { notes?: string | null } | null | undefined;
-    const note = raw?.notes?.trim();
-    return note && note.length > 1 ? note : null;
-  })();
 
   /**
    * The reader said this bill carries on past the page(s) it was given.
@@ -311,6 +413,39 @@ function InvoiceReview() {
         </div>
       </div>
 
+      {/* Full screen page. Deliberately not a Dialog: the point is to see the
+          paper as large as the screen allows, so it is a plain overlay with no
+          chrome competing for the space. Esc and the arrow keys are bound
+          above; clicking the backdrop also closes it. */}
+      {zoomed !== null && pages[zoomed] && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4 print:hidden"
+          onClick={() => setZoomed(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("Page {{n}} of the bill", { n: zoomed + 1 })}
+        >
+          <div className="mb-2 flex shrink-0 items-center justify-between text-white/80">
+            <span className="text-sm">
+              {pages[zoomed].label || t("Page {{n}}", { n: zoomed + 1 })}
+              {pages.length > 1 && (
+                <span className="ml-2 text-white/50">{zoomed + 1} / {pages.length}</span>
+              )}
+            </span>
+            <span className="flex items-center gap-4 text-xs text-white/50">
+              {pages.length > 1 && <span>{t("← → to move between pages")}</span>}
+              <span>{t("Esc to close")}</span>
+            </span>
+          </div>
+          <img
+            src={pages[zoomed].url}
+            alt={t("Page {{n}} of the bill", { n: zoomed + 1 })}
+            className="min-h-0 flex-1 cursor-zoom-out object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {continuation && inv.status !== "approved" && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 flex gap-3">
@@ -338,18 +473,31 @@ function InvoiceReview() {
         </Card>
       )}
 
-      {arithmeticIssues.length > 0 && inv.status !== "approved" && (
-        <Card className="border-amber-400/60 bg-warning/10">
-          <CardContent className="pt-6 flex gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+      {readerNotes.length > 0 && inv.status !== "approved" && (
+        <Card className={problemCount > 0 ? "border-amber-400/60 bg-warning/10" : ""}>
+          <CardContent className="flex gap-3 pt-6">
+            {problemCount > 0
+              ? <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+              : <Info className="h-5 w-5 shrink-0 text-muted-foreground" />}
             <div className="min-w-0">
-              <p className="font-medium">{t("These numbers don't add up")}</p>
-              <ul className="mt-1 space-y-0.5 text-sm text-muted-foreground">
-                {arithmeticIssues.map(i => <li key={i}>· {i}</li>)}
+              <p className="font-medium">{t("What the reader noticed")}</p>
+              <ul className="mt-1.5 space-y-1 text-sm">
+                {readerNotes.map((n, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span aria-hidden className={n.problem ? "text-amber-600" : "text-muted-foreground"}>·</span>
+                    {/* Bold is reserved for a figure that does not add up, so
+                        the wrong number is what the eye lands on. */}
+                    <span className={n.problem ? "font-medium text-foreground" : "text-muted-foreground"}>
+                      {n.text}
+                    </span>
+                  </li>
+                ))}
               </ul>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t("Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.")}
-              </p>
+              {problemCount > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("Common on photos of bills. Check against the original and correct the fields before approving — approving posts these figures into stock and cost.")}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -366,15 +514,50 @@ function InvoiceReview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4">
         <Card className="min-h-[500px]">
-          <CardHeader><CardTitle className="text-sm">{t("Original invoice")}</CardTitle></CardHeader>
-          <CardContent>
-            {previewUrl ? (
-              inv.mime_type?.startsWith("image/") ? (
-                <img src={previewUrl} alt="Invoice" className="w-full rounded border" />
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-sm">
+              {t("Original invoice")}
+              {pages.length > 1 && (
+                <span className="ml-2 font-normal text-muted-foreground">
+                  {t("{{n}} pages", { n: pages.length })}
+                </span>
+              )}
+            </CardTitle>
+            {pages.length > 0 && (
+              <span className="text-xs text-muted-foreground">{t("Click a page to enlarge")}</span>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pages.length === 0 && (
+              <div className="text-sm text-muted-foreground">{t("Loading preview…")}</div>
+            )}
+            {pages.map((pg, i) =>
+              pg.mime?.startsWith("image/") === false ? (
+                <iframe key={i} src={pg.url} className="h-[700px] w-full rounded border" title={`Page ${i + 1}`} />
               ) : (
-                <iframe src={previewUrl} className="w-full h-[700px] rounded border" title="Invoice" />
-              )
-            ) : <div className="text-sm text-muted-foreground">{t("Loading preview…")}</div>}
+                <figure key={i} className="group relative">
+                  <button
+                    type="button"
+                    onClick={() => setZoomed(i)}
+                    className="block w-full cursor-zoom-in overflow-hidden rounded border transition hover:border-primary/50"
+                    aria-label={t("Enlarge page {{n}}", { n: i + 1 })}
+                  >
+                    <img src={pg.url} alt={t("Page {{n}} of the bill", { n: i + 1 })}
+                      className={`w-full ${pg.duplicate ? "opacity-60" : ""}`} />
+                  </button>
+                  {(pages.length > 1 || pg.duplicate) && (
+                    <figcaption className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{pg.label || t("Page {{n}}", { n: i + 1 })}</span>
+                      {pg.duplicate && (
+                        <span className="rounded bg-muted px-1.5 py-0.5">
+                          {t("same page again — not read twice")}
+                        </span>
+                      )}
+                    </figcaption>
+                  )}
+                </figure>
+              ),
+            )}
           </CardContent>
         </Card>
 
@@ -412,22 +595,7 @@ function InvoiceReview() {
                 </div>
               </CardContent>
             )}
-            {extractionNote && (
-              /* The model explains itself — "continued to page number 2",
-                 which totals it could not see, which figures disagree — and
-                 until now that went into raw_extraction and was never read.
-                 A blank Grand total with no reason looks like a broken parser
-                 rather than a bill whose second page was never photographed. */
-              <CardContent className="pt-0">
-                <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
-                  <Info className="h-4 w-4 shrink-0 text-warning" />
-                  <div>
-                    <p className="font-medium">{t("What the reader noticed")}</p>
-                    <p className="mt-0.5 text-muted-foreground">{extractionNote}</p>
-                  </div>
-                </div>
-              </CardContent>
-            )}
+
           </Card>
 
         </div>
