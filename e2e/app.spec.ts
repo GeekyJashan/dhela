@@ -1340,3 +1340,55 @@ test.describe("correcting a line before approval", () => {
     expect(ui).not.toMatch(/Gemini|GPT|Claude|Sonnet|Haiku/);
   });
 });
+
+// Costing runs off what was paid, not what was listed. This was wrong in
+// production: `spend = qty * rate` ignored the trade-discount column entirely,
+// and on these bills that column is 50-70%.
+test.describe("what a purchase actually cost", () => {
+  test("the printed amount wins, and the discount is never ignored", async () => {
+    const { purchaseSpend } = await import("../src/lib/invoices.functions");
+    const cases: Array<[string, Parameters<typeof purchaseSpend>[0], number | null]> = [
+      ["printed amount is authoritative",
+       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 }, 8757],
+      ["no printed amount -> discount still applied",
+       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null }, 8757],
+      ["the old bug: list rate would have booked 19460",
+       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null }, 8757],
+      ["no discount column behaves as before",
+       { quantity: 10, rate: 100, discount_pct: null, taxable_value: null }, 1000],
+      ["live row: 44% off 47.63 is 26.67 paid",
+       { quantity: 1, rate: 47.63, discount_pct: 44, taxable_value: 26.67 }, 26.67],
+      ["amount present but rate missing still costs",
+       { quantity: 1, rate: null, discount_pct: 5, taxable_value: 466 }, 466],
+      ["nothing to go on -> null, caller leaves cost alone",
+       { quantity: 5, rate: null, discount_pct: null, taxable_value: null }, null],
+      ["free-only line carries no spend",
+       { quantity: 0, rate: 100, discount_pct: 0, taxable_value: null }, 0],
+    ];
+    for (const [name, line, want] of cases) {
+      const got = purchaseSpend(line);
+      if (want === null) expect(got, name).toBeNull();
+      else expect(got!, name).toBeCloseTo(want, 2);
+    }
+    // The specific regression, stated as itself.
+    const listRate = 40 * 486.5;
+    expect(purchaseSpend({ quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 }))
+      .toBeLessThan(listRate);
+  });
+
+  test("approval costs from spend, and no longer gates on rate alone", () => {
+    const src = fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
+    const block = src.slice(src.indexOf("export const approveInvoice"),
+                            src.indexOf("export const setLineProduct"));
+    expect(block).toContain("const spend = purchaseSpend(l)");
+    // The discount and the printed amount have to be fetched, or the fix is
+    // reading columns that were never selected.
+    expect(block).toMatch(/select\("matched_product_id, quantity, free_quantity, rate, discount_pct, taxable_value"\)/);
+    // last_purchase_rate feeds pricing.ts as COST, so it must be the net figure.
+    expect(block).toContain("update.last_purchase_rate = +(spend / qty).toFixed(4)");
+    expect(block, "must not book the list rate as cost").not.toMatch(/update\.last_purchase_rate = l\.rate/);
+    expect(block, "must not cost off qty x rate").not.toMatch(/spend = qty \* Number\(l\.rate\)/);
+    // A line with an amount but no rate used to contribute stock and zero cost.
+    expect(block).not.toMatch(/if \(l\.rate != null\) \{/);
+  });
+});

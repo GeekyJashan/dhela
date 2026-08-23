@@ -260,6 +260,35 @@ export const processQueue = createServerFn({ method: "POST" })
     return { processed };
   });
 
+/**
+ * What was actually paid for the billed units on a purchase line.
+ *
+ * NOT quantity x rate. On Indian distribution bills `rate` is the printed LIST
+ * price and the trade discount sits in its own column — 50-70% on hardware and
+ * FMCG — with the amount printed after it. Costing off the list rate inflated
+ * weighted-average cost by up to 3x, and since sales lock their COGS from
+ * avg_cost, every margin, the capital-return figure and the dead-stock ranking
+ * were built on it. Measured on live rows: a 44% discount booked 47.63 against
+ * 26.67 actually paid.
+ *
+ * `taxable_value` is the amount printed on the row, so it wins. The arithmetic
+ * is the fallback for a bill where that column could not be read. Returns null
+ * when there is nothing to go on, and the caller then leaves cost alone rather
+ * than guessing at it.
+ */
+export function purchaseSpend(line: {
+  quantity: number | null;
+  rate: number | null;
+  discount_pct: number | null;
+  taxable_value: number | null;
+}): number | null {
+  const printed = line.taxable_value == null ? null : Number(line.taxable_value);
+  if (printed != null && printed > 0) return printed;
+  if (line.rate == null) return null;
+  const qty = Number(line.quantity ?? 0);
+  return qty * Number(line.rate) * (1 - Number(line.discount_pct ?? 0) / 100);
+}
+
 export const approveInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))
@@ -273,7 +302,7 @@ export const approveInvoice = createServerFn({ method: "POST" })
     if (current?.status === "approved") return { ok: true };
 
     const { data: lines } = await supabase.from("invoice_lines")
-      .select("matched_product_id, quantity, free_quantity, rate")
+      .select("matched_product_id, quantity, free_quantity, rate, discount_pct, taxable_value")
       .eq("invoice_id", data.invoiceId);
     for (const l of lines ?? []) {
       if (!l.matched_product_id) continue;
@@ -284,16 +313,20 @@ export const approveInvoice = createServerFn({ method: "POST" })
       const unitsIn = qty + free;
       const curStock = Number(p?.current_stock ?? 0);
       const update: { current_stock: number; last_purchase_rate?: number; avg_cost?: number } = { current_stock: curStock + unitsIn };
-      if (l.rate != null) {
-        update.last_purchase_rate = l.rate;
+
+      const spend = purchaseSpend(l);
+
+      if (spend != null) {
+        // Per unit of what was billed. Free units are given, not bought, so
+        // they do not dilute the rate — only the average below.
+        if (qty > 0) update.last_purchase_rate = +(spend / qty).toFixed(4);
         // Moving weighted-average cost. Free scheme units carry no spend, so
         // they pull the effective per-unit cost down. Clamp negative (oversold)
-        // stock to 0 so a backorder receipt just prices at the purchase rate.
+        // stock to 0 so a backorder receipt just prices at the purchase cost.
         const oldStock = Math.max(0, curStock);
         const oldAvg = Number(p?.avg_cost ?? 0);
         const newUnits = oldStock + unitsIn;
         if (newUnits > 0) {
-          const spend = qty * Number(l.rate);
           update.avg_cost = +((oldStock * oldAvg + spend) / newUnits).toFixed(4);
         }
       }
