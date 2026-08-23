@@ -479,3 +479,35 @@
      so the bar stays put and full rather than disappearing. */
   [class*="progress-sweep"] { animation: none !important; width: 100% !important; opacity: 0.45; }
 }
+
+/* The coin while a bill is being read.
+   Reuses the brand mark rather than a generic spinner: a dhela is a small coin,
+   and watching it turn is the one moment in the product where waiting is the
+   whole experience. Continuous rather than the logo's rest-then-turn, because
+   here it is saying "still working", not decorating a header. */
+@keyframes coin-read-spin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+@keyframes coin-read-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes coin-read-shadow {
+  0%, 100% { transform: scaleX(1);    opacity: 0.13; }
+  50%      { transform: scaleX(0.68); opacity: 0.05; }
+}
+.coin-read-bob   { animation: coin-read-bob 3.4s ease-in-out infinite; }
+.coin-read-spin  { animation: coin-read-spin 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-style: preserve-3d; }
+.coin-read-shadow{ animation: coin-read-shadow 3.4s ease-in-out infinite; }
+/* The mark mints itself in from rotateY(-540deg) on mount. Here the wrapper is
+   already doing the turning, and two nested rotations put the face past ninety
+   degrees inside its own backface, which shows the D mirrored for the first
+   second. One rotation only. */
+.coin-read-spin .dhela-coin { animation: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still legible as "working", without anything moving.  */
+  .coin-read-bob, .coin-read-spin, .coin-read-shadow { animation: none !important; }
+  .coin-read-shadow { opacity: 0.15; }
+}

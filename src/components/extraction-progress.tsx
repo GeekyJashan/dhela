@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -77,8 +78,29 @@ export function ExtractionProgress({
   return (
     <Card className="border-primary/30">
       <CardContent className="p-5">
-        <div className="flex items-start gap-3">
-          <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-primary" />
+        <div className="flex items-start gap-4">
+          {/* The mark itself, turning. A dhela is a small coin, and this is the
+              one screen where the waiting IS the experience. */}
+          <div className="hidden shrink-0 flex-col items-center pt-1 sm:flex" aria-hidden>
+            <div className="coin-read-bob" style={{ perspective: 260 }}>
+              {/* Two faces, not one. Rotating a single face past ninety degrees
+                  shows the mark mirrored, which reads as a rendering glitch
+                  rather than a coin. The reverse is the same mark turned a
+                  half turn, so it comes up the right way round. */}
+              <div className="coin-read-spin relative" style={{ width: 44, height: 44 }}>
+                <span className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+                  <Logo size={44} withWordmark={false} idle={false} ambient />
+                </span>
+                <span
+                  className="absolute inset-0"
+                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                >
+                  <Logo size={44} withWordmark={false} idle={false} />
+                </span>
+              </div>
+            </div>
+            <div className="coin-read-shadow mt-2 h-1 w-7 rounded-[50%] bg-foreground/40 blur-[3px]" />
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <p className="font-medium">

@@ -222,8 +222,6 @@ function Upload() {
         } catch (e) {
           uploaded.forEach(u => patch(u.key, { status: "failed", error: (e as Error).message }));
           toast.error((e as Error).message);
-        } finally {
-          setWork(null);
         }
         return;
       }
@@ -249,8 +247,6 @@ function Upload() {
         } catch (e) {
           patch(uploaded[0].key, { status: "failed", error: (e as Error).message });
           toast.error((e as Error).message);
-        } finally {
-          setWork(null);
         }
         return;
       }
@@ -268,6 +264,11 @@ function Upload() {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+      // Cleared here and nowhere else. finally runs on every early return too,
+      // which is what the inner blocks were getting wrong: a failed upload
+      // returned with the wait still on screen, and a queued batch left it
+      // spinning for good.
+      setWork(null);
     }
   };
 

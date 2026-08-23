@@ -1449,3 +1449,36 @@ test.describe("the wait while a bill is read", () => {
     expect(block).toMatch(/width: 100%/);
   });
 });
+
+// The wait has to end when the work does, including when the work fails. A
+// spinner still turning over a failed upload tells the operator to keep
+// waiting for something that is never coming.
+test.describe("the wait ends when the work does", () => {
+  test("cleared in one place, so no exit path can leave it running", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    const fn = ui.slice(ui.indexOf("const startBatch = async"), ui.indexOf("const confirmProposal"));
+    // Three paths used to leak: a failed upload returned early, a throw only
+    // cleared `busy`, and the queued-batch path never cleared it at all.
+    // finally runs on every one of those, so it is the only owner.
+    const finallyBlock = fn.slice(fn.lastIndexOf("} finally {"));
+    expect(finallyBlock, "the wait must be cleared in the outer finally").toContain("setWork(null)");
+    // And nowhere else inside startBatch, or there are two owners again.
+    expect(fn.match(/setWork\(null\)/g)?.length, "exactly one owner").toBe(1);
+  });
+
+  test("the coin turns without ever showing the mark mirrored", () => {
+    const c = fs.readFileSync("src/components/extraction-progress.tsx", "utf8");
+    const css = fs.readFileSync("src/styles.css", "utf8");
+    // A single face rotated past ninety degrees shows a backwards D, which
+    // reads as a rendering fault rather than a coin.
+    expect(c).toContain('backfaceVisibility: "hidden"');
+    expect(c).toContain('transform: "rotateY(180deg)"');
+    // And the mark's own mint animation must not rotate inside the wrapper
+    // that is already rotating, or the two compose into a mirrored face.
+    expect(css).toContain(".coin-read-spin .dhela-coin { animation: none !important; }");
+    expect(css).toContain("@keyframes coin-read-spin");
+    // Reduced motion keeps it legible without moving.
+    const rm = css.slice(css.lastIndexOf("prefers-reduced-motion"));
+    expect(rm).toMatch(/coin-read-spin/);
+  });
+});
