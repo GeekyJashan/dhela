@@ -87,6 +87,13 @@ function Upload() {
   } | null>(null);
   /** Photos currently being read together, so the wait can say why it is long. */
   const [reading, setReading] = useState(0);
+  /**
+   * "separate" — every photo is its own bill. The fast path: each is read on
+   * its own, in parallel, which is what most uploads are.
+   * "onebill" — the operator says these photos are pages of ONE bill. Nothing
+   * has to be guessed, so the reader is told rather than asked.
+   */
+  const [mode, setMode] = useState<"separate" | "onebill">("separate");
 
   const addFiles = (files: File[] | FileList | null) => {
     if (!files) return;
@@ -150,6 +157,11 @@ function Upload() {
   const startBatch = async () => {
     const pending = rows.filter((r) => r.status === "pending");
     if (!pending.length) return;
+    if (mode === "onebill" && pending.length > MAX_PAGES_PER_BATCH) {
+      toast.error(t("One bill can be up to {{n}} pages here. Split it, or upload as separate bills.",
+        { n: MAX_PAGES_PER_BATCH }));
+      return;
+    }
     setBusy(true);
     try {
       const { orgId } = await getOrg();
@@ -173,16 +185,24 @@ function Upload() {
         return;
       }
 
-      // Two to a dozen photos on the AI engine go to the reader together, so a
-      // bill that runs to several pages comes back as one bill rather than
-      // several thirds of one. Beyond that a batch is many separate bills by
-      // nature, and the queue handles it as before; OCR has no grouping to do.
-      if (engine === "ai" && uploaded.length > 1 && uploaded.length <= MAX_PAGES_PER_BATCH) {
+      // Only when the operator has said these are one bill. Grouping several
+      // photos is slow, and making every ordinary batch pay for it was the
+      // wrong trade: five separate bills read on their own, in parallel, beat
+      // one call that has to reason about all five.
+      if (engine === "ai" && mode === "onebill" && uploaded.length > 1) {
         const items = uploaded.map(u => ({ storagePath: u.path, mimeType: u.mime }));
         uploaded.forEach(u => patch(u.key, { status: "processing" }));
         setReading(uploaded.length);
         try {
-          const res = await propose({ data: { items, docType: "purchase" } });
+          // The grouping is stated, not inferred: one bill, these pages, in
+          // this order. That is the whole point of the operator saying so.
+          const res = await propose({
+            data: {
+              items,
+              docType: "purchase",
+              groups: [items.map((_, i) => i)],
+            },
+          });
           setProposal({
             documents: res.documents as ProposedDocument[],
             unassigned: res.unassignedPageIndexes,
@@ -346,7 +366,7 @@ function Upload() {
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
       <p className="text-muted-foreground mb-8">
-        {t("Photograph every page of a bill and drop them in together — up to {{g}} pages are read as one bill. A single file opens straight for review. Larger piles ({{n}} max) are read a photo at a time in the background.", { g: MAX_PAGES_PER_BATCH, n: MAX_FILES })}
+        {t("Drop one or many — up to {{n}}. If a bill runs to several pages, say so below and photograph every page.", { n: MAX_FILES })}
       </p>
 
       {/* Shown instead of the picker while a read is waiting to be confirmed:
@@ -383,6 +403,40 @@ function Upload() {
           />
         </div>
       )}
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{t("What are you uploading?")}</CardTitle>
+          <CardDescription>
+            {t("Saying which it is up front is faster than having it worked out for you.")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup value={mode} onValueChange={v => setMode(v as "separate" | "onebill")}
+            className="grid gap-3 sm:grid-cols-2">
+            <label htmlFor="m-sep"
+              className={`rounded-lg border p-4 cursor-pointer ${mode === "separate" ? "border-primary bg-primary/5" : ""}`}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="separate" id="m-sep" />
+                <span className="font-medium">{t("Separate bills")}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 ml-6">
+                {t("One photo, one bill. Each is read on its own — the quickest way in.")}
+              </p>
+            </label>
+            <label htmlFor="m-one"
+              className={`rounded-lg border p-4 cursor-pointer ${mode === "onebill" ? "border-primary bg-primary/5" : ""}`}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="onebill" id="m-one" />
+                <span className="font-medium">{t("One bill, several pages")}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 ml-6">
+                {t("A long bill photographed page by page. Read together as a single bill, up to {{n}} pages.", { n: MAX_PAGES_PER_BATCH })}
+              </p>
+            </label>
+          </RadioGroup>
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader>

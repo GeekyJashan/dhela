@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+import asyncio
 import uuid
 from typing import Any, List, Optional
 import os
@@ -305,6 +306,9 @@ class InvoiceExtraction(BaseModel):
     # Asked for so the server can tell "read 9 rows" from "there were 9 rows".
     line_count_on_bill: Optional[int] = None
     column_order: Optional[str] = None
+    page_label: Optional[str] = None
+    total_pages_on_bill: Optional[int] = None
+    continues_on_another_page: Optional[bool] = None
     supplier_name: Optional[str] = None
     supplier_gstin: Optional[str] = None
     invoice_number: Optional[str] = None
@@ -544,8 +548,15 @@ HEADER TOTALS, AND PAGES YOU CANNOT SEE
   `other_charges`, and the tax in `tax_total`. If a grand total is printed on the page, copy it into
   `grand_total`; if it is not printed, leave `grand_total` null. Do not add the numbers up yourself —
   asked to, models get this arithmetic wrong, and the server totals it exactly.
-- Many bills run to more than one page. If the page says "continued to page 2", say so in `notes` so the
-  operator knows to check whether more line items follow.
+- Many bills run to more than one page, and a photo of one page is a fraction of a bill. Say so
+  explicitly rather than only in `notes`, because approving a fragment books a fragment of the stock:
+    * `page_label` — what the page says about itself, e.g. "1 of 3", "Page 2", null if nothing is printed.
+    * `total_pages_on_bill` — how many pages the bill says it has, null if it does not say.
+    * `continues_on_another_page` — TRUE whenever rows carry on past what you were given. The signs are:
+      a page label showing more pages than you were shown; "continued", "cont...", "P.T.O."; a
+      "Carried Forward"/"C/F" line with no final total under it; a line-item table that runs to the
+      bottom edge with no totals block anywhere. FALSE only when you can see the bill ends here —
+      a totals block, a grand total, a signature line.
 - `notes` is read by the operator reviewing this bill, so write it for them: what is missing, what you
   could not see, and what to check. One or two plain sentences.
 
@@ -581,6 +592,13 @@ RESPONSE_SCHEMA: dict[str, Any] = {
                           "description": "Cartage, freight, packing etc. charged on the bill, excluding tax"},
         "line_count_on_bill": {"type": "INTEGER", "nullable": True},
         "column_order": {"type": "STRING", "nullable": True},
+        # Asked on every read, single or batched. A photo of page 1 of 3 is a
+        # third of a bill, and approving it silently books a third of the stock.
+        "page_label": {"type": "STRING", "nullable": True,
+                       "description": "What this page says about itself, e.g. '1 of 3'"},
+        "total_pages_on_bill": {"type": "INTEGER", "nullable": True},
+        "continues_on_another_page": {"type": "BOOLEAN", "nullable": True,
+                                      "description": "True if rows carry on beyond the pages given"},
         "lines": {
             "type": "ARRAY",
             "items": {
@@ -620,6 +638,45 @@ RESPONSE_SCHEMA: dict[str, Any] = {
 # the rows missing, which an operator then approves into stock. Hence a generous
 # ceiling, and a hard check on why generation stopped.
 MAX_OUTPUT_TOKENS = 32768
+
+
+async def _post_gemini(payload: dict, where: str, timeout: float) -> dict:
+    """POST to Gemini, waiting out a rate limit instead of failing the upload.
+
+    The free tier allows 20 requests a minute and says how long to wait when it
+    refuses — typically under a second, because the window is rolling rather
+    than daily. Failing the whole upload for that is the worst possible answer:
+    the operator has already taken the photos, and to them a hard error is
+    infinite latency. Anything the service says is not retryable still fails
+    immediately; only 429 and 5xx wait.
+    """
+    delays = [0.0, 1.0, 3.0, 8.0]
+    last = ""
+    for i, wait in enumerate(delays):
+        if wait:
+            log.info("%s: rate limited, waiting %.1fs (attempt %d/%d)", where, wait, i + 1, len(delays))
+            await asyncio.sleep(wait)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Gemini transport error: {e}") from e
+
+        if resp.status_code < 400:
+            return resp.json()
+
+        last = resp.text[:500]
+        if resp.status_code not in (429, 500, 502, 503, 504):
+            log.error("%s: Gemini error status=%s body=%s", where, resp.status_code, last)
+            raise HTTPException(resp.status_code, f"Gemini error: {last}")
+        log.warning("%s: Gemini %s, retryable", where, resp.status_code)
+
+    log.error("%s: giving up after %d attempts body=%s", where, len(delays), last)
+    raise HTTPException(
+        503,
+        "The reader is busy right now (rate limit). Wait a moment and try again — "
+        "your photos are already uploaded.",
+    )
 
 
 def _gemini_text_or_die(data: dict, where: str) -> str:
@@ -1256,18 +1313,9 @@ async def _run_batch(
             },
         }
         t0 = time.time()
-        try:
-            # Longer than the single-file timeout: this is several photos and a
-            # grouping decision in one pass.
-            async with httpx.AsyncClient(timeout=300) as client:
-                resp = await client.post(GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload)
-        except httpx.HTTPError as e:
-            raise HTTPException(502, f"Gemini transport error: {e}") from e
-        log.info("extract_batch: Gemini status=%s in %.1fms", resp.status_code, (time.time() - t0) * 1000)
-        if resp.status_code >= 400:
-            log.error("extract_batch: Gemini error body=%s", resp.text[:1000])
-            raise HTTPException(resp.status_code, f"Gemini error: {resp.text[:500]}")
-        data = resp.json()
+        # Longer than the single-file timeout: this is several photos in one pass.
+        data = await _post_gemini(payload, "extract_batch", timeout=300)
+        log.info("extract_batch: Gemini responded in %.1fms", (time.time() - t0) * 1000)
         try:
             parsed = json.loads(_gemini_text_or_die(data, "extract_batch"))
         except json.JSONDecodeError as e:
@@ -1354,23 +1402,8 @@ async def extract(
 
     log.info("extract: calling Gemini model=%s", GEMINI_MODEL)
     t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                GEMINI_ENDPOINT, params={"key": GOOGLE_API_KEY}, json=payload,
-            )
-    except httpx.HTTPError as e:
-        log.exception("extract: HTTP error calling Gemini")
-        raise HTTPException(502, f"Gemini transport error: {e}") from e
-
-    dt_ms = (time.time() - t0) * 1000
-    log.info("extract: Gemini responded status=%s in %.1fms", resp.status_code, dt_ms)
-
-    if resp.status_code >= 400:
-        log.error("extract: Gemini error body=%s", resp.text[:1000])
-        raise HTTPException(resp.status_code, f"Gemini error: {resp.text[:500]}")
-
-    data = resp.json()
+    data = await _post_gemini(payload, "extract", timeout=120)
+    log.info("extract: Gemini responded in %.1fms", (time.time() - t0) * 1000)
     try:
         parsed = json.loads(_gemini_text_or_die(data, "extract"))
     except json.JSONDecodeError as e:

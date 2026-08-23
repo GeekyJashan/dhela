@@ -1233,11 +1233,34 @@ test.describe("multi-page bills", () => {
     expect(py).toMatch(/are not in any group/);
   });
 
-  test("only 2..12 photos on the AI engine take the grouping path", () => {
+  test("grouping runs only when the operator says it is one bill", () => {
     const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
-    // One file keeps the instant path; a big dump is many separate bills and
-    // keeps the queue; OCR has no grouping to do.
-    expect(ui).toMatch(/engine === "ai" && uploaded\.length > 1 && uploaded\.length <= MAX_PAGES_PER_BATCH/);
+    // Making every ordinary batch pay for grouping was the wrong trade: five
+    // separate bills read on their own beat one call reasoning about all five.
+    // The mode is the operator's answer, asked once, not something inferred
+    // from how many files they happened to select.
+    expect(ui).toMatch(/mode === "onebill"/);
+    expect(ui).not.toMatch(/uploaded\.length <= MAX_PAGES_PER_BATCH/);
+    // And when they have said it, the grouping is stated rather than guessed.
+    expect(ui).toMatch(/groups: \[items\.map\(\(_, i\) => i\)\]/);
+    // The page ceiling only binds the one-bill path.
+    expect(ui).toMatch(/mode === "onebill" && pending\.length > MAX_PAGES_PER_BATCH/);
+  });
+
+  test("a bill that carries on past the photo says so", () => {
+    const py = fs.readFileSync("backend/main.py", "utf8");
+    // A photo of page 1 of 3 extracts cleanly, reconciles against its own
+    // carried-forward figure, and looks finished. Approving it books a third
+    // of the goods and nothing later contradicts it.
+    expect(py).toContain("continues_on_another_page");
+    expect(py).toContain("total_pages_on_bill");
+    expect(py).toContain("page_label");
+    expect(py).toMatch(/P\.T\.O\.|Carried Forward/);
+    const ui = fs.readFileSync("src/routes/_authenticated/invoices.$id.tsx", "utf8");
+    expect(ui).toContain("continues_on_another_page");
+    // and must point at the fix, not merely report the problem
+    expect(ui).toMatch(/One bill, several pages/);
+    expect(ui).toMatch(/to="\/upload"/);
   });
 
   test("oversized photos are shrunk before they are sent", () => {

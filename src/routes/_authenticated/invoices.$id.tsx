@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
@@ -188,6 +188,24 @@ function InvoiceReview() {
     return note && note.length > 1 ? note : null;
   })();
 
+  /**
+   * The reader said this bill carries on past the page(s) it was given.
+   *
+   * This is the quietest way to lose money in the product: a photo of page 1 of
+   * 3 extracts cleanly, reconciles against its own carried-forward figure, and
+   * looks like a finished bill. Approving it books a third of the goods and a
+   * third of the cost, and nothing later ever contradicts it.
+   */
+  const continuation = (() => {
+    const raw = inv?.raw_extraction as {
+      continues_on_another_page?: boolean | null;
+      page_label?: string | null;
+      total_pages_on_bill?: number | null;
+    } | null | undefined;
+    if (!raw?.continues_on_another_page) return null;
+    return { label: raw.page_label ?? null, total: raw.total_pages_on_bill ?? null };
+  })();
+
   const unlinkedCount = (lines ?? []).filter(l => !l.matched_product_id).length;
 
 
@@ -278,6 +296,33 @@ function InvoiceReview() {
           </Button>
         </div>
       </div>
+
+      {continuation && inv.status !== "approved" && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6 flex gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="min-w-0">
+              <p className="font-medium">
+                {continuation.label
+                  ? t("This is page {{label}} — the bill carries on", { label: continuation.label })
+                  : t("This bill carries on past the page you photographed")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {continuation.total
+                  ? t("The paper says it has {{n}} pages. Rows on the pages you did not photograph are missing from this bill, so the total below is only part of what you were charged.", { n: continuation.total })
+                  : t("Rows on the pages you did not photograph are missing from this bill, so the total below is only part of what you were charged.")}
+              </p>
+              <p className="mt-2 text-sm">
+                {t("Photograph every page, then upload them together with")}{" "}
+                <Link to="/upload" className="font-medium text-primary underline underline-offset-2">
+                  {t("\"One bill, several pages\"")}
+                </Link>{" "}
+                {t("— and delete this partial one.")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {arithmeticIssues.length > 0 && inv.status !== "approved" && (
         <Card className="border-amber-400/60 bg-warning/10">
