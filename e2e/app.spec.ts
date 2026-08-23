@@ -1392,3 +1392,60 @@ test.describe("what a purchase actually cost", () => {
     expect(block).not.toMatch(/if \(l\.rate != null\) \{/);
   });
 });
+
+// Ninety seconds behind a bare spinner reads as a hang, and a reload mid-read
+// is how the same bill gets uploaded twice. The wait is narrated instead.
+test.describe("the wait while a bill is read", () => {
+  const src = () => fs.readFileSync("src/components/extraction-progress.tsx", "utf8");
+
+  test("every stage names work that actually happens", () => {
+    const c = src();
+    const py = fs.readFileSync("backend/main.py", "utf8");
+    const api = fs.readFileSync("src/lib/invoice-batch.functions.ts", "utf8");
+    // Each label has to correspond to real code, or it is theatre.
+    expect(c).toContain("Checking no page was missed");
+    expect(py, "…which is _settle_page_assignment").toContain("def _settle_page_assignment");
+    expect(c).toContain("Counting rows against the bill's own count");
+    expect(py, "…which is the line_count_on_bill shortfall check").toContain("def _batch_shortfalls");
+    expect(c).toContain("Re-checking each line's arithmetic");
+    expect(py, "…which is _reconcile_lines").toContain("def _reconcile_lines");
+    expect(c).toContain("Matching your product catalogue");
+    expect(api, "…which happens on save, not during the read").toContain("matchLineToProduct");
+  });
+
+  test("it does not invent a percentage", () => {
+    const c = src();
+    // The server sends no progress. A filling bar or a percentage would be a
+    // guess dressed up as a fact. Elapsed time is the only honest number here.
+    // Check the code, not the prose — the file's own comment says the word.
+    const code = c.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code, "no percentage is rendered").not.toMatch(/percent|\{\s*pct\s*\}|%<|%\s*\{/);
+    expect(code, "no bar width driven by elapsed").not.toMatch(/width:\s*`?\$\{/);
+    expect(c).toContain("Indeterminate on purpose");
+    expect(c).toMatch(/Math\.floor\(elapsed \/ 1000\)/);
+  });
+
+  test("a slow read is admitted rather than dressed up as nearly done", () => {
+    const c = src();
+    expect(c).toMatch(/overrunning/);
+    expect(c).toMatch(/taking longer than usual/);
+    // The stage index is clamped, so it stops advancing instead of claiming
+    // stages that have not been reached.
+    expect(c).toMatch(/Math\.min\(bounds\.findIndex/);
+  });
+
+  test("it says up front how long to expect", () => {
+    const c = src();
+    expect(c).toMatch(/Usually about a minute or two/);
+    expect(c).toMatch(/Usually about half a minute/);
+  });
+
+  test("reduced motion still shows it is working", () => {
+    const css = fs.readFileSync("src/styles.css", "utf8");
+    expect(css).toContain("@keyframes progress-sweep");
+    const block = css.slice(css.lastIndexOf("prefers-reduced-motion"));
+    // Turning the animation off must not make the bar vanish.
+    expect(block).toMatch(/progress-sweep/);
+    expect(block).toMatch(/width: 100%/);
+  });
+});

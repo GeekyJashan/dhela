@@ -466,3 +466,16 @@
 .prose hr { border: 0; border-top: 1px solid var(--border); margin: 2.6em 0; }
 /* The closing note after the rule is a caveat, not body copy. */
 .prose hr + p em { color: var(--muted-foreground); font-size: 0.95rem; }
+
+/* The sweeping bar on the extraction wait. Indeterminate on purpose: the
+   server reports no progress, so a bar that filled would be inventing one. */
+@keyframes progress-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Someone who has asked for less motion still needs to see it is working,
+     so the bar stays put and full rather than disappearing. */
+  [class*="progress-sweep"] { animation: none !important; width: 100% !important; opacity: 0.45; }
+}

@@ -13,6 +13,7 @@ import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices, extractInvoice } from "@/lib/invoices.functions";
 import { proposeInvoiceGroups, saveInvoiceGroups, MAX_PAGES_PER_BATCH, type ProposedDocument } from "@/lib/invoice-batch.functions";
 import { InvoiceGroupReview, type PhotoThumb } from "@/components/invoice-group-review";
+import { ExtractionProgress, type ProgressPhase } from "@/components/extraction-progress";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
@@ -85,8 +86,12 @@ function Upload() {
     items: { storagePath: string; mimeType?: string | null }[];
     photos: PhotoThumb[];
   } | null>(null);
-  /** Photos currently being read together, so the wait can say why it is long. */
-  const [reading, setReading] = useState(0);
+  /**
+   * What the app is doing right now, so the wait can say so. A lone spinner
+   * for ninety seconds reads as a hang, and a reload mid-read is how the same
+   * bill ends up uploaded twice.
+   */
+  const [work, setWork] = useState<{ phase: ProgressPhase; photos: number } | null>(null);
   /**
    * "separate" — every photo is its own bill. The fast path: each is read on
    * its own, in parallel, which is what most uploads are.
@@ -165,7 +170,8 @@ function Upload() {
     setBusy(true);
     try {
       const { orgId } = await getOrg();
-      log.info("batch:start", { count: pending.length, engine });
+      log.info("batch:start", { count: pending.length, engine, mode });
+      setWork({ phase: "uploading", photos: pending.length });
 
       // Concurrency=3 uploads
       const uploaded: Array<{ key: string; path: string; mime: string }> = [];
@@ -192,7 +198,7 @@ function Upload() {
       if (engine === "ai" && mode === "onebill" && uploaded.length > 1) {
         const items = uploaded.map(u => ({ storagePath: u.path, mimeType: u.mime }));
         uploaded.forEach(u => patch(u.key, { status: "processing" }));
-        setReading(uploaded.length);
+        setWork({ phase: "reading", photos: uploaded.length });
         try {
           // The grouping is stated, not inferred: one bill, these pages, in
           // this order. That is the whole point of the operator saying so.
@@ -217,7 +223,7 @@ function Upload() {
           uploaded.forEach(u => patch(u.key, { status: "failed", error: (e as Error).message }));
           toast.error((e as Error).message);
         } finally {
-          setReading(0);
+          setWork(null);
         }
         return;
       }
@@ -236,12 +242,15 @@ function Upload() {
       // use the queue so many files process in parallel.
       if (uploaded.length === 1) {
         patch(uploaded[0].key, { status: "processing" });
+        setWork({ phase: "reading", photos: 1 });
         try {
           await runExtract({ data: { invoiceId: ids[0], engine } });
           navigate({ to: "/invoices/$id", params: { id: ids[0] } });
         } catch (e) {
           patch(uploaded[0].key, { status: "failed", error: (e as Error).message });
           toast.error((e as Error).message);
+        } finally {
+          setWork(null);
         }
         return;
       }
@@ -265,6 +274,7 @@ function Upload() {
   const confirmProposal = async () => {
     if (!proposal) return;
     setBusy(true);
+    setWork({ phase: "saving", photos: proposal.items.length });
     try {
       const { invoices } = await saveGroups({
         data: { items: proposal.items, documents: proposal.documents },
@@ -284,6 +294,7 @@ function Upload() {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+      setWork(null);
     }
   };
 
@@ -296,6 +307,7 @@ function Upload() {
   const regroupProposal = async (groups: number[][]) => {
     if (!proposal) return;
     setBusy(true);
+    setWork({ phase: "reading", photos: proposal.items.length });
     try {
       const res = await propose({
         data: { items: proposal.items, docType: "purchase", groups },
@@ -310,6 +322,7 @@ function Upload() {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+      setWork(null);
     }
   };
 
@@ -372,22 +385,13 @@ function Upload() {
       {/* Shown instead of the picker while a read is waiting to be confirmed:
           the grouping is the decision on this screen, and nothing else on the
           page matters until it is made. */}
-      {/* Reading several photos together takes about a minute and a half — long
-          enough that a bare spinner reads as a hang. */}
-      {reading > 0 && !proposal && (
-        <Card className="mb-6 border-primary/30">
-          <CardContent className="flex items-center gap-3 p-5">
-            <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
-            <div>
-              <div className="font-medium">
-                {t("Reading {{n}} photos together…", { n: reading })}
-              </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {t("They go to the reader in one pass so pages of the same bill end up on one bill. This usually takes a minute or two — you can leave this page open.")}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* The wait, named. Hidden once the proposal is up, because by then the
+          decision on screen is the grouping and nothing else — except while
+          saving, which happens with the proposal still rendered. */}
+      {work && (!proposal || work.phase === "saving") && (
+        <div className="mb-6">
+          <ExtractionProgress phase={work.phase} photos={work.photos} />
+        </div>
       )}
 
       {proposal && (
