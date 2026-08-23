@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { CaptureInput, previewUrl } from "@/components/capture-input";
 import { getCurrentOrg } from "@/lib/org.functions";
-import { enqueueInvoices, extractInvoice } from "@/lib/invoices.functions";
+import { enqueueInvoices, extractInvoice, cancelQueuedInvoices } from "@/lib/invoices.functions";
 import { proposeInvoiceGroups, saveInvoiceGroups, MAX_PAGES_PER_BATCH, type ProposedDocument } from "@/lib/invoice-batch.functions";
 import { InvoiceGroupReview, type PhotoThumb } from "@/components/invoice-group-review";
 import { ExtractionProgress, type ProgressPhase } from "@/components/extraction-progress";
@@ -60,6 +60,7 @@ function Upload() {
   const enqueue = useServerFn(enqueueInvoices);
   const runExtract = useServerFn(extractInvoice);
   const propose = useServerFn(proposeInvoiceGroups);
+  const cancelQueued = useServerFn(cancelQueuedInvoices);
   const saveGroups = useServerFn(saveInvoiceGroups);
   const [rows, setRows] = useState<Row[]>([]);
   const [engine, setEngine] = useState<Engine>("ai");
@@ -92,6 +93,14 @@ function Upload() {
    * bill ends up uploaded twice.
    */
   const [work, setWork] = useState<{ phase: ProgressPhase; photos: number } | null>(null);
+  const [stopping, setStopping] = useState(false);
+  /**
+   * Aborts the in-flight read. It stops the waiting, not the server: a read
+   * already running finishes and is discarded. That is honest for this path
+   * because nothing is written until the grouping is confirmed, so an
+   * abandoned read costs a request and leaves no trace.
+   */
+  const abortRef = useRef<AbortController | null>(null);
   /**
    * "separate" — every photo is its own bill. The fast path: each is read on
    * its own, in parallel, which is what most uploads are.
@@ -171,6 +180,7 @@ function Upload() {
     try {
       const { orgId } = await getOrg();
       log.info("batch:start", { count: pending.length, engine, mode });
+      abortRef.current = new AbortController();
       setWork({ phase: "uploading", photos: pending.length });
 
       // Concurrency=3 uploads
@@ -203,11 +213,8 @@ function Upload() {
           // The grouping is stated, not inferred: one bill, these pages, in
           // this order. That is the whole point of the operator saying so.
           const res = await propose({
-            data: {
-              items,
-              docType: "purchase",
-              groups: [items.map((_, i) => i)],
-            },
+            data: { items, docType: "purchase", groups: [items.map((_, i) => i)] },
+            signal: abortRef.current?.signal,
           });
           setProposal({
             documents: res.documents as ProposedDocument[],
@@ -242,7 +249,7 @@ function Upload() {
         patch(uploaded[0].key, { status: "processing" });
         setWork({ phase: "reading", photos: 1 });
         try {
-          await runExtract({ data: { invoiceId: ids[0], engine } });
+          await runExtract({ data: { invoiceId: ids[0], engine }, signal: abortRef.current?.signal });
           navigate({ to: "/invoices/$id", params: { id: ids[0] } });
         } catch (e) {
           patch(uploaded[0].key, { status: "failed", error: (e as Error).message });
@@ -258,7 +265,7 @@ function Upload() {
         body: JSON.stringify({ limit: Math.min(10, uploaded.length) }),
       }).catch(() => { /* pg_cron will pick it up */ });
 
-      toast.success(t("{{n}} invoice(s) queued", { n: uploaded.length }));
+      setWork({ phase: "batch", photos: uploaded.length });
     } catch (e) {
       log.error("batch:failed", { err: e });
       toast.error((e as Error).message);
@@ -266,8 +273,54 @@ function Upload() {
       setBusy(false);
       // Cleared here and nowhere else. finally runs on every early return too,
       // which is what the inner blocks were getting wrong: a failed upload
-      // returned with the wait still on screen, and a queued batch left it
-      // spinning for good.
+      // returned with the wait still on screen. The one exception is a queued
+      // batch, whose work outlives this function and is ended by the poller.
+      setWork(w => (w?.phase === "batch" ? w : null));
+    }
+  };
+
+  /**
+   * Stop. What that means depends on what is running.
+   *
+   * A queued batch can genuinely be stopped, by deleting the rows that have
+   * not been picked up yet. Anything already being read is mid-flight in the
+   * worker and deleting it would fail the run rather than end it, so those are
+   * left to finish and the count is reported rather than glossed over.
+   *
+   * A synchronous read cannot be stopped on the server at all. Aborting ends
+   * the waiting and discards the answer, which is a clean stop here only
+   * because nothing is written until the grouping is confirmed.
+   */
+  const stopWork = async () => {
+    const phase = work?.phase;
+    setStopping(true);
+    try {
+      if (phase === "batch") {
+        const ids = rows.filter(r => r.invoiceId && (r.status === "queued" || r.status === "processing"))
+          .map(r => r.invoiceId!);
+        if (ids.length) {
+          const { cancelled, stillRunning } = await cancelQueued({ data: { ids } });
+          setRows(prev => prev.filter(r => !(r.invoiceId && ids.includes(r.invoiceId) && r.status === "queued")));
+          toast.success(
+            stillRunning > 0
+              ? t("Stopped. {{n}} already being read will still finish.", { n: stillRunning })
+              : t("Stopped. {{n}} bill(s) cancelled.", { n: cancelled }),
+          );
+        }
+      } else {
+        abortRef.current?.abort();
+        // The photos are already in storage, so they go back to pending rather
+        // than being lost — pressing upload again reuses nothing but retries.
+        setRows(prev => prev.map(r => (r.status === "processing" || r.status === "uploading"
+          ? { ...r, status: "pending" } : r)));
+        toast.message(t("Stopped."), {
+          description: t("The read was abandoned. Nothing was saved."),
+        });
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setStopping(false);
       setWork(null);
     }
   };
@@ -333,6 +386,18 @@ function Upload() {
   };
 
   // Poll status for queued/processing rows
+  // A queued batch ends when nothing is outstanding, which only the poller
+  // knows. startBatch has long since returned by then.
+  useEffect(() => {
+    if (work?.phase !== "batch") return;
+    const outstanding = rows.filter(r => r.invoiceId && (r.status === "queued" || r.status === "processing")).length;
+    if (outstanding === 0) {
+      setWork(null);
+      const read = rows.filter(r => r.status === "review" || r.status === "approved").length;
+      if (read) toast.success(t("{{n}} bill(s) read and waiting for review", { n: read }));
+    }
+  }, [rows, work?.phase, t]);
+
   useEffect(() => {
     const active = rows.filter((r) => r.invoiceId && (r.status === "queued" || r.status === "processing"));
     if (!active.length) {
@@ -391,7 +456,19 @@ function Upload() {
           saving, which happens with the proposal still rendered. */}
       {work && (!proposal || work.phase === "saving") && (
         <div className="mb-6">
-          <ExtractionProgress phase={work.phase} photos={work.photos} />
+          <ExtractionProgress
+            phase={work.phase}
+            photos={work.photos}
+            onStop={work.phase === "saving" ? undefined : stopWork}
+            stopping={stopping}
+            progress={work.phase === "batch"
+              ? {
+                  done: rows.filter(r => r.invoiceId
+                    && r.status !== "queued" && r.status !== "processing").length,
+                  total: rows.filter(r => r.invoiceId).length,
+                }
+              : undefined}
+          />
         </div>
       )}
 

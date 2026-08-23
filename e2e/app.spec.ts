@@ -1482,3 +1482,46 @@ test.describe("the wait ends when the work does", () => {
     expect(rm).toMatch(/coin-read-spin/);
   });
 });
+
+// Every upload path shows the wait, and every wait can be stopped.
+test.describe("stopping an upload", () => {
+  test("a queued batch is genuinely cancelled, not just hidden", () => {
+    const api = fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
+    const fn = api.slice(api.indexOf("export const cancelQueuedInvoices"),
+                         api.indexOf("export const deletePurchaseInvoice"));
+    // Only rows nobody has picked up. Deleting one mid-read fails the worker
+    // run rather than stopping it.
+    expect(fn).toMatch(/\.eq\("status", "queued"\)/);
+    expect(fn).toContain("stillRunning");
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    // And the operator is told which is which rather than "all stopped".
+    expect(ui).toMatch(/already being read will still finish/);
+  });
+
+  test("an in-flight read is abandoned honestly", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    expect(ui).toContain("abortRef.current?.abort()");
+    expect(ui).toMatch(/signal: abortRef\.current\?\.signal/);
+    // It stops the waiting, not the server. Safe here only because nothing is
+    // written until the grouping is confirmed, and the comment has to say so.
+    expect(ui).toMatch(/nothing is written until the grouping is confirmed/i);
+    expect(ui).toMatch(/Nothing was saved/);
+  });
+
+  test("the queued path shows real counts, not invented stages", () => {
+    const c = fs.readFileSync("src/components/extraction-progress.tsx", "utf8");
+    // The number finished is actually known there, so narrating it would be
+    // worse than measuring it.
+    expect(c).toMatch(/Reading \{\{done\}\} of \{\{total\}\} bills/);
+    expect(c).toMatch(/pct === null \? \(/);
+    expect(c).toContain("Determinate, because here the number finished is genuinely");
+  });
+
+  test("the queued wait is ended by the poller, not by startBatch", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    // startBatch returns long before a background batch is done, so its
+    // finally must leave that one alone.
+    expect(ui).toMatch(/setWork\(w => \(w\?\.phase === "batch" \? w : null\)\)/);
+    expect(ui).toMatch(/if \(work\?\.phase !== "batch"\) return;/);
+  });
+});

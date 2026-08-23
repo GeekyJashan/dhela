@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +25,7 @@ import { useTranslation } from "react-i18next";
  * roughly twice the expected time it says plainly that this one is slow.
  */
 
-export type ProgressPhase = "uploading" | "reading" | "saving";
+export type ProgressPhase = "uploading" | "reading" | "saving" | "batch";
 
 /** Roughly how long each stage holds, in ms. Reading dominates on purpose. */
 const READ_STAGES: { key: string; hold: number }[] = [
@@ -41,12 +42,20 @@ const SAVE_STAGES: { key: string; hold: number }[] = [
 ];
 
 export function ExtractionProgress({
-  phase, photos = 1, expectedMs,
+  phase, photos = 1, expectedMs, progress, onStop, stopping,
 }: {
   phase: ProgressPhase;
   photos?: number;
   /** What "normal" looks like, so the copy can admit when it is not. */
   expectedMs?: number;
+  /**
+   * Real counts, for the queued path where the number finished is actually
+   * known. When this is present the bar is determinate and the stage list goes
+   * away, because there is no need to narrate something measurable.
+   */
+  progress?: { done: number; total: number };
+  onStop?: () => void;
+  stopping?: boolean;
 }) {
   const { t } = useTranslation();
   const stages = phase === "saving" ? SAVE_STAGES : READ_STAGES;
@@ -74,6 +83,10 @@ export function ExtractionProgress({
   const active = Math.min(bounds.findIndex(b => elapsed < b), stages.length - 1);
   const current = active === -1 ? stages.length - 1 : active;
   const overrunning = elapsed > budget * 1.6;
+
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.done / progress.total) * 100)
+    : null;
 
   return (
     <Card className="border-primary/30">
@@ -106,25 +119,40 @@ export function ExtractionProgress({
               <p className="font-medium">
                 {phase === "uploading"
                   ? t("Uploading {{n}} photo(s)…", { n: photos })
+                  : phase === "batch"
+                    ? t("Reading {{done}} of {{total}} bills…", {
+                        done: progress?.done ?? 0, total: progress?.total ?? photos })
                   : phase === "saving"
                     ? t("Saving…")
                     : photos > 1
                       ? t("Reading {{n}} photos as one bill…", { n: photos })
                       : t("Reading the bill…")}
               </p>
-              <span className="tabular-nums text-xs text-muted-foreground">
-                {Math.floor(elapsed / 1000)}s
+              <span className="flex items-center gap-3">
+                <span className="tabular-nums text-xs text-muted-foreground">
+                  {Math.floor(elapsed / 1000)}s
+                </span>
+                {onStop && (
+                  <Button variant="ghost" size="sm" onClick={onStop} disabled={stopping}
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive">
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    {stopping ? t("Stopping…") : t("Stop")}
+                  </Button>
+                )}
               </span>
             </div>
 
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {overrunning
+              {phase === "batch"
+                ? t("Each bill is read on its own in the background. You can leave this page.")
+                : overrunning
                 ? t("This one is taking longer than usual. It is still going — leave the page open.")
                 : photos > 1
                   ? t("All the pages go in one pass so they come back as a single bill. Usually about a minute or two.")
                   : t("Usually about half a minute.")}
             </p>
 
+            {pct === null && (
             <ul className="mt-3 space-y-1.5" aria-live="polite">
               {stages.map((s, i) => {
                 const done = i < current;
@@ -150,11 +178,19 @@ export function ExtractionProgress({
                 );
               })}
             </ul>
+            )}
 
             {/* Indeterminate on purpose. The server reports no progress, so a
                 filling bar would be inventing one. This only says "working". */}
             <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-1/3 animate-[progress-sweep_1.8s_ease-in-out_infinite] rounded-full bg-primary/70" />
+              {pct === null ? (
+                <div className="h-full w-1/3 animate-[progress-sweep_1.8s_ease-in-out_infinite] rounded-full bg-primary/70" />
+              ) : (
+                /* Determinate, because here the number finished is genuinely
+                   known rather than inferred from a clock. */
+                <div className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
+                  style={{ width: `${Math.max(4, pct)}%` }} />
+              )}
             </div>
           </div>
         </div>

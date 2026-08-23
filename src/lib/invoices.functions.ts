@@ -633,6 +633,34 @@ export const updateInvoiceLine = createServerFn({ method: "POST" })
     return { ok: true, taxable_value: patch.taxable_value ?? null };
   });
 
+/**
+ * Stop a batch that is still waiting to be read.
+ *
+ * Only rows still queued are removed. One already being read is mid-flight in
+ * the worker, and deleting it underneath would fail the run rather than stop
+ * it, so those are left to land in review where they can be deleted normally.
+ * The count comes back so the screen can say which is which instead of
+ * claiming everything stopped.
+ */
+export const cancelQueuedInvoices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: removed, error } = await supabase
+      .from("invoices")
+      .delete()
+      .in("id", data.ids)
+      .eq("status", "queued")
+      .select("id");
+    if (error) throw new Error(error.message);
+    const cancelled = removed?.length ?? 0;
+    const stillRunning = data.ids.length - cancelled;
+    log.info("queue:cancelled", { asked: data.ids.length, cancelled, stillRunning });
+    return { cancelled, stillRunning };
+  });
+
 export const deletePurchaseInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))
