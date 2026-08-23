@@ -450,7 +450,7 @@ function Upload() {
             <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ai" ? "border-primary bg-primary/5" : ""}`}>
               <RadioGroupItem value="ai" id="ai" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI (Gemini)</div>
+                <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI</div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.")}
                 </p>

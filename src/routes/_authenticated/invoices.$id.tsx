@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, createProductsForUnmatchedLines, updatePurchaseInvoice, deletePurchaseInvoice } from "@/lib/invoices.functions";
+import { approveInvoice, extractInvoice, setLineProduct, createProductFromLine, createProductsForUnmatchedLines, updatePurchaseInvoice, deletePurchaseInvoice, updateInvoiceLine } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ function InvoiceReview() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const approve = useServerFn(approveInvoice);
+  const saveLine = useServerFn(updateInvoiceLine);
   const extract = useServerFn(extractInvoice);
   const linkProduct = useServerFn(setLineProduct);
   const createProduct = useServerFn(createProductFromLine);
@@ -218,6 +219,19 @@ function InvoiceReview() {
     qc.invalidateQueries();
     navigate({ to: "/invoices" });
   };
+
+  /** Edit one field on one line. The server owns what that implies. */
+  const editLine = async (lineId: string, field: string, value: string) => {
+    await saveLine({ data: { lineId, field: field as never, value } });
+    // Refetch rather than patch locally: changing a quantity also moves the
+    // amount, and the server is what decides that.
+    await qc.invalidateQueries({ queryKey: ["invoice-lines", id] });
+    await qc.invalidateQueries({ queryKey: ["invoice", id] });
+  };
+
+  // Approving is what posts stock and rewrites weighted-average cost, so an
+  // approved bill is closed to editing. The server refuses it too.
+  const LOCKED = inv?.status === "approved";
 
   const pickProduct = async (lineId: string, value: string) => {
     try {
@@ -416,6 +430,10 @@ function InvoiceReview() {
             )}
           </Card>
 
+        </div>
+      </div>
+
+      <div className="mt-4">
           <Card>
             <CardHeader><CardTitle className="text-sm">{t("Line items ({{n}})", { n: lines?.length ?? 0 })}</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto">
@@ -459,7 +477,11 @@ function InvoiceReview() {
                   {lines?.map(l => (
                     <TableRow key={l.id} className={l.needs_review ? "bg-warning/10" : ""}>
                       <TableCell className="text-xs">{l.line_no}</TableCell>
-                      <TableCell className="max-w-[220px] truncate" title={l.raw_description ?? ""}>{l.raw_description}</TableCell>
+                      <TableCell className="max-w-[240px]">
+                        <LineCell value={l.raw_description} width="w-[220px]" disabled={LOCKED}
+                          placeholder="Description on the bill"
+                          onSave={v => editLine(l.id, "raw_description", v)} />
+                      </TableCell>
                       <TableCell>
                         <Select value={l.matched_product_id ?? "__none__"}
                           onValueChange={v => pickProduct(l.id, v)}
@@ -476,20 +498,29 @@ function InvoiceReview() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-xs">{l.hsn}</TableCell>
-                      <TableCell className="tabular-nums">{l.quantity}</TableCell>
-                      <TableCell className="tabular-nums">{l.free_quantity || "—"}</TableCell>
-                      <TableCell className="tabular-nums">{l.rate}</TableCell>
-                      <TableCell className="tabular-nums">{l.discount_pct ? `${l.discount_pct}%` : "—"}</TableCell>
+                      <TableCell><LineCell value={l.hsn} width="w-24" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "hsn", v)} /></TableCell>
+                      <TableCell><LineCell value={l.quantity} numeric width="w-16" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "quantity", v)} /></TableCell>
+                      <TableCell><LineCell value={l.free_quantity} numeric width="w-14" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "free_quantity", v)} /></TableCell>
+                      <TableCell><LineCell value={l.rate} numeric width="w-20" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "rate", v)} /></TableCell>
+                      <TableCell><LineCell value={l.discount_pct} numeric width="w-16" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "discount_pct", v)} /></TableCell>
                       <TableCell className="tabular-nums text-right font-medium">
                         {l.quantity && l.taxable_value
                           ? (l.taxable_value / l.quantity).toLocaleString("en-IN",
                               { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                           : "—"}
                       </TableCell>
-                      <TableCell className="tabular-nums">{l.gst_rate}</TableCell>
-                      <TableCell className="text-xs">{l.batch}</TableCell>
-                      <TableCell className="text-xs">{l.expiry_date}</TableCell>
+                      <TableCell><LineCell value={l.gst_rate} numeric width="w-16" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "gst_rate", v)} /></TableCell>
+                      <TableCell><LineCell value={l.batch} width="w-24" disabled={LOCKED}
+                        onSave={v => editLine(l.id, "batch", v)} /></TableCell>
+                      <TableCell><LineCell value={l.expiry_date} width="w-28" disabled={LOCKED}
+                        placeholder="YYYY-MM-DD"
+                        onSave={v => editLine(l.id, "expiry_date", v)} /></TableCell>
                       <TableCell className="text-right tabular-nums">
                         <LineTotal line={l} />
                       </TableCell>
@@ -499,7 +530,6 @@ function InvoiceReview() {
               </Table>
             </CardContent>
           </Card>
-        </div>
       </div>
     </div>
   );
@@ -513,6 +543,59 @@ function InvoiceReview() {
  * Derived values are italic with a tooltip so they're never mistaken for a
  * figure actually read off the bill.
  */
+
+/**
+ * One line-item field, edited in place.
+ *
+ * Saves on blur rather than on every keystroke: an operator correcting a rate
+ * types several characters, and writing each one would be a request per digit
+ * and a half-typed number briefly stored as the truth. Escape abandons the
+ * edit, which matters when the thing being corrected is money.
+ */
+function LineCell({ value, onSave, numeric, disabled, width = "w-20", placeholder }: {
+  value: string | number | null;
+  onSave: (v: string) => Promise<void>;
+  numeric?: boolean;
+  disabled?: boolean;
+  width?: string;
+  placeholder?: string;
+}) {
+  const initial = value == null ? "" : String(value);
+  const [draft, setDraft] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  // Re-sync when the row is refetched, unless the user is mid-edit.
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (!focused) setDraft(initial); }, [initial, focused]);
+
+  const commit = async () => {
+    setFocused(false);
+    if (draft === initial) return;
+    setSaving(true);
+    try { await onSave(draft); }
+    catch (e) { setDraft(initial); toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  if (disabled) {
+    return <span className={numeric ? "tabular-nums" : ""}>{initial || "—"}</span>;
+  }
+  return (
+    <Input
+      value={draft}
+      placeholder={placeholder}
+      inputMode={numeric ? "decimal" : undefined}
+      onFocus={() => setFocused(true)}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") { setDraft(initial); setFocused(false); (e.target as HTMLInputElement).blur(); }
+      }}
+      className={`h-8 ${width} px-1.5 text-xs ${numeric ? "tabular-nums text-right" : ""} ${saving ? "opacity-60" : ""}`}
+    />
+  );
+}
+
 function LineTotal({ line }: {
   line: {
     line_total: number | null; quantity: number | null; rate: number | null;

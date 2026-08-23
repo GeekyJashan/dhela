@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
 import { matchLineToProduct, nameTokens, type MatchableProduct } from "./product-match";
+import type { Database } from "@/integrations/supabase/types";
 
 const log = createLogger("invoices.functions");
 
@@ -511,6 +512,94 @@ export const updatePurchaseInvoice = createServerFn({ method: "POST" })
  * re-upload). Last purchase rate isn't restored — the next approved purchase
  * sets it — so re-upload + approve the corrected invoice right after.
  */
+/**
+ * Edit one field of one line on a bill under review.
+ *
+ * Two things are enforced server-side rather than left to the screen.
+ *
+ * An approved invoice is closed. Approving is what moves stock and rewrites
+ * weighted-average cost, so editing a line afterwards would leave the ledger
+ * saying one thing and the bill another, with nothing to reconcile them. The
+ * UI disables the inputs; this refuses the write.
+ *
+ * And the amount follows the numbers it is made of. If someone corrects a
+ * quantity or a rate, `taxable_value` has to move with it — cost per unit,
+ * weighted-average cost and every margin downstream are built from that
+ * figure, and leaving it stale would show a corrected line that still prices
+ * the old way. Editing the amount directly is allowed, and then it is taken as
+ * given: the bill is the authority, not the arithmetic.
+ */
+export const updateInvoiceLine = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      lineId: z.string().uuid(),
+      field: z.enum([
+        "raw_description", "hsn", "batch", "expiry_date",
+        "quantity", "free_quantity", "rate", "discount_pct", "gst_rate", "taxable_value",
+      ]),
+      value: z.string().nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: line, error: readErr } = await supabase.from("invoice_lines")
+      .select("id, invoice_id, quantity, rate, discount_pct, gst_rate, taxable_value")
+      .eq("id", data.lineId).single();
+    if (readErr || !line) throw new Error("Line not found");
+
+    const { data: inv } = await supabase.from("invoices")
+      .select("status").eq("id", line.invoice_id).single();
+    if (inv?.status === "approved") {
+      throw new Error("This bill is approved — its stock and cost are already posted. Delete it to re-do.");
+    }
+
+    const NUMERIC = ["quantity", "free_quantity", "rate", "discount_pct", "gst_rate", "taxable_value"];
+    const raw = data.value?.trim() ?? "";
+    let parsed: string | number | null = raw === "" ? null : raw;
+    if (NUMERIC.includes(data.field) && raw !== "") {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) throw new Error(`"${raw}" is not a number`);
+      parsed = n;
+    }
+
+    // Typed against the generated table so a field rename breaks the build
+    // rather than silently writing nothing.
+    type LinePatch = Database["public"]["Tables"]["invoice_lines"]["Update"];
+    const patch: LinePatch = { [data.field]: parsed } as LinePatch;
+
+    // The amount is derived unless the operator sets it themselves, and the row
+    // total follows the amount. Leaving either stale shows a corrected line
+    // that still prices the old way — the first version of this recomputed
+    // taxable_value and not line_total, so a doubled quantity kept its old
+    // total on screen.
+    const money = (n: number) => Math.round(n * 100) / 100;
+    if (["quantity", "rate", "discount_pct"].includes(data.field)) {
+      const qty = data.field === "quantity" ? parsed : line.quantity;
+      const rate = data.field === "rate" ? parsed : line.rate;
+      const disc = data.field === "discount_pct" ? parsed : line.discount_pct;
+      if (qty != null && rate != null) {
+        patch.taxable_value = money(Number(qty) * Number(rate) * (1 - Number(disc ?? 0) / 100));
+      }
+    }
+    const taxable = patch.taxable_value ?? (data.field === "taxable_value" ? parsed : line.taxable_value);
+    const gst = data.field === "gst_rate" ? parsed : line.gst_rate;
+    if (taxable != null) {
+      const tax = money(Number(taxable) * Number(gst ?? 0) / 100);
+      patch.tax_amount = tax;
+      patch.line_total = money(Number(taxable) + tax);
+    }
+
+    // A line the operator has just corrected is no longer the extractor's
+    // guess, so it stops being flagged as one.
+    patch.needs_review = false;
+
+    const { error } = await supabase.from("invoice_lines").update(patch).eq("id", data.lineId);
+    if (error) throw new Error(error.message);
+    log.info("line:edited", { lineId: data.lineId, field: data.field });
+    return { ok: true, taxable_value: patch.taxable_value ?? null };
+  });
+
 export const deletePurchaseInvoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ invoiceId: z.string().uuid() }).parse(d))

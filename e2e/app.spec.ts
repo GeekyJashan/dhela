@@ -1290,3 +1290,53 @@ test.describe("multi-page bills", () => {
     expect(ui).toMatch(/Reading \{\{n\}\} photos together/);
   });
 });
+
+// The reader gets a description or a rate wrong and the operator is the one
+// holding the paper. Approving posts stock and rewrites weighted-average cost,
+// so the review screen is the last place a mistake can be caught for free.
+test.describe("correcting a line before approval", () => {
+  const api = () => fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
+
+  test("every field on a line can be edited", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/invoices.$id.tsx", "utf8");
+    for (const f of ["raw_description", "hsn", "quantity", "free_quantity",
+                     "rate", "discount_pct", "gst_rate", "batch", "expiry_date"]) {
+      expect(ui, `${f} must be editable`).toContain(`editLine(l.id, "${f}"`);
+    }
+    // Cost/unit and Total stay derived — they are what the other fields mean,
+    // not separate facts to type.
+    expect(ui).not.toContain('editLine(l.id, "line_total"');
+  });
+
+  test("an approved bill is closed to editing, in the server not just the screen", () => {
+    const src = api();
+    const fn = src.slice(src.indexOf("export const updateInvoiceLine"),
+                         src.indexOf("export const deletePurchaseInvoice"));
+    // Approving is what moved the stock and the cost. Editing afterwards would
+    // leave the ledger and the bill disagreeing with nothing to reconcile them.
+    expect(fn).toMatch(/inv\?\.status === "approved"/);
+    expect(fn).toMatch(/throw new Error\("This bill is approved/);
+    const ui = fs.readFileSync("src/routes/_authenticated/invoices.$id.tsx", "utf8");
+    expect(ui).toMatch(/const LOCKED = inv\?\.status === "approved"/);
+  });
+
+  test("the money follows the numbers it is made of", () => {
+    const fn = api().slice(api().indexOf("export const updateInvoiceLine"));
+    // Correcting a quantity has to move the amount, the tax and the row total.
+    // The first version moved taxable_value and left line_total behind, so a
+    // doubled quantity still showed the old money on screen.
+    expect(fn).toContain("patch.taxable_value = money(");
+    expect(fn).toContain("patch.tax_amount = tax");
+    expect(fn).toContain("patch.line_total = money(");
+    expect(fn).toMatch(/1 - Number\(disc \?\? 0\) \/ 100/);
+    // Setting the amount by hand wins: the bill is the authority, not the sum.
+    expect(fn).toMatch(/data\.field === "taxable_value" \? parsed : line\.taxable_value/);
+  });
+
+  test("the model name is not shown to users", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
+    // Which model is behind it is an implementation detail that goes stale —
+    // this said "Gemini 2.5 Flash" long after the backend moved to 3.6.
+    expect(ui).not.toMatch(/Gemini|GPT|Claude|Sonnet|Haiku/);
+  });
+});
