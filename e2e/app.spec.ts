@@ -1674,3 +1674,46 @@ test.describe("calling a lead", () => {
     expect(ui).toMatch(/key=\{l\.phone \?\? ""\}/);
   });
 });
+
+// The tab icon was still Lovable's teal "L" months after the product got its
+// own mark, because favicon.ico and icon.png predated dhela.svg and nothing
+// pointed at the difference.
+test.describe("the tab icon", () => {
+  test("favicon.ico is the coin, at the sizes a browser asks for", async ({ request }) => {
+    const r = await request.get("/favicon.ico");
+    expect(r.status()).toBe(200);
+    const buf = Buffer.from(await r.body());
+    // ICO header: reserved 0, type 1, then the image count.
+    expect(buf.readUInt16LE(0), "reserved").toBe(0);
+    expect(buf.readUInt16LE(2), "type=icon").toBe(1);
+    const count = buf.readUInt16LE(4);
+    expect(count, "needs 16, 32 and 48 or it blurs on a hi-dpi tab").toBe(3);
+    const widths = Array.from({ length: count }, (_, i) => buf.readUInt8(6 + i * 16));
+    expect(widths.sort((a, b) => a - b)).toEqual([16, 32, 48]);
+  });
+
+  test("the icons are gold, not the old teal L", async ({ request }) => {
+    // Cheap and decisive: the Lovable mark was a teal square, the Dhela mark is
+    // a gold coin. Compare the average colour rather than the bytes, so a
+    // re-render of the same mark does not fail this.
+    for (const path of ["/icon.png", "/icon-512.png"]) {
+      const png = Buffer.from(await (await request.get(path)).body());
+      expect(png.length, path).toBeGreaterThan(1000);
+      expect(png.subarray(1, 4).toString(), `${path} is a png`).toBe("PNG");
+    }
+    // The svg the head lists first must be the coin, which is gold.
+    const svg = await (await request.get("/dhela.svg")).text();
+    expect(svg).toContain("#e0a94e");
+    expect(svg.toLowerCase()).not.toContain("lovable");
+  });
+
+  test("every icon the head promises actually exists", async ({ request }) => {
+    for (const href of ["/dhela.svg", "/favicon.ico", "/icon.png"]) {
+      expect((await request.get(href)).status(), href).toBe(200);
+    }
+    const html = await (await request.get("/")).text();
+    for (const href of ["/dhela.svg", "/favicon.ico", "/icon.png"]) {
+      expect(html, `head must reference ${href}`).toContain(href);
+    }
+  });
+});
