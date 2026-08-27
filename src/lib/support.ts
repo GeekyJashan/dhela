@@ -18,17 +18,41 @@ export function supportPhoneDisplay(): string {
 }
 
 /**
+ * An Indian phone number in the form a dialler and WhatsApp both accept.
+ *
+ * Numbers arrive from listings and from typing, so they turn up as
+ * "+91 98765 43210", "098765-43210", "9876543210" and worse. Everything
+ * non-numeric goes, a leading zero goes, and a bare ten digits gets 91 in
+ * front — a ten-digit Indian mobile sent to WhatsApp without a country code
+ * opens somebody else's chat.
+ *
+ * Returns null when there is nothing dialable, so the caller can hide the
+ * button rather than offer one that fails.
+ */
+export function normalisePhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("0")) d = d.replace(/^0+/, "");
+  if (d.length === 10) d = `91${d}`;
+  // 12 is 91 plus ten. Shorter is a landline without an STD code or a typo,
+  // and dialling it would just fail in the operator's hand.
+  return d.length >= 11 && d.length <= 15 ? d : null;
+}
+
+/** tel: link for a real phone call. */
+export function telLink(phone: string | null | undefined): string | null {
+  const d = normalisePhone(phone);
+  return d ? `tel:+${d}` : null;
+}
+
+/**
  * A WhatsApp deep link. Defaults to the founder's number, which is what every
  * support link in the app wants; pass a number to message someone else, as the
  * leads screen does. An Indian mobile typed without a country code would open
  * the wrong chat, so a bare 10-digit number gets 91 in front of it.
  */
 export function whatsappLink(text: string, phone?: string | null): string {
-  let to = supportPhoneDigits();
-  if (phone) {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length >= 10) to = digits.length === 10 ? `91${digits}` : digits;
-  }
+  const to = normalisePhone(phone) ?? supportPhoneDigits();
   return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
 }
 

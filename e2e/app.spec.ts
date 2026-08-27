@@ -1287,7 +1287,9 @@ test.describe("multi-page bills", () => {
     // And the screen must not promise more than that.
     expect(ui).toContain("MAX_PAGES_PER_BATCH");
     // A minute and a half of silence reads as a hang, so the wait says why.
-    expect(ui).toMatch(/Reading \{\{n\}\} photos together/);
+    // The copy lives in the progress component, not on the upload screen.
+    const prog = fs.readFileSync("src/components/extraction-progress.tsx", "utf8");
+    expect(prog).toMatch(/Reading \{\{n\}\} photos as one bill/);
   });
 });
 
@@ -1420,7 +1422,15 @@ test.describe("the wait while a bill is read", () => {
     // Check the code, not the prose — the file's own comment says the word.
     const code = c.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     expect(code, "no percentage is rendered").not.toMatch(/percent|\{\s*pct\s*\}|%<|%\s*\{/);
-    expect(code, "no bar width driven by elapsed").not.toMatch(/width:\s*`?\$\{/);
+    // A width bound to `pct` is fine: that comes from a real count of finished
+    // bills. What must never happen is a width derived from the clock, which
+    // would be a guess wearing a number's clothes.
+    const widths = [...code.matchAll(/width:\s*`\$\{([^}]*)\}/g)].map(m => m[1]);
+    for (const w of widths) expect(w, `width bound to ${w}`).toMatch(/pct/);
+    // Line-scoped: an unanchored search spans the file and matches any width
+    // that happens to appear before the word elapsed anywhere below it.
+    const widthLines = code.split("\n").filter(l => /\bwidth\b/.test(l));
+    for (const l of widthLines) expect(l, "a bar width must not come from the clock").not.toMatch(/elapsed/);
     expect(c).toContain("Indeterminate on purpose");
     expect(c).toMatch(/Math\.floor\(elapsed \/ 1000\)/);
   });
@@ -1443,10 +1453,13 @@ test.describe("the wait while a bill is read", () => {
   test("reduced motion still shows it is working", () => {
     const css = fs.readFileSync("src/styles.css", "utf8");
     expect(css).toContain("@keyframes progress-sweep");
-    const block = css.slice(css.lastIndexOf("prefers-reduced-motion"));
+    // Several reduced-motion blocks exist now that the coin has one, and the
+    // bar's is no longer the last. Find the one that governs the bar.
+    const blocks = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
+    const bar = blocks.find(b => b.includes("progress-sweep"));
+    expect(bar, "the progress bar needs a reduced-motion rule").toBeTruthy();
     // Turning the animation off must not make the bar vanish.
-    expect(block).toMatch(/progress-sweep/);
-    expect(block).toMatch(/width: 100%/);
+    expect(bar!).toMatch(/width: 100%/);
   });
 });
 
@@ -1622,5 +1635,42 @@ test.describe("the guides are findable", () => {
     }
     expect(txt).toContain("Sitemap: https://dhela.in/sitemap.xml");
     expect(txt).toMatch(/Disallow: \/invoices/);
+  });
+});
+
+// The leads screen is for calling people, so the number has to be correctable
+// and the buttons have to do what they look like they do.
+test.describe("calling a lead", () => {
+  test("a number is normalised the same way for dialling and for WhatsApp", async () => {
+    const { normalisePhone, telLink, whatsappLink } = await import("../src/lib/support");
+    // These are the shapes numbers actually arrive in, from listings and from
+    // typing. A ten-digit Indian mobile sent to WhatsApp without a country
+    // code opens somebody else's chat.
+    for (const raw of ["9876543210", "+91 98765 43210", "098765-43210", "91 98765 43210"]) {
+      expect(normalisePhone(raw), raw).toBe("919876543210");
+      expect(telLink(raw), raw).toBe("tel:+919876543210");
+      expect(whatsappLink("Hi", raw), raw).toContain("wa.me/919876543210");
+    }
+    // Nothing dialable means no button, rather than a button that fails in
+    // the operator's hand.
+    for (const junk of ["12345", "", null, "not a number"]) {
+      expect(normalisePhone(junk), String(junk)).toBeNull();
+      expect(telLink(junk), String(junk)).toBeNull();
+    }
+  });
+
+  test("call and WhatsApp are separate, and neither pretends to be the other", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/leads.tsx", "utf8");
+    // Dialling and messaging are different actions and used to share one
+    // phone icon that opened a chat.
+    expect(ui).toMatch(/href=\{telLink\(l\.phone\)!\}/);
+    expect(ui).toMatch(/whatsappLink\(`Hi, is this \$\{l\.name\}\?`, l\.phone\)/);
+    expect(ui).toMatch(/<MessageCircle/);
+    // There is no URL that starts a WhatsApp voice call to someone else's
+    // number, so the comment has to stop the next person adding one.
+    expect(ui.replace(/\s+/g, " ")).toMatch(/no URL that starts a WhatsApp voice call/);
+    // The input must be keyed on the stored value, or a refetch leaves a
+    // stale number on screen that looks saved.
+    expect(ui).toMatch(/key=\{l\.phone \?\? ""\}/);
   });
 });

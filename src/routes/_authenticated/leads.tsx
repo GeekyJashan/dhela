@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, Phone, Loader2, Trash2, Search, Radar } from "lucide-react";
+import { Plus, Phone, MessageCircle, Loader2, Trash2, Search, Radar } from "lucide-react";
 import { addLeads, listLeads, updateLead, deleteLead, discoverLeads } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { whatsappLink } from "@/lib/support";
+import { whatsappLink, telLink, normalisePhone } from "@/lib/support";
 
 export const Route = createFileRoute("/_authenticated/leads")({
   // Hidden from the sidebar is presentation. This is what stops a customer who
@@ -197,7 +197,7 @@ function Leads() {
               <TableRow>
                 <TableHead className="w-14">{t("Fit")}</TableHead>
                 <TableHead>{t("Business")}</TableHead>
-                <TableHead className="min-w-[150px]">{t("Contact")}</TableHead>
+                <TableHead className="min-w-[230px]">{t("Contact")}</TableHead>
                 <TableHead className="min-w-[260px]">{t("Why this one")}</TableHead>
                 <TableHead className="w-[150px]">{t("Stage")}</TableHead>
                 <TableHead className="w-10" />
@@ -219,13 +219,31 @@ function Leads() {
                       placeholder={t("Person")}
                       onBlur={e => e.target.value !== (l.contact_person ?? "") && save(l.id, { contact_person: e.target.value || null })} />
                     <div className="mt-1 flex items-center gap-1">
-                      <Input className="h-7 text-xs" defaultValue={l.phone ?? ""} placeholder={t("Phone")}
+                      {/* key on the stored value so a refetch replaces what is
+                          shown; an uncontrolled input keeps its first value
+                          forever and would quietly show a stale number. */}
+                      <Input key={l.phone ?? ""} className="h-7 min-w-0 flex-1 text-xs"
+                        defaultValue={l.phone ?? ""} placeholder={t("Phone")} inputMode="tel"
                         onBlur={e => e.target.value !== (l.phone ?? "") && save(l.id, { phone: e.target.value || null })} />
-                      {l.phone && (
-                        <a href={whatsappLink(`Hi, is this ${l.name}?`, l.phone)} target="_blank" rel="noreferrer"
-                          className="shrink-0 rounded p-1 text-primary hover:bg-muted" title={t("WhatsApp")}>
+                      {/* Two actions, because they are two different things.
+                          Call dials. WhatsApp opens the chat — there is no URL
+                          that starts a WhatsApp voice call to someone else's
+                          number, so offering one would be a button that lies.
+                          From the chat the call button is one tap away. */}
+                      {telLink(l.phone) && (
+                        <a href={telLink(l.phone)!}
+                          className="shrink-0 rounded p-1 text-primary hover:bg-muted" title={t("Call")}>
                           <Phone className="h-3.5 w-3.5" />
                         </a>
+                      )}
+                      {normalisePhone(l.phone) && (
+                        <a href={whatsappLink(`Hi, is this ${l.name}?`, l.phone)} target="_blank" rel="noreferrer"
+                          className="shrink-0 rounded p-1 text-success hover:bg-muted" title={t("WhatsApp")}>
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {l.phone && !normalisePhone(l.phone) && (
+                        <span className="shrink-0 text-[10px] text-amber-600" title={t("Not a dialable number")}>?</span>
                       )}
                     </div>
                   </TableCell>
