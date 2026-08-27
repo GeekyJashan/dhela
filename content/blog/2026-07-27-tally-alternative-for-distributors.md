@@ -24,7 +24,7 @@ Replacing that with something newer means retraining the one person whose sign-o
 
 Watch a distributor's evening and the bottleneck is obvious, and it is not accounting.
 
-It is a stack of supplier bills and somebody typing them in. Item, quantity, rate, tax, line by line. Forty bills is three hours. Then the stock register. Then, somewhere near midnight, the discovery that a rate was keyed wrong two weeks ago and every margin since has been quietly wrong.
+It is a stack of supplier bills and somebody typing them in. [Photographing them instead](/blog/photograph-a-bill-so-it-reads-correctly) is the part that actually removes the hours. Item, quantity, rate, tax, line by line. Forty bills is three hours. Then the stock register. Then, somewhere near midnight, the discovery that a rate was keyed wrong two weeks ago and every margin since has been quietly wrong.
 
 Tally is not slow at this. **It is just that data entry is data entry**, and no ledger software makes typing a bill faster, because typing the bill is the job it hands you.
 
@@ -32,7 +32,7 @@ Three specific costs, none of which a migration fixes:
 
 **The same product written six ways.** Six suppliers bill "Tata Salt 1kg" as `TATA SALT 1KG`, `Tata Salt 1 Kg`, `T.SALT-1KG` and three more. Entered as typed, that is six products with a bit of stock each, and a month-end count that never reconciles. Nothing was stolen; one item is smeared across six records.
 
-**Cost that does not move.** You bought at ₹92 in March and ₹98 in May and still hold old stock. What did the case you just sold cost? Neither number. The honest figure is the weighted average, and it changes on every purchase. Very few people recompute it by hand, so margin reports quietly drift.
+**Cost that does not move.** You bought at ₹92 in March and ₹98 in May and still hold old stock. What did the case you just sold cost? Neither number. The honest figure is [the weighted average](/blog/weighted-average-cost-for-distributors), and it changes on every purchase. Very few people recompute it by hand, so margin reports quietly drift.
 
 **Receivables without dates.** The amount is in the diary. The date often is not. Without a date, an outstanding is a number, not a memory — and "next week for sure" has no weight behind it.
 

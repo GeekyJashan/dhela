@@ -85,7 +85,7 @@ Run that check on every line before you accept a bill into stock. It is the chea
 
 None of the above is difficult arithmetic. It is difficult because it has to happen on **every line of every purchase bill**, and a distributor gets a lot of bills.
 
-Do it by hand and you will do it right for a week. Do it in a spreadsheet and you will do it right until someone copies a formula down a column wrong. The only version that survives contact with a real godown is one where the cost is computed at the moment the bill is recorded, from the amount actually charged, without anyone deciding anything.
+Do it by hand and you will do it right for a week. Do it in a spreadsheet and you will do it right until someone copies a formula down a column wrong. It is the same reason [Tally does not fix this either](/blog/tally-alternative-for-distributors). The only version that survives contact with a real godown is one where the cost is computed at the moment the bill is recorded, from the amount actually charged, without anyone deciding anything.
 
 ## Where Dhela fits
 

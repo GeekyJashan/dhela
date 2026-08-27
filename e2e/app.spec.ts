@@ -1593,13 +1593,26 @@ test.describe("the guides are findable", () => {
     expect(html).toMatch(/<h1/);
   });
 
-  test("the guides link to each other, not just to the app", async () => {
-    // A set of unconnected pages is a set of unconnected pages. Topical
-    // clusters need the articles to reference one another.
+  test("no guide is a dead end, in either direction", async () => {
+    // A set of unconnected pages is a set of unconnected pages. The first pass
+    // at this linked the eleven new guides to each other and left the three
+    // original ones orphaned — and those three target the biggest search
+    // terms on the site, so they were the worst ones to strand.
     const { POSTS } = await import("../src/lib/blog-data");
-    const linked = POSTS.filter(p =>
-      [...p.html.matchAll(/href="\/blog\/([a-z0-9-]+)"/g)].some(m => m[1] !== p.slug)).length;
-    expect(linked, "most guides should link to another guide").toBeGreaterThanOrEqual(10);
+    const out = new Map(POSTS.map(p => [p.slug,
+      new Set([...p.html.matchAll(/href="\/blog\/([a-z0-9-]+)"/g)].map(m => m[1]).filter(x => x !== p.slug))]));
+    const inbound = new Map(POSTS.map(p => [p.slug, 0]));
+    for (const [, targets] of out)
+      for (const t of targets)
+        if (inbound.has(t)) inbound.set(t, inbound.get(t)! + 1);
+
+    for (const p of POSTS) {
+      expect(out.get(p.slug)!.size, `${p.slug} links to no other guide`).toBeGreaterThan(0);
+      expect(inbound.get(p.slug), `nothing links to ${p.slug}`).toBeGreaterThan(0);
+      // A link to a post that does not exist is worse than no link.
+      for (const t of out.get(p.slug)!)
+        expect(POSTS.some(x => x.slug === t), `${p.slug} links to missing ${t}`).toBe(true);
+    }
   });
 
   test("AI answer engines are allowed, and app screens are not", async ({ request }) => {

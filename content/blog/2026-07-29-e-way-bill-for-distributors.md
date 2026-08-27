@@ -17,7 +17,7 @@ You need an e-way bill for:
 
 - Any supply above ₹50,000, inter-state or intra-state
 - Stock transfers between your own branches, even though there is no sale
-- Sales returns coming back from a retailer
+- Sales returns coming back from a retailer, which also need [a credit note](/blog/credit-notes-sales-returns-gst)
 - Goods sent for job work, inter-state, at any value
 
 You do **not** need one for:

@@ -55,7 +55,7 @@ Not every system handles the third one. It is worth knowing whether yours does, 
 
 Two things worth knowing when you file:
 
-**B2B credit notes** go against the original invoice, and the recipient's credit is reduced correspondingly. Get the original invoice number right or the matching fails.
+Which table each one lands in is covered in [GSTR-1: B2B, B2CL and B2CS](/blog/gstr-1-b2b-b2cl-b2cs-explained). **B2B credit notes** go against the original invoice, and the recipient's credit is reduced correspondingly. Get the original invoice number right or the matching fails.
 
 **B2C returns** are netted off. There is no separate document to match against, so the reduction shows up in the consolidated figures rather than as a line.
 
@@ -63,7 +63,7 @@ There is also a separate table for credit notes against unregistered supplies, a
 
 ## What to do the day goods come back
 
-1. **Take them in physically and count them.** Against the original invoice, not against what the driver says.
+1. **Take them in physically and count them.** Against the original invoice, not against what the driver says. Goods worth more than ₹50,000 coming back need [an e-way bill](/blog/e-way-bill-for-distributors) of their own.
 2. **Decide saleable or write-off.** Expired or damaged goods do not go back into stock.
 3. **Raise the credit note the same week**, referencing the original invoice number and date.
 4. **Check the stock moved and the profit reversed.** If only one of the two happened, you have a problem that will surface at year end.

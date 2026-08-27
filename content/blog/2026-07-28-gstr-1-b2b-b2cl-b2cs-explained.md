@@ -48,11 +48,13 @@ Most distributors only ever use `OE`. Software that writes "Intra-State" into th
 
 Credit notes against B2B invoices go in **CDNR**, keyed to the original invoice and the buyer's GSTIN. Straightforward.
 
-Credit notes against unregistered buyers go in **CDNUR** — but CDNUR only accepts three document types: **B2CL, EXPWP and EXPWOP** (export with and without payment of tax).
+Which document to raise in the first place is covered in [credit notes and sales returns](/blog/credit-notes-sales-returns-gst). Credit notes against unregistered buyers go in **CDNUR** — but CDNUR only accepts three document types: **B2CL, EXPWP and EXPWOP** (export with and without payment of tax).
 
 There is no CDNUR category for B2CS. So a credit note against a small intra-state cash sale does **not** get its own CDNUR row. It reduces the B2CS figure for that place of supply and rate. Software that dumps every non-GSTIN credit note into CDNUR produces a return the portal will reject.
 
 ## HSN summary depends on your turnover
+
+The digit requirement, and what a wrong code costs you, is in [HSN codes for distributors](/blog/hsn-codes-for-distributors).
 
 Table 12 needs an HSN-wise summary of everything you sold. How many digits depends on your aggregate annual turnover in the previous year:
 

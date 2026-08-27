@@ -42,7 +42,7 @@ The corollary: **a product without an HSN is an incomplete product**, and it sho
 
 **Your customer's credit.** A code that does not match theirs is one of the causes of an [input tax credit mismatch](/blog/input-tax-credit-gstr-2b-mismatch). Their reconciliation matches on your data. A code that disagrees with what they expect is a query at best.
 
-**Your own return.** GSTR-1 has an HSN summary table, and it has to reconcile with the invoice lines.
+**Your own return.** [GSTR-1](/blog/gstr-1-b2b-b2cl-b2cs-explained) has an HSN summary table, and it has to reconcile with the invoice lines.
 
 **Compounding.** A wrong code applied to a fast-moving line for a year is not one error, it is every invoice of that line for a year.
 

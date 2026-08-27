@@ -32,7 +32,7 @@ In rough order of how often we see it:
 
 **They typed your GSTIN wrong.** One character. The invoice exists in their GSTR-1 against somebody else's number, or nobody's. It will never reach your 2B on its own.
 
-**They filed it as B2C.** If they did not enter your GSTIN at all, the sale went into the consumer bucket. Same effect: no credit for you, and they have to amend.
+**They filed it as B2C.** The difference between the tables is in [GSTR-1: B2B, B2CL and B2CS](/blog/gstr-1-b2b-b2cl-b2cs-explained). If they did not enter your GSTIN at all, the sale went into the consumer bucket. Same effect: no credit for you, and they have to amend.
 
 **The invoice number does not match.** You recorded INV-4471, they filed 4471/26-27. Both are real, and automated matching will not pair them.
 

@@ -5,7 +5,7 @@ published: 2026-08-04
 tags: OCR, AI, workflow
 ---
 
-Reading a bill from a photo works well now. It fails in specific, boring, fixable ways, and almost all of them happen before the photo is taken.
+Reading a bill from a photo works well now, and it is the one change that removes the evening of typing [Tally will never remove for you](/blog/tally-alternative-for-distributors). It fails in specific, boring, fixable ways, and almost all of them happen before the photo is taken.
 
 This is what actually matters, roughly in order of how much difference it makes.
 
