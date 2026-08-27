@@ -17,7 +17,7 @@ Buy 100 units at ₹50 and take in 12 free:
 
 > spend ₹5,000, units received 112, **cost per unit ₹44.64**
 
-Not ₹50. Not ₹44.64 for the free ones and ₹50 for the rest — one cost, across everything that came in, because you cannot tell them apart on the shelf and you will not sell them differently.
+Not ₹50. Not ₹44.64 for the free ones and ₹50 for the rest — one cost, across everything that came in — the [weighted average](/blog/weighted-average-cost-for-distributors) of what you spent, because you cannot tell them apart on the shelf and you will not sell them differently.
 
 Get this wrong in either direction and it hurts:
 

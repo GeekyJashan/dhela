@@ -46,7 +46,7 @@ On a typical hardware or FMCG bill:
 |---|---|---|---|---|
 | BIB COCK WITH WALL FLANGE | 22 | 697.50 | 55 | 6,905.25 |
 
-The rate is ₹697.50. You paid **₹313.88** a unit. If your pricing is built off the rate column, everything you sell looks like a loss and you will not know why.
+The rate is ₹697.50. You paid **₹313.88** a unit. That gap, and what to do about it, is [what your stock actually cost](/blog/weighted-average-cost-for-distributors). If your pricing is built off the rate column, everything you sell looks like a loss and you will not know why.
 
 The reverse error is just as common: using the last purchase rate when prices have moved. If you bought at ₹280 in April and ₹340 in August, neither is your cost. Your cost is the weighted average across what you actually hold.
 
@@ -70,7 +70,7 @@ None of these need a costing system. They need to be a number you apply. If hist
 
 **2. What does this do to blended margin?** A low-margin line is fine if it pulls high-margin lines with it, and a disaster if it is most of your volume. Look at the customer's whole basket, not the line.
 
-**3. Am I discounting price or giving stock?** A 5 per cent price cut costs you 5 per cent of revenue. A 10+1 costs you 9.1 per cent of goods at cost. Which is cheaper depends on your margin, and the answer is often not the obvious one.
+**3. Am I discounting price or giving stock?** A 5 per cent price cut costs you 5 per cent of revenue. A 10+1 costs you 9.1 per cent of goods at cost — see [free goods and trade schemes](/blog/free-goods-schemes-costing-gst) for why it is 9.1 and not 10. Which is cheaper depends on your margin, and the answer is often not the obvious one.
 
 ## Where the money actually leaks
 

@@ -33,7 +33,7 @@ Two rules for reading it.
 
 ₹8 lakh owed on ₹24 lakh of sales in 90 days is a DSO of 30. That means on average you are financing your customers for a month.
 
-DSO on its own is not good or bad. Compare it to your own credit terms. If you sell on 30 days and your DSO is 30, the system is working. If you sell on 30 and your DSO is 52, twenty-two days of sales are stuck somewhere and nobody decided that.
+DSO on its own is not good or bad. Compare it to your own credit terms, and to the [45-day limit the MSMED Act sets](/blog/msmed-45-day-payment-rule) if you are registered. If you sell on 30 days and your DSO is 30, the system is working. If you sell on 30 and your DSO is 52, twenty-two days of sales are stuck somewhere and nobody decided that.
 
 **2. Percentage over 60 days.** The health check. Under 10 per cent is normal. Over 25 per cent means collections have stopped working, not that a customer is slow.
 

@@ -44,7 +44,7 @@ Two mistakes cost real money here.
 
 **Returning goods that are still sellable.** The opposite error. Something with four months left and steady demand should be sold, not returned at 80 per cent.
 
-The decision needs two facts per batch: how long until expiry, and how fast that item is moving. Days of cover against days to expiry. If cover exceeds the time remaining, you will not sell it, so return it while you still can.
+The decision needs two facts per batch: how long until expiry, and how fast that item is moving. Days of cover against days to expiry — the same cover figure used to [find dead stock](/blog/dead-stock-how-to-find-it). If cover exceeds the time remaining, you will not sell it, so return it while you still can.
 
 ## A system that survives a real godown
 

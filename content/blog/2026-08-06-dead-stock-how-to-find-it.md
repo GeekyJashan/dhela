@@ -38,7 +38,7 @@ The money tied up is the obvious cost and the smallest part of it.
 
 **Obsolescence.** Packaging changes, models supersede, and a competitor launches. Dead stock rarely gets more valuable.
 
-**Expiry.** In pharma and food this is a hard wall, and the write-off is total.
+**Expiry.** In pharma and food this is a hard wall, and [batch and expiry tracking](/blog/batch-expiry-tracking-pharma-distributors) is what turns it from a write-off into a supplier claim, and the write-off is total.
 
 **The decision cost.** The largest and least visible. Every rupee in dead stock is a rupee not in the line that is selling out every fortnight — and stockouts on a fast line cost you the customer, not just the sale.
 
@@ -47,7 +47,7 @@ The money tied up is the obvious cost and the smallest part of it.
 If you have no software, you can still do this once with a stock list and three months of sales:
 
 1. List every SKU with units on hand and cost per unit.
-2. Add units sold in the last ninety days.
+2. Add units sold in the last ninety days, valued at [what the stock actually cost you](/blog/weighted-average-cost-for-distributors) rather than at the printed rate.
 3. Compute cover: on hand ÷ (sold ÷ 90).
 4. Sort by cost value descending, filter to cover above your threshold and zero sales in sixty days.
 5. Stop at the top twenty. That is almost always most of the money.

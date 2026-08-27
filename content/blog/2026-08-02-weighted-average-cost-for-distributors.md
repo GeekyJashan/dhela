@@ -9,7 +9,7 @@ Here is a question most distributors cannot answer in under a minute: **what did
 
 Not what it is listed at. Not what you sell it for. What it cost.
 
-Get that number wrong and every figure downstream is wrong with it — margin per product, profit for the month, which lines are worth stocking, what you can afford to discount. And the usual way of getting it wrong looks completely reasonable.
+Get that number wrong and every figure downstream is wrong with it, starting with [margin, which is not markup](/blog/margin-vs-markup-distributor-pricing) — margin per product, profit for the month, which lines are worth stocking, what you can afford to discount. And the usual way of getting it wrong looks completely reasonable.
 
 ## The mistake: costing off the rate column
 
@@ -31,7 +31,7 @@ This is not a hypothetical. It is the single most common costing error we have s
 
 Indian trade runs on schemes. Ten plus one. Buy a hundred, get twelve free.
 
-If you buy 100 units at ₹50 and receive 12 free, you have spent ₹5,000 and taken in 112 units. Your cost per unit is not ₹50, it is:
+Schemes get their own arithmetic, covered in [free goods and trade schemes](/blog/free-goods-schemes-costing-gst). In short: if you buy 100 units at ₹50 and receive 12 free, you have spent ₹5,000 and taken in 112 units. Your cost per unit is not ₹50, it is:
 
 > ₹5,000 ÷ 112 = **₹44.64**
 

@@ -40,7 +40,7 @@ The corollary: **a product without an HSN is an incomplete product**, and it sho
 
 **A rate mismatch.** The GST rate follows the classification. Charge 12 per cent where 18 applies and you owe the difference plus interest, whether or not you collected it from the customer. Charge 18 where 12 applies and your customer is out of pocket and will notice.
 
-**Your customer's credit.** Their reconciliation matches on your data. A code that disagrees with what they expect is a query at best.
+**Your customer's credit.** A code that does not match theirs is one of the causes of an [input tax credit mismatch](/blog/input-tax-credit-gstr-2b-mismatch). Their reconciliation matches on your data. A code that disagrees with what they expect is a query at best.
 
 **Your own return.** GSTR-1 has an HSN summary table, and it has to reconcile with the invoice lines.
 

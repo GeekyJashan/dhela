@@ -15,6 +15,8 @@ import {
 
 export const Route = createFileRoute("/")({
   head: () => ({
+    // Its own canonical, now that the root no longer emits one for everybody.
+    links: [{ rel: "canonical", href: "https://dhela.in/" }],
     scripts: [{
       type: "application/ld+json",
       children: JSON.stringify(structuredData()),

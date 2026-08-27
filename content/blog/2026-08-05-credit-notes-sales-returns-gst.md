@@ -67,7 +67,7 @@ There is also a separate table for credit notes against unregistered supplies, a
 2. **Decide saleable or write-off.** Expired or damaged goods do not go back into stock.
 3. **Raise the credit note the same week**, referencing the original invoice number and date.
 4. **Check the stock moved and the profit reversed.** If only one of the two happened, you have a problem that will surface at year end.
-5. **Send the retailer an updated statement.** A return they think happened and you did not record is the most common cause of a disputed balance.
+5. **Send the retailer an updated statement.** A return they think happened and you did not record is a common cause of a disputed [receivables balance](/blog/receivables-ageing-how-to-read-it). A return they think happened and you did not record is the most common cause of a disputed balance.
 
 ## Where Dhela fits
 

@@ -1564,3 +1564,50 @@ test.describe("reviewing a multi-page bill", () => {
     expect(c).toMatch(/recomputed here rather than read off needs_review/);
   });
 });
+
+// Two things decide whether any of the writing is ever read: whether a search
+// engine believes the page is the original, and whether it can be read without
+// running JavaScript.
+test.describe("the guides are findable", () => {
+  test("every public page is canonical to itself", async ({ request }) => {
+    // This was live and wrong: the root route emitted one canonical for the
+    // whole site, so every post declared itself a duplicate of the homepage,
+    // which tells Google to index the homepage and drop the post.
+    const { POSTS } = await import("../src/lib/blog-data");
+    const canon = async (path: string) => {
+      const html = await (await request.get(path)).text();
+      return [...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map(m => m[1]);
+    };
+    expect(await canon("/"), "landing").toEqual(["https://dhela.in/"]);
+    expect(await canon("/blog"), "index").toEqual(["https://dhela.in/blog"]);
+    for (const p of POSTS.slice(0, 3)) {
+      expect(await canon(`/blog/${p.slug}`), p.slug).toEqual([`https://dhela.in/blog/${p.slug}`]);
+    }
+  });
+
+  test("a post carries its article markup and its own dates", async ({ request }) => {
+    const html = await (await request.get("/blog/weighted-average-cost-for-distributors")).text();
+    const ld = [...html.matchAll(/application\/ld\+json[^>]*>(.*?)<\/script>/gs)].map(m => m[1]).join(" ");
+    for (const t of ["BlogPosting", "Person"]) expect(ld, t).toContain(t);
+    expect(html).toMatch(/article:published_time/);
+    expect(html).toMatch(/<h1/);
+  });
+
+  test("the guides link to each other, not just to the app", async () => {
+    // A set of unconnected pages is a set of unconnected pages. Topical
+    // clusters need the articles to reference one another.
+    const { POSTS } = await import("../src/lib/blog-data");
+    const linked = POSTS.filter(p =>
+      [...p.html.matchAll(/href="\/blog\/([a-z0-9-]+)"/g)].some(m => m[1] !== p.slug)).length;
+    expect(linked, "most guides should link to another guide").toBeGreaterThanOrEqual(10);
+  });
+
+  test("AI answer engines are allowed, and app screens are not", async ({ request }) => {
+    const txt = await (await request.get("/robots.txt")).text();
+    for (const bot of ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]) {
+      expect(txt, bot).toContain(bot);
+    }
+    expect(txt).toContain("Sitemap: https://dhela.in/sitemap.xml");
+    expect(txt).toMatch(/Disallow: \/invoices/);
+  });
+});

@@ -36,6 +36,8 @@ In rough order of how often we see it:
 
 **The invoice number does not match.** You recorded INV-4471, they filed 4471/26-27. Both are real, and automated matching will not pair them.
 
+**The HSN or rate disagrees.** Your code and theirs differ, so the tax does — see [HSN codes for distributors](/blog/hsn-codes-for-distributors).
+
 **Place of supply is wrong.** You were charged IGST where CGST and SGST applied, or the reverse. The tax exists, in the wrong pot, and cannot simply be moved.
 
 **You recorded it in the wrong month.** Goods received on 2 April against a bill dated 30 March. Their filing is March, yours is April.

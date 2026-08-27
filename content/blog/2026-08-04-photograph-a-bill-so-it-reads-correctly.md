@@ -60,7 +60,7 @@ Any tool that reads bills will give you a confidence score. Confidence measures 
 
 Two checks are worth more than any confidence figure:
 
-**Does each row add up?** quantity × rate × (1 − discount%) should equal the amount printed on that row. If it does not, a figure came from the wrong column. This catches the classic failure where a quantity and a rate are read out of adjacent columns — both look reasonable on their own.
+**Does each row add up?** This is the same check that protects [your costing](/blog/weighted-average-cost-for-distributors). quantity × rate × (1 − discount%) should equal the amount printed on that row. If it does not, a figure came from the wrong column. This catches the classic failure where a quantity and a rate are read out of adjacent columns — both look reasonable on their own.
 
 **Does the row count match?** Count the product rows on the paper. If the software gives you nine and the bill has thirteen, four line items are missing and your stock will be short by exactly those four. Faint rows and rows near the bottom of the table are the ones that go.
 

@@ -52,7 +52,7 @@ The clause only covers **micro and small** enterprises, not medium ones, and onl
 
 ## What actually works, in order
 
-**1. Know the number before you can be told it.** The single most common failure is not knowing who owes what and since when. If a retailer says "I paid that one", you need to be able to say which invoice, which date, and what is still open — in the same conversation, not after an evening with a ledger.
+**1. Know the number before you can be told it.** [Reading a receivables ageing report](/blog/receivables-ageing-how-to-read-it) is the whole of this step. The single most common failure is not knowing who owes what and since when. If a retailer says "I paid that one", you need to be able to say which invoice, which date, and what is still open — in the same conversation, not after an evening with a ledger.
 
 **2. Send a statement, not a reminder.** A message saying "please pay" is easy to ignore. A one-page statement showing every invoice, every payment received, and the balance is hard to argue with, and it very often turns up a payment they made that you never recorded.
 

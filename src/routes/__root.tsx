@@ -71,7 +71,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "canonical", href: "https://dhela.in/" },
+      // No canonical here. A root-level one is emitted on every page and wins
+      // over the child route's, so every blog post was declaring itself a
+      // duplicate of the homepage — which tells Google to index the homepage
+      // and drop the post. Each public route sets its own.
       { rel: "icon", href: "/dhela.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       // Redundant next to rel="icon", but several SEO crawlers still look for
