@@ -26,6 +26,7 @@ import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedMarketingRouteImport } from './routes/_authenticated/marketing'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInsightsRouteImport } from './routes/_authenticated/insights'
+import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedGstRouteImport } from './routes/_authenticated/gst'
 import { Route as AuthenticatedEwayRouteImport } from './routes/_authenticated/eway'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -124,6 +125,11 @@ const AuthenticatedInsightsRoute = AuthenticatedInsightsRouteImport.update({
   path: '/insights',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGstRoute = AuthenticatedGstRouteImport.update({
   id: '/gst',
   path: '/gst',
@@ -202,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/eway': typeof AuthenticatedEwayRoute
   '/gst': typeof AuthenticatedGstRoute
+  '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/marketing': typeof AuthenticatedMarketingRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/eway': typeof AuthenticatedEwayRoute
   '/gst': typeof AuthenticatedGstRoute
+  '/import': typeof AuthenticatedImportRoute
   '/insights': typeof AuthenticatedInsightsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/marketing': typeof AuthenticatedMarketingRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/eway': typeof AuthenticatedEwayRoute
   '/_authenticated/gst': typeof AuthenticatedGstRoute
+  '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/insights': typeof AuthenticatedInsightsRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/marketing': typeof AuthenticatedMarketingRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/eway'
     | '/gst'
+    | '/import'
     | '/insights'
     | '/leads'
     | '/marketing'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/eway'
     | '/gst'
+    | '/import'
     | '/insights'
     | '/leads'
     | '/marketing'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/eway'
     | '/_authenticated/gst'
+    | '/_authenticated/import'
     | '/_authenticated/insights'
     | '/_authenticated/leads'
     | '/_authenticated/marketing'
@@ -516,6 +528,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInsightsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/import': {
+      id: '/_authenticated/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof AuthenticatedImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/gst': {
       id: '/_authenticated/gst'
       path: '/gst'
@@ -617,6 +636,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEwayRoute: typeof AuthenticatedEwayRoute
   AuthenticatedGstRoute: typeof AuthenticatedGstRoute
+  AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedInsightsRoute: typeof AuthenticatedInsightsRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMarketingRoute: typeof AuthenticatedMarketingRoute
@@ -643,6 +663,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEwayRoute: AuthenticatedEwayRoute,
   AuthenticatedGstRoute: AuthenticatedGstRoute,
+  AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedInsightsRoute: AuthenticatedInsightsRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMarketingRoute: AuthenticatedMarketingRoute,

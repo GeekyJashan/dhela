@@ -1717,3 +1717,62 @@ test.describe("the tab icon", () => {
     }
   });
 });
+
+// Somebody arriving from Tally, Marg, Busy or a spreadsheet has years of
+// masters. Retyping them is the reason they do not switch.
+test.describe("bringing data in from other software", () => {
+  test("the CSV reader survives what real exports contain", async () => {
+    const { parseDelimited, sniffDelimiter, parseAmount } = await import("../src/lib/csv");
+    // Splitting on commas breaks on the first product called "PIPE, PVC, 110MM",
+    // which on a distributor's catalogue is immediately.
+    expect(parseDelimited('a,b\n"PIPE, PVC, 110MM",x')).toEqual([["a", "b"], ["PIPE, PVC, 110MM", "x"]]);
+    expect(parseDelimited('a\n"He said ""hi"""')).toEqual([["a"], ['He said "hi"']]);
+    expect(parseDelimited("a,b\r\n1,2\r\n")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parseDelimited("\ufeffname,qty\nX,2")[0], "Excel writes a BOM").toEqual(["name", "qty"]);
+    expect(sniffDelimiter("a;b\n1;2"), "Tally and some locales use semicolons").toBe(";");
+    // Money as accounting software writes it.
+    expect(parseAmount("1,23,456.78"), "Indian grouping").toBeCloseTo(123456.78, 2);
+    expect(parseAmount("(500)"), "accounting negative").toBe(-500);
+    expect(parseAmount("₹1,200")).toBe(1200);
+    expect(parseAmount("abc")).toBeNull();
+  });
+
+  test("a GSTIN decides identity, so two registrations never merge", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    // The first version fell back to the name when a GSTIN matched nothing,
+    // which would fold two separate registrations into one row and overwrite
+    // a real GSTIN with someone else's. Two firms share a name often; two
+    // registrations never share a GSTIN.
+    expect(api).toMatch(/const id = gstin\s*\n?\s*\? byGstin\.get\(gstin\)/);
+    expect(api).toMatch(/would merge two separate registrations/);
+    // And a file that lists the same party twice must not insert it twice.
+    expect(api).toMatch(/appears more than once in the file/);
+  });
+
+  test("nothing is written until the operator has seen what will happen", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
+    expect(api).toMatch(/dryRun: z\.boolean\(\)\.default\(true\)/);
+    expect(api).toMatch(/if \(data\.dryRun\) return \{ \.\.\.summary, committed: false \}/);
+    expect(ui).toMatch(/Check what will happen/);
+    // A wrong guess about which column is the rate is silent and expensive.
+    expect(ui).toMatch(/Which column is which/);
+  });
+
+  test("history is deliberately not imported, and the screen says so", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
+    // Years of past invoices would double-count tax already filed and restate
+    // stock that has already moved.
+    expect(api).toMatch(/deliberately NOT imported is history/);
+    expect(ui).toMatch(/does not bring past invoices/);
+  });
+
+  test("only a sample of the file is sent for mapping", () => {
+    const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    // Someone's whole catalogue does not belong in a prompt.
+    expect(ui).toMatch(/sampleRows: r\.slice\(0, 3\)/);
+    expect(api).toMatch(/sampleRows: z\.array\(z\.array\(z\.string\(\)\)\)\.max\(5\)/);
+  });
+});

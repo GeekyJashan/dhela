@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target, Megaphone } from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target, Megaphone , Upload} from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -74,6 +74,10 @@ const NAV_GROUPS: NavGroup[] = [
   // Workspace settings rather than day-to-day work — Finance is where an
   // operator lives, and these two are neither daily nor money movement.
   { label: "System", items: [
+    // Sits with settings rather than under Catalog: it brings in products,
+    // parties and balances all three, and it is something you do once when
+    // you arrive rather than a screen you work in.
+    { to: "/import", label: "Bring your data in", icon: Upload },
     { to: "/billing", label: "Billing", icon: CreditCard },
     { to: "/account", label: "Account", icon: Settings },
   ]},
