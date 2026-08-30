@@ -69,6 +69,11 @@ brand/demo.webm
 .leads-cache.json
 leads-qualified.csv
 
-# /brag video output — build artefact, regenerate with the plan + composition
-brag-output/*.mp4
-brag-output/*.jpg
+# /brag video output — build artefacts, regenerate with the plan + composition.
+# The whole directory, not just the renders: the frame dumps and stills beside
+# them run to tens of megabytes, they slow every eslint run to a crawl because
+# the linter still walks them, and one absent-minded `git add -A` would put a
+# video repository into a source one.
+brag-output/
+brag-output-*/
+my-video/

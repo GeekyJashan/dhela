@@ -6,7 +6,24 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  // Flat config does not read .gitignore, so these have to be repeated here.
+  // Without them eslint walks hundreds of megabytes of video and frame dumps
+  // before it lints a line, which is why a full run used to take minutes.
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      ".nitro",
+      ".vercel",
+      "brag-output/",
+      "brag-output-*/",
+      "my-video/",
+      "test-results/",
+      "playwright-report/",
+      ".playwright-video/",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
