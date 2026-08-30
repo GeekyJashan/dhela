@@ -1864,6 +1864,25 @@ test.describe("the tab icon", () => {
     expect(widths.sort((a, b) => a - b)).toEqual([16, 32, 48]);
   });
 
+  test("the landing page has no long dashes in what a visitor reads", async ({ page }) => {
+    // A stack of em dashes is the clearest tell that copy was machine-written,
+    // and this is the page deciding whether a distributor trusts us. Checked on
+    // the rendered page rather than in the source: a grep for "—" missed an en
+    // dash in a price range that the browser showed immediately.
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    const text = await page.locator("body").innerText();
+    const hits = [...text.matchAll(/.{0,45}[—–].{0,45}/g)].map((m) => m[0].replace(/\s+/g, " "));
+    expect(hits, "long dashes visible on the landing page").toEqual([]);
+    // The tab title and the share cards are read too.
+    expect(await page.title()).not.toMatch(/[—–]/);
+    for (const prop of ["og:title", "og:image:alt", "twitter:title"]) {
+      const c = await page.locator(`meta[property="${prop}"], meta[name="${prop}"]`)
+        .first().getAttribute("content").catch(() => null);
+      if (c) expect(c, prop).not.toMatch(/[—–]/);
+    }
+  });
+
   test("the icons are gold, not the old teal L", async ({ request }) => {
     // Cheap and decisive: the Lovable mark was a teal square, the Dhela mark is
     // a gold coin. Compare the average colour rather than the bytes, so a

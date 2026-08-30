@@ -81,7 +81,7 @@ function structuredData() {
         "@type": "WebPage",
         "@id": "https://dhela.in/#webpage",
         url: "https://dhela.in/",
-        name: "Dhela — Invoice & Inventory Software for Indian Distributors",
+        name: "Dhela - Invoice & Inventory Software for Indian Distributors",
         isPartOf: { "@id": "https://dhela.in/#organization" },
         about: { "@id": "https://dhela.in/#software" },
         author: { "@id": "https://dhela.in/#founder" },
@@ -273,7 +273,7 @@ function Hero() {
 
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link to="/auth"><Button size="lg" className="h-12 px-6">
-            <FileUp className="h-4 w-4 mr-2" /> Start free — no card
+            <FileUp className="h-4 w-4 mr-2" /> Start free - no card
           </Button></Link>
           <a href={DEMO_WA} target="_blank" rel="noreferrer">
             <Button variant="outline" size="lg" className="h-12 px-6">
@@ -339,11 +339,11 @@ const PAINS = [
   {
     icon: Moon,
     pain: "It's 10 at night and you're still keying in today's purchase bills.",
-    fix: "Drop the whole pile in at once. Dhela reads supplier, GSTIN, every line item, HSN, batch, expiry and discount — with a confidence score on each field.",
+    fix: "Drop the whole pile in at once. Dhela reads supplier, GSTIN, every line item, HSN, batch, expiry and discount, with a confidence score on each field.",
   },
   {
     icon: PhoneCall,
-    pain: "\"Bhaiya, mera hisaab bhej do.\" — and you go digging through a register.",
+    pain: "\"Bhaiya, mera hisaab bhej do.\" And you go digging through a register.",
     fix: "Open the retailer, tap Statement. A running debit-credit ledger for any date range, ready to print or send.",
   },
   {
@@ -354,7 +354,7 @@ const PAINS = [
   {
     icon: Truck,
     pain: "A ₹50,000 invoice is going out and the e-way bill is a scramble.",
-    fix: "Dhela flags every invoice that crosses the threshold, fills Part A from the invoice itself, and hands you the NIC upload file — free.",
+    fix: "Dhela flags every invoice that crosses the threshold, fills Part A from the invoice itself, and hands you the NIC upload file, free.",
   },
 ];
 
@@ -397,16 +397,16 @@ function Pain() {
 
 const TOUR: { id: string; label: string; caption: string; img: string; alt: string }[] = [
   { id: "upload", label: "Drop the whole pile", img: "/shots/bulk.webp",
-    caption: "Throw the whole pile in at once — up to 100 a batch. Each one queues with a thumbnail so you can spot a blurred photo before it's read, and the batch processes in the background while you carry on.",
+    caption: "Throw the whole pile in at once, up to 100 a batch. Each one queues with a thumbnail so you can spot a blurred photo before it's read, and the batch processes in the background while you carry on.",
     alt: "Dhela bulk upload screen with fourteen supplier bills queued as thumbnails, each marked Ready, and an Upload and extract button showing 14 files" },
   { id: "review", label: "Read a bill", img: "/shots/review.webp",
-    caption: "Supplier, GSTIN, HSN, quantities, rates and GST — pulled off the bill with a confidence score. You check the flagged fields and approve.",
+    caption: "Supplier, GSTIN, HSN, quantities, rates and GST, pulled off the bill with a confidence score. You check the flagged fields and approve.",
     alt: "Dhela purchase review screen showing a supplier invoice extracted into editable fields with line items, HSN codes and a 92% extraction accuracy score" },
   { id: "insights", label: "See the money", img: "/shots/insights.webp",
     caption: "Net sales, real margin, what's collected, what's still outstanding, and how long your money sits with retailers.",
     alt: "Dhela insights dashboard showing business health score, net sales, profit margin, collections and outstanding receivables" },
   { id: "gst", label: "File your GST", img: "/shots/gst.webp",
-    caption: "GSTR-1 working papers — B2B, B2CS, credit notes, HSN summary — and a GSTR-3B summary, each downloadable for your accountant.",
+    caption: "GSTR-1 working papers (B2B, B2CS, credit notes, HSN summary) and a GSTR-3B summary, each downloadable for your accountant.",
     alt: "Dhela GST returns screen showing GSTR-1 working papers and a GSTR-3B summary for a selected month" },
   { id: "payments", label: "Chase what's owed", img: "/shots/payments.webp",
     caption: "Receivables ageing by retailer, every payment in and out, and a printable statement for anyone who asks.",
@@ -506,7 +506,7 @@ function ProductTour() {
         <Reveal className="text-center max-w-2xl mx-auto">
           <h2 className="font-display text-4xl md:text-5xl">Look inside the software</h2>
           <p className="mt-3 text-muted-foreground">
-            Real screens, real numbers — not mock-ups. This is the actual app.
+            Real screens, real numbers, not mock-ups. This is the actual app.
           </p>
         </Reveal>
 
@@ -652,7 +652,7 @@ const STEPS = [
   },
   {
     title: "AI reads it",
-    blurb: "Supplier, GSTIN, every line item, HSN, batch, expiry, discounts — pulled in seconds.",
+    blurb: "Supplier, GSTIN, every line item, HSN, batch, expiry, discounts, pulled in seconds.",
     detail: "Or use the free OCR engine, unlimited on every plan, when the bill is a clean digital print.",
     icon: ScanLine,
     lines: ["Supplier · Hindustan Traders", "GSTIN · 03AABCH1234K1Z9", "12 line items · HSN filled"],
@@ -673,7 +673,7 @@ const STEPS = [
   },
   {
     title: "You get paid",
-    blurb: "Receivables ageing, payments, statements and reminders — all in one place.",
+    blurb: "Receivables ageing, payments, statements and reminders, all in one place.",
     detail: "See exactly who is 30, 60 and 90 days late before it becomes a problem.",
     icon: IndianRupee,
     lines: ["₹4,20,000 outstanding", "3 retailers past 30 days", "Statement ready to print"],
@@ -788,7 +788,7 @@ const FEATURE_GROUPS: { group: string; blurb: string; items: { icon: typeof Pack
     group: "Buying",
     blurb: "Everything that comes in from your suppliers.",
     items: [
-      { icon: ScanLine, title: "AI invoice reading", body: "Supplier, GSTIN, line items, HSN, batch, expiry, discounts — with per-field confidence. Free unlimited OCR engine too." },
+      { icon: ScanLine, title: "AI invoice reading", body: "Supplier, GSTIN, line items, HSN, batch, expiry, discounts, with per-field confidence. Free unlimited OCR engine too." },
       { icon: Users, title: "Supplier master", body: "Type the GSTIN and name, address, city, state and PIN fill themselves from the government registry. Duplicates blocked." },
       { icon: Boxes, title: "Smart product matching", body: "\"MAGGI 70G\" finds \"MAGGI NOODLES 70 GM\". Aliases and learned mappings absorb every supplier's naming quirks." },
       { icon: FileText, title: "Stock & true cost", body: "Approving a purchase posts it into stock and recalculates the product's weighted-average cost. That's what makes profit real." },
@@ -799,18 +799,18 @@ const FEATURE_GROUPS: { group: string; blurb: string; items: { icon: typeof Pack
     group: "Selling",
     blurb: "Everything that goes out to your retailers.",
     items: [
-      { icon: Receipt, title: "GST sales invoices", body: "Draft it, issue it, print it or save a PDF — with your bank details and authorised signature on the page." },
+      { icon: Receipt, title: "GST sales invoices", body: "Draft it, issue it, print it or save a PDF, with your bank details and authorised signature on the page." },
       { icon: ClipboardList, title: "Customer orders", body: "Upload a retailer's order file and let AI read it, or key one in. Convert to an invoice with the line items already filled." },
-      { icon: Truck, title: "E-way bills", body: "Every invoice over ₹50,000 is flagged. Part A fills from the invoice, you add the vehicle, and download the NIC file — no GSP fee." },
+      { icon: Truck, title: "E-way bills", body: "Every invoice over ₹50,000 is flagged. Part A fills from the invoice, you add the vehicle, and download the NIC file. No GSP fee." },
       { icon: Undo2, title: "Returns & credit notes", body: "Pick the retailer, the invoice, the quantities coming back. Stock and ledger both correct themselves." },
-      { icon: Store, title: "Retailer master", body: "Default discount, credit limit and category per retailer. GSTIN optional — plenty of your buyers are unregistered." },
+      { icon: Store, title: "Retailer master", body: "Default discount, credit limit and category per retailer. GSTIN optional: plenty of your buyers are unregistered." },
     ],
   },
   {
     group: "Catalog & pricing",
     blurb: "Set it once, and every invoice gets it right.",
     items: [
-      { icon: Package, title: "Product master", body: "Name, SKU, unit, GST rate, MRP, purchase rate, live stock — and HSN that auto-fills from the product name." },
+      { icon: Package, title: "Product master", body: "Name, SKU, unit, GST rate, MRP, purchase rate, live stock, and HSN that auto-fills from the product name." },
       { icon: Percent, title: "Pricing rules", body: "Discounts at the stock-group level, plus per-product per-retailer overrides that take priority. No more rate arguments." },
     ],
   },
@@ -820,9 +820,9 @@ const FEATURE_GROUPS: { group: string; blurb: string; items: { icon: typeof Pack
     items: [
       { icon: IndianRupee, title: "Payments & ageing", body: "Record what came in and went out, and see receivables ageing so you chase the right retailer at the right time." },
       { icon: FileText, title: "Account statements", body: "A printable running ledger for any retailer or supplier, over any date range." },
-      { icon: Sparkles, title: "Built-in AI analyst", body: "Ask your business anything in plain language and get an answer off your real data — not a guess." },
+      { icon: Sparkles, title: "Built-in AI analyst", body: "Ask your business anything in plain language and get an answer off your real data, not a guess." },
       { icon: Languages, title: "English, हिंदी, ਪੰਜਾਬੀ", body: "Your staff use the app in the language they think in. One switch at the bottom of the sidebar." },
-      { icon: ShieldCheck, title: "Your team, your workspace", body: "Invite your operators with a link. Your invoices, rates and margins stay inside your workspace — no other business on Dhela can see them." },
+      { icon: ShieldCheck, title: "Your team, your workspace", body: "Invite your operators with a link. Your invoices, rates and margins stay inside your workspace. No other business on Dhela can see them." },
     ],
   },
 ];
@@ -867,10 +867,10 @@ function Features() {
 /* -------------------------- assistant spotlight ------------------------- */
 
 const CHATS: { q: string; a: string }[] = [
-  { q: "Profit on Maggi 70g last month?", a: "₹18,420 on 1,240 packets — 11.4% margin. Down from 13.1% in May because your last two purchases came in ₹1.10 dearer." },
+  { q: "Profit on Maggi 70g last month?", a: "₹18,420 on 1,240 packets, 11.4% margin. Down from 13.1% in May because your last two purchases came in ₹1.10 dearer." },
   { q: "Who owes me more than 30 days?", a: "Four retailers, ₹2,86,500 in total. Gupta Kirana is the worst at ₹1,12,000, 47 days out." },
   { q: "मुझे e-way bill कैसे बनाना है?", a: "Sales invoice खोलिए → \"E-way bill\" दबाइए → गाड़ी नंबर भरिए → \"Download NIC JSON\"। वो file ewaybillgst.gov.in पर upload कीजिए।" },
-  { q: "ਪਿਛਲੇ ਹਫ਼ਤੇ ਸਭ ਤੋਂ ਵੱਧ ਕੀ ਵਿਕਿਆ?", a: "Tata Salt 1kg — 840 packets, ₹21,000 ਦੀ ਵਿਕਰੀ। ਦੂਜੇ ਨੰਬਰ 'ਤੇ Parle-G 800g।" },
+  { q: "ਪਿਛਲੇ ਹਫ਼ਤੇ ਸਭ ਤੋਂ ਵੱਧ ਕੀ ਵਿਕਿਆ?", a: "Tata Salt 1kg: 840 packets, ₹21,000 ਦੀ ਵਿਕਰੀ। ਦੂਜੇ ਨੰਬਰ 'ਤੇ Parle-G 800g।" },
 ];
 
 function AssistantSpotlight() {
@@ -900,7 +900,7 @@ function AssistantSpotlight() {
             An analyst who has<br />read every one of your bills.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Ask in English, Hindi or Punjabi. Every number comes off your own data — the assistant
+            Ask in English, Hindi or Punjabi. Every number comes off your own data. The assistant
             queries your invoices, stock, retailers and payments before it answers, and tells you
             plainly when something doesn't add up.
           </p>
@@ -910,7 +910,7 @@ function AssistantSpotlight() {
           </p>
           <ul className="mt-6 space-y-2 text-sm">
             {[
-              "Answers off your real data — never an estimate",
+              "Answers off your real data, never an estimate",
               "Flags totals and balances that look wrong",
               "Doubles as a help desk for your staff",
             ].map(s => (
@@ -974,13 +974,13 @@ function Multilingual() {
           Your operator shouldn't<br />need English to do their job.
         </h2>
         <p className="mt-4 text-muted-foreground">
-          The whole app — every screen, every button, every error message — runs in English, हिंदी
+          The whole app (every screen, every button, every error message) runs in English, हिंदी
           or ਪੰਜਾਬੀ. One switch at the bottom of the sidebar, and it sticks for that person.
         </p>
         <p className="mt-4 text-muted-foreground">
           It's the difference between software your team tolerates and software they actually use.
         </p>
-        <p className="mt-6 text-sm text-muted-foreground">Try it — tap a language:</p>
+        <p className="mt-6 text-sm text-muted-foreground">Try it. Tap a language:</p>
         <div className="mt-3 flex gap-2">
           {LANG_SAMPLES.map((l, i) => (
             <button key={l.code} onClick={() => setLang(i)}
@@ -1021,7 +1021,7 @@ const COMPARE: { label: string; dhela: boolean | string; legacy: boolean | strin
   { label: "Receivables ageing", dhela: true, legacy: true, manual: false },
   { label: "Ask your own data a question", dhela: true, legacy: false, manual: false },
   { label: "Opens on a phone browser", dhela: true, legacy: "Varies", manual: false },
-  { label: "What it costs", dhela: `${inr(3999)}–${inr(7999)} / year`, legacy: "Licence + yearly AMC", manual: "A salary" },
+  { label: "What it costs", dhela: `${inr(3999)} to ${inr(7999)} / year`, legacy: "Licence + yearly AMC", manual: "A salary" },
 ];
 
 function Cell({ v }: { v: boolean | string }) {
@@ -1083,7 +1083,7 @@ const PLAN_PITCH: Record<PlanId, { for: string; extras: string[] }> = {
   standard: { for: "A working distributor doing a few bills a day.", extras: ["Priority support"] },
   pro: {
     for: "Higher volume, or you want the GST checks on your parties.",
-    extras: ["Priority support", "Live GSTIN lookup — auto-fill business name plus GST filer/defaulter rating"],
+    extras: ["Priority support", "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating"],
   },
 };
 
@@ -1094,7 +1094,7 @@ function Pricing() {
         <Reveal className="text-center max-w-2xl mx-auto">
           <h2 className="font-display text-4xl md:text-5xl">Priced for a distributor, not an enterprise</h2>
           <p className="mt-3 text-muted-foreground">
-            AI bill reading is the only thing we meter — it's the only cost we carry. Invoices, stock,
+            AI bill reading is the only thing we meter. It's the only cost we carry. Invoices, stock,
             payments, statements, e-way bills and the free OCR engine are unlimited on every plan,
             including the free one.
           </p>
@@ -1161,7 +1161,7 @@ function Pricing() {
 
         <Reveal delay={200}>
           <p className="mt-8 text-center text-sm text-muted-foreground">
-            Upgrades are a WhatsApp message and a UPI transfer — activated the same day.
+            Upgrades are a WhatsApp message and a UPI transfer, activated the same day.
             An AI bill read is one invoice, one AI-read order, or one question to the assistant.
           </p>
         </Reveal>
@@ -1174,13 +1174,13 @@ function Pricing() {
 
 const FAQS: [string, string][] = [
   ["Do I have to stop using Tally?",
-   "No, and most people don't. Dhela takes over the painful part — reading supplier bills, keeping stock and true cost, raising GST invoices, tracking receivables and preparing e-way bills — while your accountant carries on with the books in whatever they already use. The two run side by side: Dhela handles the day-to-day entry your staff does, and at month end you hand your CA a clean set of figures instead of a shoebox. Nothing is locked in, and nothing about your existing setup has to change on day one. Most distributors start by putting a single week of purchase bills through Dhela while everything else stays exactly where it is, then widen from there once they trust the numbers."],
+   "No, and most people don't. Dhela takes over the painful part (reading supplier bills, keeping stock and true cost, raising GST invoices, tracking receivables and preparing e-way bills) while your accountant carries on with the books in whatever they already use. The two run side by side: Dhela handles the day-to-day entry your staff does, and at month end you hand your CA a clean set of figures instead of a shoebox. Nothing is locked in, and nothing about your existing setup has to change on day one. Most distributors start by putting a single week of purchase bills through Dhela while everything else stays exactly where it is, then widen from there once they trust the numbers."],
   ["What if the AI reads something wrong?",
-   "You review before anything is committed. Every field carries a confidence score and only the uncertain ones are flagged, so you check a handful of numbers rather than re-reading the whole bill. Dhela also cross-checks the arithmetic: if subtotal plus tax doesn't equal the grand total, or the line items don't add up to the subtotal, it says so plainly at the top of the review screen instead of letting the figures through. Nothing touches your stock or your cost until you press Approve, and you can re-extract a bill or correct any field by hand at any point. This matters most with photos of paper bills, where a crease or a shadow can lose a digit — which is exactly why the check exists."],
+   "You review before anything is committed. Every field carries a confidence score and only the uncertain ones are flagged, so you check a handful of numbers rather than re-reading the whole bill. Dhela also cross-checks the arithmetic: if subtotal plus tax doesn't equal the grand total, or the line items don't add up to the subtotal, it says so plainly at the top of the review screen instead of letting the figures through. Nothing touches your stock or your cost until you press Approve, and you can re-extract a bill or correct any field by hand at any point. This matters most with photos of paper bills, where a crease or a shadow can lose a digit, which is exactly why the check exists."],
   ["Will it read a photo from WhatsApp?",
-   "Yes — PDFs, scans and phone photos all work. Clean digital prints also work on the free OCR engine, which never counts against your AI quota. Genuinely bad handwriting is the one thing that still needs a careful review."],
+   "Yes. PDFs, scans and phone photos all work. Clean digital prints also work on the free OCR engine, which never counts against your AI quota. Genuinely bad handwriting is the one thing that still needs a careful review."],
   ["Is my data private?",
-   "Every distributor gets an isolated workspace. Your invoices, retailers, purchase rates and margins are visible only to the people you invite into your own workspace — no other business using Dhela can see them, and there is no shared pool of pricing or supplier data between accounts. Your rates are the most commercially sensitive thing you have, and they stay yours. Access is per-person, so an operator you invite to do data entry sees the same workspace you do, and removing them removes their access immediately. Data lives in a managed Postgres database with row-level security enforced per organisation, not merely filtered in the application."],
+   "Every distributor gets an isolated workspace. Your invoices, retailers, purchase rates and margins are visible only to the people you invite into your own workspace. No other business using Dhela can see them, and there is no shared pool of pricing or supplier data between accounts. Your rates are the most commercially sensitive thing you have, and they stay yours. Access is per-person, so an operator you invite to do data entry sees the same workspace you do, and removing them removes their access immediately. Data lives in a managed Postgres database with row-level security enforced per organisation, not merely filtered in the application."],
   ["Do I need to pay to try it?",
    "No card, no call. The free plan gives you 15 AI bill reads a month plus unlimited free OCR, and every other feature is fully open on it."],
   ["Can my staff use it in Hindi or Punjabi?",
@@ -1252,7 +1252,7 @@ function FounderCta() {
                 <p className="text-sm text-sidebar-foreground/60">Founder · NIT alumnus</p>
                 <p className="mt-2 text-sm text-sidebar-foreground/75">
                   I built Dhela after watching distributors lose entire evenings to typing
-                  purchase bills. Message me directly — you get the person who wrote the
+                  purchase bills. Message me directly. You get the person who wrote the
                   software, not a ticket number.
                 </p>
                 <a href={LINKEDIN} target="_blank" rel="noreferrer noopener"
