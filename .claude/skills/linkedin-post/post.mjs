@@ -216,13 +216,27 @@ function firstPerson(text) {
   return [...found];
 }
 
+/**
+ * Long dashes read as machine-written, and on a page selling to distributors
+ * that impression costs more than the punctuation buys. A hyphen inside a
+ * compound word is fine and is not matched here.
+ */
+const longDashes = [...raw.matchAll(/[^\n]{0,40}[—–][^\n]{0,40}/g)].map(m => m[0].trim());
+if (longDashes.length) {
+  console.error(`\n${postPath} uses ${longDashes.length} long dash(es):`);
+  for (const d of longDashes.slice(0, 5)) console.error(`   …${d}…`);
+  console.error("Use a comma, a full stop, a colon, or \"to\" for ranges. --force overrides.");
+  if (publish && !force) process.exit(1);
+  console.error("(dry run, not blocking, but fix it before publishing)\n");
+}
+
 const iVoice = firstPerson(raw);
 if (iVoice.length) {
   console.error(`\n${postPath} is written in the first person singular (${iVoice.join(", ")}).`);
   console.error("Posts from the company page say \"we\", not \"I\". Rewrite it, or use --force");
   console.error("if this really is meant to be the founder speaking on the page.");
   if (publish && !force) process.exit(1);
-  console.error("(dry run — not blocking, but fix it before publishing)\n");
+  console.error("(dry run, not blocking, but fix it before publishing)\n");
 }
 
 console.log(`${paras.length} paragraphs, ${raw.length} characters${meta.lang ? `, lang=${meta.lang}` : ""}`);

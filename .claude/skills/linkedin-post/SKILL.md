@@ -79,10 +79,26 @@ company pretending to be a friend. Neither is what you want.
 - "**Our** price" is right; "my price" is not
 - Hindi/Punjabi: **हम / ਅਸੀਂ**, never मैं / ਮੈਂ
 
-Anything genuinely personal to the founder — a story from his own shop, an
-opinion he wants attributed — belongs on his profile and reshared, not on the
-page in the first person. If a draft needs "I" to work, it is the wrong surface
-for it.
+Anything genuinely personal to the founder, a story from his own shop or an
+opinion he wants attributed, belongs on his profile and reshared rather than on
+the page in the first person. If a draft needs "I" to work, it is the wrong
+surface for it.
+
+**No long dashes.** Not the em dash and not the en dash. A stack of them is the
+single clearest tell that copy was machine-written, and on a page selling
+software to distributors that impression costs more than the punctuation buys.
+Use what the sentence actually wants:
+
+| Instead of | Write |
+|---|---|
+| `the renewal — that is the problem` | `the renewal. That is the problem.` |
+| `it runs at 25% to 35% — every year` | `it runs at 25% to 35%, every year` |
+| `three things — price, support, stock` | `three things: price, support, stock` |
+| `Marg (a good product — offline) wins` | `Marg (a good product, offline) wins` |
+| `₹7,200 — ₹10,300` | `₹7,200 to ₹10,300` |
+
+A hyphen in a compound word (`one-time`, `five-year`) is fine and is not what
+this is about.
 
 Match the register in `src/locales/hi.json` and `pa.json`: native script for
 ordinary words, **English for technical terms** (`invoice`, `rate`, `margin`,
