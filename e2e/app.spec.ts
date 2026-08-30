@@ -1859,8 +1859,11 @@ test.describe("bringing data in from other software", () => {
         expect(sel.replace(/has_extra/g, ""), `${screen}: ${sel}`).not.toMatch(/\bextra\b/);
       }
     }
-    // And it is fetched per record instead.
+    // And it is fetched per record instead. Asserted as two separate calls
+    // rather than one string, because a formatter is free to break the chain
+    // across lines and that is not a behaviour change.
     const comp = fs.readFileSync("src/components/extra-info.tsx", "utf8");
-    expect(comp).toMatch(/\.select\("extra"\)\.eq\("id", id\)/);
+    expect(comp).toMatch(/\.select\("extra"\)/);
+    expect(comp).toMatch(/\.eq\("id", id\)/);
   });
 });
