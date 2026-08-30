@@ -70,6 +70,8 @@ Before you buy anything, including Dhela:
 
 Tally is a good ledger and a poor data-entry tool, because it was never meant to be one. The fix is not to replace it. The fix is to stop typing bills into it by hand.
 
+The same argument, and the same conclusion, applies if you are on Marg instead — though there the complaint is usually the renewal, and [where to go once it keeps climbing](/blog/marg-price-rises-where-to-shift) is its own question.
+
 Dhela has a free plan and does not need your Tally data to start. Point a phone at a pile of bills and see what the evening looks like afterwards. If it does not help, you have lost nothing and your books never moved.
 
 [dhela.in](https://dhela.in)
