@@ -89,6 +89,26 @@ test("a column we have no field for is kept, and shows on the record", async ({
     await expect(page.getByText("A-01")).toBeVisible();
     // Said plainly, or someone assumes a value kept here is costing their stock.
     await expect(page.getByText(/not used in any pricing, stock or tax calculation/)).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // And it can be found by it. The catalogue query does not load `extra`, so
+    // this only works if the search asks the database — which is the whole
+    // point: kept, visible, and findable, not just kept.
+    //
+    // Asserted on the filtered count first, deliberately. The search is
+    // debounced, so "is the row visible" answers yes for the first quarter
+    // second no matter what the filter does, and an earlier version of this
+    // test passed against a search that was not wired up at all.
+    await page.getByPlaceholder(/Search name, SKU, HSN/).fill("A-01");
+    await expect(page.getByText(/Catalog \(1 of \d+\)/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("row", { name: new RegExp(name) })).toBeVisible();
+
+    // A rack code that matches nothing must not quietly return the catalogue,
+    // and must say so rather than showing an empty table.
+    await page.getByPlaceholder(/Search name, SKU, HSN/).fill("Z-99");
+    await expect(page.getByText(/Catalog \(0 of \d+\)/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Nothing matches/)).toBeVisible();
+    await expect(page.getByRole("row", { name: new RegExp(name) })).toHaveCount(0);
   } finally {
     await db.from("products").delete().eq("id", row.id);
   }

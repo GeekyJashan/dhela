@@ -130,11 +130,46 @@ function Products() {
     discount_c: number;
   };
 
+  // Catalogue search. Name, SKU and HSN are already loaded, so they filter in
+  // the browser without a round trip.
+  const [q, setQ] = useState("");
+  const [dq, setDq] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDq(q.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  // The fields carried over from the old software are the exception: they are
+  // deliberately not in the catalogue query, so a rack code can only be found
+  // by asking the database. It answers with ids, not blobs.
+  const { data: extraHits } = useQuery({
+    queryKey: ["products_extra_search", dq],
+    enabled: dq.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("products_matching_extra", { _q: dq });
+      if (error) throw error;
+      return new Set((data ?? []).map((r: { id: string }) => r.id));
+    },
+  });
+
+  const visible = (() => {
+    if (!data) return [];
+    if (!dq) return data;
+    const needle = dq.toLowerCase();
+    return data.filter(
+      (p) =>
+        p.name?.toLowerCase().includes(needle) ||
+        p.sku?.toLowerCase().includes(needle) ||
+        p.hsn?.toLowerCase().includes(needle) ||
+        extraHits?.has(p.id),
+    );
+  })();
+
   // Group catalog rows by stock group (ungrouped products last).
   const grouped = (() => {
-    if (!data) return [];
-    const map = new Map<string, { group: GroupInfo | null; rows: typeof data }>();
-    for (const p of data) {
+    if (!visible.length) return [];
+    const map = new Map<string, { group: GroupInfo | null; rows: typeof visible }>();
+    for (const p of visible) {
       const g = p.stock_group as GroupInfo | null;
       const key = g?.id ?? "__none__";
       if (!map.has(key)) map.set(key, { group: g, rows: [] });
@@ -455,7 +490,22 @@ function Products() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{t("Catalog ({{n}})", { n: data?.length ?? 0 })}</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>
+              {dq
+                ? t("Catalog ({{n}} of {{total}})", { n: visible.length, total: data?.length ?? 0 })
+                : t("Catalog ({{n}})", { n: data?.length ?? 0 })}
+            </CardTitle>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                className="pl-8"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t("Search name, SKU, HSN — or a rack code you brought over")}
+              />
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground">
             {t(
               "Grouped by HSN heading (first 4 digits). Set each group's discount for category A / B / C retailers — sales invoices apply them automatically.",
@@ -567,6 +617,15 @@ function Products() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {t("No products yet.")}
+                  </TableCell>
+                </TableRow>
+              )}
+              {/* An empty catalogue and a search that found nothing are
+                  different things, and a blank table says neither. */}
+              {!!data?.length && !visible.length && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    {t("Nothing matches “{{q}}”.", { q: dq })}
                   </TableCell>
                 </TableRow>
               )}
