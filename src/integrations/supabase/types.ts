@@ -1795,6 +1795,12 @@ export type Database = {
       next_credit_note_number: { Args: { _org: string }; Returns: string }
       next_order_number: { Args: { _org: string }; Returns: string }
       next_sales_invoice_number: { Args: { _org: string }; Returns: string }
+      products_matching_extra: {
+        Args: { _q: string }
+        Returns: {
+          id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "operator" | "accountant"

@@ -311,6 +311,16 @@ export const commitImport = createServerFn({ method: "POST" })
 
       const gstin = typeof values.gstin === "string" ? values.gstin : null;
       const sku = typeof values.sku === "string" ? values.sku : null;
+
+      // The first two digits of a GSTIN are the state, by definition — there
+      // is nothing to guess. Without this an imported party arrives with no
+      // state code, and GSTR-1 falls back to the distributor's own state for
+      // place of supply, so every out-of-state retailer silently books as
+      // CGST/SGST where IGST belongs. The form derives this from the GSTIN
+      // lookup; the importer was not.
+      if (gstin && /^\d{2}/.test(gstin) && kind !== "products") {
+        values.state_code = gstin.slice(0, 2);
+      }
       // A GSTIN settles it. If the row carries one and it matches nothing here,
       // this is a party we do not have — NOT the existing one with the same
       // name, which would merge two separate registrations into one row and
