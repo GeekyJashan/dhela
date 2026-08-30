@@ -82,6 +82,55 @@ const REQUIRED: Record<ImportKind, string> = {
   products: "name", suppliers: "name", retailers: "name",
 };
 
+/**
+ * Chosen instead of one of our fields to say "keep this column, we just have
+ * nowhere named to put it". It lands in the row's `extra` jsonb.
+ *
+ * Deliberately not something the model can propose — only the operator picks
+ * it. Left to a machine, every leftover column would be swept in here,
+ * including derived totals like a "Closing Value", and a stale total stored
+ * next to the live figures it was computed from is worse than no total at all.
+ *
+ * What lands here is reference data a person reads. It is never used in any
+ * pricing, stock or tax calculation — anything that feeds a sum needs a real
+ * typed column with constraints, and pharma batch numbers and expiry dates
+ * arriving here would be a bug rather than a feature.
+ */
+export const KEEP_AS_EXTRA = "__extra__";
+
+/**
+ * Caps on `extra`, so a row stays small enough that Postgres keeps it inline
+ * rather than pushing it out to TOAST, and so no screen can be surprised by a
+ * record carrying a novel. Reference data a human reads is short by nature; a
+ * column that isn't is a column that wanted a real field.
+ */
+const MAX_EXTRA_KEYS = 20;
+const MAX_EXTRA_VALUE_CHARS = 200;
+const MAX_EXTRA_BYTES = 2000;
+
+/** Exported so the caps can be tested as the rule they are, not inferred. */
+export function capExtra(
+  raw: Record<string, string>, rowNo: number, problems: string[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  let dropped = 0;
+  let bytes = 2;                                   // the enclosing {}
+  for (const [k, v] of Object.entries(raw)) {
+    const value = v.length > MAX_EXTRA_VALUE_CHARS ? v.slice(0, MAX_EXTRA_VALUE_CHARS) : v;
+    const cost = k.length + value.length + 6;      // quotes, colon, comma
+    if (Object.keys(out).length >= MAX_EXTRA_KEYS || bytes + cost > MAX_EXTRA_BYTES) {
+      dropped++;
+      continue;
+    }
+    bytes += cost;
+    out[k] = value;
+  }
+  if (dropped) {
+    problems.push(`Row ${rowNo}: ${dropped} extra field(s) did not fit and were left out`);
+  }
+  return out;
+}
+
 export const proposeImportMapping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
@@ -193,6 +242,17 @@ export const commitImport = createServerFn({ method: "POST" })
     const numeric = new Set(NUMERIC[kind]);
     const required = REQUIRED[kind];
 
+    // The mapping arrives from the browser, so every field name in it is
+    // checked against what this kind actually offers before it becomes a
+    // column to write. Without this, a crafted request could name any column
+    // on the table — org_id included, and on the update path that would hand
+    // one workspace's row to another.
+    const allowed = new Set<string>(Object.keys(IMPORT_FIELDS[kind]));
+    const mapping: Record<string, string | null> = {};
+    for (const [col, field] of Object.entries(data.mapping)) {
+      mapping[col] = field && (allowed.has(field) || field === KEEP_AS_EXTRA) ? field : null;
+    }
+
     // Existing rows, so an import run twice updates rather than duplicates.
     // GSTIN identifies a party beyond doubt; a name is what is left when there
     // is no GSTIN, and is compared case- and space-insensitively because
@@ -200,18 +260,23 @@ export const commitImport = createServerFn({ method: "POST" })
     const key = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
     const { data: existing } = await supabase
       .from(kind)
-      .select(kind === "products" ? "id, name, sku" : "id, name, gstin")
+      .select(kind === "products" ? "id, name, sku, extra" : "id, name, gstin, extra")
       .eq("org_id", orgId);
     const byName = new Map<string, string>();
     const byGstin = new Map<string, string>();
-    for (const e of (existing ?? []) as Record<string, string | null>[]) {
+    // Kept so a second import adds to what a party already carries instead of
+    // replacing it — two exports from two systems can each contribute a field.
+    const extraById = new Map<string, Record<string, string>>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const e of (existing ?? []) as any[]) {
       if (!e.id) continue;
       if (e.name) byName.set(key(e.name), e.id);
-      if (e.gstin) byGstin.set(e.gstin.toUpperCase(), e.id);
+      if (e.gstin) byGstin.set(String(e.gstin).toUpperCase(), e.id);
       if (e.sku) byName.set(`sku:${key(e.sku)}`, e.id);
+      if (e.extra && typeof e.extra === "object") extraById.set(e.id, e.extra);
     }
 
-    type Cell = string | number;
+    type Cell = string | number | Record<string, string>;
     const toInsert: Record<string, Cell>[] = [];
     const toUpdate: { id: string; values: Record<string, Cell> }[] = [];
     const problems: string[] = [];
@@ -219,10 +284,15 @@ export const commitImport = createServerFn({ method: "POST" })
 
     data.rows.forEach((row, i) => {
       const values: Record<string, Cell> = {};
-      for (const [col, field] of Object.entries(data.mapping)) {
+      // Kept under the operator's own column heading — "Rack", "Bin No", "Old
+      // Group" — because that is the word they will look for when they go
+      // hunting for it later.
+      const extras: Record<string, string> = {};
+      for (const [col, field] of Object.entries(mapping)) {
         if (!field) continue;
         const raw = (row[col] ?? "").trim();
         if (!raw) continue;
+        if (field === KEEP_AS_EXTRA) { extras[col] = raw; continue; }
         if (numeric.has(field)) {
           const n = parseAmount(raw);
           if (n === null) { problems.push(`Row ${i + 2}: "${raw}" in ${col} is not a number, left blank`); continue; }
@@ -250,8 +320,24 @@ export const commitImport = createServerFn({ method: "POST" })
       const id = gstin
         ? byGstin.get(gstin)
         : (sku ? byName.get(`sku:${key(sku)}`) : undefined) ?? byName.get(key(name));
-      if (id) toUpdate.push({ id, values });
-      else toInsert.push({ ...values, org_id: orgId });
+
+      const kept = capExtra(extras, i + 2, problems);
+      if (id) {
+        // Merged, not replaced: a field this file does not carry stays put.
+        const merged = { ...(extraById.get(id) ?? {}), ...kept };
+        toUpdate.push({
+          id,
+          values: Object.keys(merged).length ? { ...values, extra: merged } : values,
+        });
+      } else {
+        // Left off entirely when empty so the column default applies rather
+        // than writing an empty object over it.
+        toInsert.push(
+          Object.keys(kept).length
+            ? { ...values, extra: kept, org_id: orgId }
+            : { ...values, org_id: orgId },
+        );
+      }
     });
 
     const summary = {
@@ -260,6 +346,7 @@ export const commitImport = createServerFn({ method: "POST" })
       problems: problems.slice(0, 50),
       problemCount: problems.length,
       sample: toInsert.slice(0, 5),
+      extraFields: Object.values(mapping).filter(f => f === KEEP_AS_EXTRA).length,
     };
     if (data.dryRun) return { ...summary, committed: false };
 

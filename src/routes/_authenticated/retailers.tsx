@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -105,8 +106,11 @@ function RetailersPage() {
   const { data } = useQuery({
     queryKey: ["retailers"],
     queryFn: async () => {
+      // Named rather than "*" so the `extra` blob is not fetched for every
+      // retailer just to be shown on none of them — it is read per record.
       const { data, error } = await supabase.from("retailers")
-        .select("*").order("name");
+        .select("id, name, gstin, phone, email, address, city, pincode, state_code, category, credit_limit, default_discount_pct, notes, gst_status, gst_filer_rating, gst_legal_name, gst_constitution, gst_taxpayer_type, gst_registration_date")
+        .order("name");
       if (error) throw error;
       return data as Retailer[];
     },
@@ -279,6 +283,9 @@ function RetailersPage() {
                 <label className="text-xs text-muted-foreground">{t("Notes")}</label>
                 <Textarea placeholder={t("Anything worth remembering")} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
               </div>
+              {editing && (
+                <div className="col-span-2"><ExtraInfo table="retailers" id={editing.id} /></div>
+              )}
               <DialogFooter className="col-span-2 items-center">
                 {!gstinOk && !gstChecking && (
                   <span className="mr-auto text-xs text-destructive">{t("Enter a valid GSTIN to save")}</span>

@@ -13,8 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
-import { Plus, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Plus, FileText, CheckCircle2, XCircle, Loader2, Archive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
@@ -37,6 +38,7 @@ function Suppliers() {
   const getOrg = useServerFn(getCurrentOrg);
   const checkGstin = useServerFn(verifyGstin);
   const [open, setOpen] = useState(false);
+  const [extraFor, setExtraFor] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
   const [gst, setGst] = useState<GstInfo | null>(null);
   const [gstChecking, setGstChecking] = useState(false);
@@ -79,7 +81,10 @@ function Suppliers() {
   const { data } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("*").order("name");
+      // Named rather than "*" so the `extra` blob is not fetched for every
+      // supplier just to be shown on none of them — it is read per record.
+      const { data, error } = await supabase.from("suppliers")
+        .select("id, name, gstin, contact, address, city, state_code, gst_filer_rating, has_extra").order("name");
       if (error) throw error;
       return data;
     },
@@ -220,6 +225,15 @@ function Suppliers() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">₹ {(balances.get(s.id) ?? 0).toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right">
+                    {/* Only on the rows that actually carry something. The flag
+                        is a generated boolean, so knowing this costs a byte
+                        rather than fetching every supplier's blob. */}
+                    {s.has_extra && (
+                      <Button size="sm" variant="ghost" title={t("From your old system")}
+                        onClick={() => setExtraFor(s)}>
+                        <Archive className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Link to="/statement" search={{ party: "supplier", id: s.id }}>
                       <Button size="sm" variant="ghost" title={t("Account statement")}><FileText className="h-3.5 w-3.5" /></Button>
                     </Link>
@@ -231,6 +245,17 @@ function Suppliers() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Suppliers have no edit screen, so without this the fields carried
+          over from their old software would be stored and never seen — which
+          is worse than dropping them, because the operator believes they still
+          have them. */}
+      <Dialog open={!!extraFor} onOpenChange={o => !o && setExtraFor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{extraFor?.name}</DialogTitle></DialogHeader>
+          <ExtraInfo table="suppliers" id={extraFor?.id} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

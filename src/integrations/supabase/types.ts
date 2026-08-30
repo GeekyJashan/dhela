@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -1163,7 +1163,9 @@ export type Database = {
           created_at: string
           current_stock: number | null
           default_margin_pct: number | null
+          extra: Json
           gst_rate: number | null
+          has_extra: boolean | null
           hsn: string | null
           id: string
           last_purchase_rate: number | null
@@ -1185,7 +1187,9 @@ export type Database = {
           created_at?: string
           current_stock?: number | null
           default_margin_pct?: number | null
+          extra?: Json
           gst_rate?: number | null
+          has_extra?: boolean | null
           hsn?: string | null
           id?: string
           last_purchase_rate?: number | null
@@ -1207,7 +1211,9 @@ export type Database = {
           created_at?: string
           current_stock?: number | null
           default_margin_pct?: number | null
+          extra?: Json
           gst_rate?: number | null
+          has_extra?: boolean | null
           hsn?: string | null
           id?: string
           last_purchase_rate?: number | null
@@ -1248,6 +1254,7 @@ export type Database = {
           credit_limit: number | null
           default_discount_pct: number | null
           email: string | null
+          extra: Json
           gst_constitution: string | null
           gst_filer_rating: string | null
           gst_legal_name: string | null
@@ -1255,6 +1262,7 @@ export type Database = {
           gst_status: string | null
           gst_taxpayer_type: string | null
           gstin: string | null
+          has_extra: boolean | null
           id: string
           name: string
           notes: string | null
@@ -1276,6 +1284,7 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          extra?: Json
           gst_constitution?: string | null
           gst_filer_rating?: string | null
           gst_legal_name?: string | null
@@ -1283,6 +1292,7 @@ export type Database = {
           gst_status?: string | null
           gst_taxpayer_type?: string | null
           gstin?: string | null
+          has_extra?: boolean | null
           id?: string
           name: string
           notes?: string | null
@@ -1304,6 +1314,7 @@ export type Database = {
           credit_limit?: number | null
           default_discount_pct?: number | null
           email?: string | null
+          extra?: Json
           gst_constitution?: string | null
           gst_filer_rating?: string | null
           gst_legal_name?: string | null
@@ -1311,6 +1322,7 @@ export type Database = {
           gst_status?: string | null
           gst_taxpayer_type?: string | null
           gstin?: string | null
+          has_extra?: boolean | null
           id?: string
           name?: string
           notes?: string | null
@@ -1626,6 +1638,7 @@ export type Database = {
           code: string | null
           contact: string | null
           created_at: string
+          extra: Json
           gst_constitution: string | null
           gst_filer_rating: string | null
           gst_legal_name: string | null
@@ -1633,6 +1646,7 @@ export type Database = {
           gst_status: string | null
           gst_taxpayer_type: string | null
           gstin: string | null
+          has_extra: boolean | null
           id: string
           name: string
           opening_balance: number
@@ -1646,6 +1660,7 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          extra?: Json
           gst_constitution?: string | null
           gst_filer_rating?: string | null
           gst_legal_name?: string | null
@@ -1653,6 +1668,7 @@ export type Database = {
           gst_status?: string | null
           gst_taxpayer_type?: string | null
           gstin?: string | null
+          has_extra?: boolean | null
           id?: string
           name: string
           opening_balance?: number
@@ -1666,6 +1682,7 @@ export type Database = {
           code?: string | null
           contact?: string | null
           created_at?: string
+          extra?: Json
           gst_constitution?: string | null
           gst_filer_rating?: string | null
           gst_legal_name?: string | null
@@ -1673,6 +1690,7 @@ export type Database = {
           gst_status?: string | null
           gst_taxpayer_type?: string | null
           gstin?: string | null
+          has_extra?: boolean | null
           id?: string
           name?: string
           opening_balance?: number

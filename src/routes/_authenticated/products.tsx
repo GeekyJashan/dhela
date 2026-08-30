@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
 import { Plus, Search, Sparkles, Loader2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -83,7 +84,12 @@ function Products() {
     queryKey: ["products"],
     queryFn: async () => {
       const { data, error } = await supabase.from("products")
-        .select("*, stock_group:stock_groups(id, name, hsn_code, discount_a, discount_b, discount_c)").order("name");
+        // Named rather than "*" so `extra` never rides along. It holds
+        // whatever a distributor's old software carried that we have no field
+        // for, and on a catalogue of several thousand it would be fetched for
+        // every row on every load to be shown on none of them. It is read one
+        // record at a time, when that record is opened.
+        .select("id, name, sku, hsn, gst_rate, mrp, unit, purchase_rate, current_stock, last_purchase_rate, stock_group:stock_groups(id, name, hsn_code, discount_a, discount_b, discount_c)").order("name");
       if (error) throw error;
       return data;
     },
@@ -305,6 +311,9 @@ function Products() {
                 <label className="text-xs text-muted-foreground">{editingId ? t("Current stock") : t("Opening stock")}</label>
                 <Input placeholder={t("Quantity on hand")} value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} />
               </div>
+              {editingId && (
+                <div className="col-span-2"><ExtraInfo table="products" id={editingId} /></div>
+              )}
               <DialogFooter className="col-span-2"><Button type="submit" loading={saving} disabled={!form.name}>{saving ? t("Saving…") : t("Save")}</Button></DialogFooter>
             </form>
           </DialogContent>

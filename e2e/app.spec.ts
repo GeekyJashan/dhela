@@ -1775,4 +1775,92 @@ test.describe("bringing data in from other software", () => {
     expect(ui).toMatch(/sampleRows: r\.slice\(0, 3\)/);
     expect(api).toMatch(/sampleRows: z\.array\(z\.array\(z\.string\(\)\)\)\.max\(5\)/);
   });
+
+  test("extra info is capped so a row cannot grow without limit", async () => {
+    const { capExtra } = await import("../src/lib/import.functions");
+
+    // A long value is kept, but trimmed. Reference data a human reads is short
+    // by nature; a column that isn't wanted a real field.
+    const problems: string[] = [];
+    const long = capExtra({ Note: "x".repeat(5000) }, 2, problems);
+    expect(long.Note.length).toBe(200);
+
+    // Past twenty keys the rest are left out, and the operator is told rather
+    // than finding out later that half a column vanished.
+    const many: Record<string, string> = {};
+    for (let i = 0; i < 40; i++) many[`col${i}`] = "v";
+    const capped = capExtra(many, 7, problems);
+    expect(Object.keys(capped).length).toBe(20);
+    expect(problems.some(p => p.startsWith("Row 7:") && /did not fit/.test(p))).toBe(true);
+
+    // The whole object stays small enough for Postgres to keep it inline
+    // rather than pushing it out to TOAST.
+    const wide: Record<string, string> = {};
+    for (let i = 0; i < 20; i++) wide[`column_name_${i}`] = "y".repeat(200);
+    expect(JSON.stringify(capExtra(wide, 3, [])).length).toBeLessThanOrEqual(2000);
+
+    // Nothing to keep means nothing to complain about.
+    const quiet: string[] = [];
+    expect(capExtra({}, 2, quiet)).toEqual({});
+    expect(quiet).toEqual([]);
+  });
+
+  test("keeping a column as extra is the operator's choice, never the model's", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
+    // proposeImportMapping validates against the field list alone, so the
+    // sentinel can never come back from the model. Left to a machine every
+    // leftover column would be swept in, derived totals included, and a stale
+    // total stored beside the figures it came from is worse than none.
+    const propose = api.slice(api.indexOf("export const proposeImportMapping"),
+      api.indexOf("export const commitImport"));
+    expect(propose).not.toContain("KEEP_AS_EXTRA");
+    expect(ui).toMatch(/Keep as extra info/);
+    // And it must be plain — in the code and on the screen — that this is
+    // reference data, not an input to any sum. The difference is invisible
+    // otherwise, and someone will assume a cost kept here is costing stock.
+    expect(api).toMatch(/never used in any\s*\n?\s*\* pricing, stock or tax calculation/);
+    const comp = fs.readFileSync("src/components/extra-info.tsx", "utf8");
+    expect(comp).toMatch(/not used in any pricing, stock or tax calculation/);
+  });
+
+  test("extra is merged into a record, not written over it", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    // A second export from a second system should add a field, not wipe the
+    // one the first import brought.
+    expect(api).toMatch(/\{ \.\.\.\(extraById\.get\(id\) \?\? \{\}\), \.\.\.kept \}/);
+    expect(api).toMatch(/Merged, not replaced/);
+  });
+
+  test("a mapping cannot name a column that is not on offer", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    // The mapping comes from the browser. Without this check a crafted request
+    // could name any column on the table — org_id included, which on the
+    // update path would hand one workspace's row to another.
+    expect(api).toMatch(/const allowed = new Set<string>\(Object\.keys\(IMPORT_FIELDS\[kind\]\)\)/);
+    expect(api).toMatch(/allowed\.has\(field\) \|\| field === KEEP_AS_EXTRA/);
+    // The row loop must read the checked mapping. `data.mapping` is legitimate
+    // in the loop that builds it, so this looks only inside the row loop —
+    // sanitising and then ignoring the result is the bug worth catching.
+    const rowLoop = api.slice(api.indexOf("data.rows.forEach"), api.indexOf("const summary"));
+    expect(rowLoop).toMatch(/Object\.entries\(mapping\)/);
+    expect(rowLoop).not.toContain("data.mapping");
+  });
+
+  test("a list screen never drags the extra blob along", () => {
+    // The whole bargain: the column is cheap because list queries leave it
+    // out and it is read one record at a time. A well-meaning "*" would undo
+    // that silently on a catalogue of several thousand rows.
+    for (const screen of ["products", "suppliers", "retailers"]) {
+      const src = fs.readFileSync(`src/routes/_authenticated/${screen}.tsx`, "utf8");
+      expect(src, `${screen} must name its columns`).not.toMatch(/\.select\("\*/);
+      for (const sel of src.match(/\.select\("[^"]*"/g) ?? []) {
+        // has_extra is the one-byte flag that says whether opening is worth it.
+        expect(sel.replace(/has_extra/g, ""), `${screen}: ${sel}`).not.toMatch(/\bextra\b/);
+      }
+    }
+    // And it is fetched per record instead.
+    const comp = fs.readFileSync("src/components/extra-info.tsx", "utf8");
+    expect(comp).toMatch(/\.select\("extra"\)\.eq\("id", id\)/);
+  });
 });

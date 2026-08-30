@@ -12,7 +12,9 @@ import { toast } from "sonner";
 import { Upload, Loader2, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { parseDelimited, sniffDelimiter, toRecords } from "@/lib/csv";
-import { proposeImportMapping, commitImport, IMPORT_FIELDS, type ImportKind } from "@/lib/import.functions";
+import {
+  proposeImportMapping, commitImport, IMPORT_FIELDS, KEEP_AS_EXTRA, type ImportKind,
+} from "@/lib/import.functions";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Bring your data in — Dhela" }] }),
@@ -22,8 +24,17 @@ export const Route = createFileRoute("/_authenticated/import")({
 type Preview = {
   willCreate: number; willUpdate: number;
   problems: string[]; problemCount: number;
-  sample: Record<string, string | number>[];
+  sample: Record<string, string | number | Record<string, string>>[];
+  extraFields: number;
 };
+
+/** The extra column holds an object; everything else prints as itself. */
+function cellText(v: string | number | Record<string, string>): string {
+  if (v && typeof v === "object") {
+    return Object.entries(v).map(([k, x]) => `${k}: ${x}`).join(" · ");
+  }
+  return String(v);
+}
 
 const KINDS: { id: ImportKind; label: string; hint: string }[] = [
   { id: "products", label: "Products", hint: "Item list with stock and rates" },
@@ -90,7 +101,11 @@ function ImportPage() {
     finally { setBusy(false); }
   };
 
-  const mappedCount = Object.values(mapping).filter(Boolean).length;
+  // Counted apart from the mapped fields: a column kept as extra info is not
+  // "matched" to anything, and rolling it into that number would overstate how
+  // much of the file actually landed somewhere meaningful.
+  const mappedCount = Object.values(mapping).filter(f => f && f !== KEEP_AS_EXTRA).length;
+  const extraCount = Object.values(mapping).filter(f => f === KEEP_AS_EXTRA).length;
   // The columns are known before the mapping is. Until it lands, the selects
   // would all read "do not import", which looks like a verdict rather than a
   // pause.
@@ -185,7 +200,8 @@ function ImportPage() {
               <span className="ml-2 font-normal text-muted-foreground">
                 {mappingPending
                   ? t("working them out…")
-                  : t("{{m}} of {{n}} matched", { m: mappedCount, n: headers.length })}
+                  : t("{{m}} of {{n}} matched", { m: mappedCount, n: headers.length })
+                    + (extraCount ? t(", {{e}} kept as extra info", { e: extraCount }) : "")}
               </span>
             </CardTitle>
             {notes && <CardDescription>{notes}</CardDescription>}
@@ -198,7 +214,9 @@ function ImportPage() {
               </div>
             )}
             {!mappingPending && headers.map(h => (
-              <div key={h} className="flex items-center gap-3">
+              // Named after their column so a test — and anyone reading the
+              // DOM — can find the row for a given heading.
+              <div key={h} data-column={h} className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{h}</div>
                   <div className="truncate text-xs text-muted-foreground">
@@ -210,6 +228,10 @@ function ImportPage() {
                   <SelectTrigger className="h-8 w-56 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__skip__">{t("— Do not import —")}</SelectItem>
+                    {/* For a column that is real information with no field of
+                        its own — a rack code, an old ledger group. Kept
+                        against the record and shown when you open it. */}
+                    <SelectItem value={KEEP_AS_EXTRA}>{t("— Keep as extra info —")}</SelectItem>
                     {Object.entries(fields).map(([f, desc]) => (
                       <SelectItem key={f} value={f}>{f} — {desc}</SelectItem>
                     ))}
@@ -246,6 +268,11 @@ function ImportPage() {
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {t("An existing party is matched on its GSTIN, or on its name when there is no GSTIN, and updated rather than duplicated.")}
                 </p>
+                {preview.extraFields > 0 && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("{{n}} column(s) kept as extra info — visible when you open the record, and not used in any calculation.", { n: preview.extraFields })}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -274,7 +301,7 @@ function ImportPage() {
                     {preview.sample.map((r, i) => (
                       <TableRow key={i}>
                         {Object.entries(r).filter(([k]) => k !== "org_id")
-                          .map(([k, v]) => <TableCell key={k} className="text-xs">{String(v)}</TableCell>)}
+                          .map(([k, v]) => <TableCell key={k} className="text-xs">{cellText(v)}</TableCell>)}
                       </TableRow>
                     ))}
                   </TableBody>
