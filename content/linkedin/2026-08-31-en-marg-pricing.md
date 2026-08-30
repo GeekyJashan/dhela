@@ -1,6 +1,7 @@
 ---
 lang: en
-status: draft
+status: posted
+posted_at: 2026-08-30T21:20:28.997Z
 ---
 The complaint I hear most about Marg is never the sticker price. It is the renewal.
 
