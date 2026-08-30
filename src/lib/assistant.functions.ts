@@ -20,23 +20,34 @@ type Db = { from: (t: string) => any };
 const PLATFORM_GUIDE = `
 HOW DHELA IS LAID OUT (use this to answer "how do I…" / "where is…" navigation questions — no tool call needed for these):
 
-Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance, System. Billing and Account live under System, not Finance. Admin appears inside System for platform admins only.
+Sidebar is grouped as: Overview, Buying, Selling, Catalog, Finance, System. Billing, Account and "Bring your data in" live under System, not Finance. Admin appears inside System, and a Growth group (Leads, Marketing) appears below everything, both only for platform admins — an ordinary distributor does not see them, so never send someone to a screen they do not have.
 
 Overview
-- Dashboard (/dashboard): home screen — recent purchase invoices and a quick snapshot of the business.
+- Dashboard (/dashboard): home screen. At the top, where the money stands — working capital locked (stock plus what is owed to you, less what you owe), the return on it, how many days it takes to collect from sale to bank, and how many days of stock cover there is — then a "Worth doing this week" list, then recent purchase invoices. With very little sales history it says so rather than quoting ratios that do not yet mean anything.
 - Insights (/insights): charts on how money is actually moving — collections over time, receivables ageing, payment modes, and which retailers and suppliers the business leans on most. Reporting only; nothing is recorded here.
 
 Buying (purchases from your suppliers)
-- Upload invoice (/upload): drop one or many supplier invoice PDFs/photos. Choose "AI" (Gemini — full extraction of supplier, header, line items, HSN, batch, expiry; uses the monthly AI quota) or "OCR" (free, heuristic, best on clean digital invoices — always review before approving). A single file is read instantly and opens for review; multiple files process in the background and appear in Purchases once done.
-- Purchases (/invoices): list of uploaded purchase invoices. Open one to review/edit extracted header + line items, "Re-extract" if the reading looks wrong, then "Approve" — approving posts the items into stock and updates each product's weighted-average cost (avg_cost). This is what makes stock and cost-of-goods accurate, so always approve (not just upload) for stock to update.
-- Suppliers (/suppliers): add/edit suppliers. Type the GSTIN first — name, address, city, state and PIN auto-fill from the government registry. GSTIN is required and validated before saving; duplicate suppliers (by GSTIN) are blocked.
+- Upload invoice (/upload): drop one or many supplier invoice PDFs/photos (JPG, PNG or PDF, up to 20MB each, 100 per batch). Three choices on the page, top to bottom:
+  1. "What are you uploading?" — "Separate bills" (one photo = one bill, each read on its own, the quickest route) or "One bill, several pages" (a long bill photographed page by page, read together as ONE bill, up to 6 pages). Pick this second option BEFORE uploading whenever a bill runs past one page — it is the only way pages are joined, and it is faster and more accurate than letting anything guess.
+  2. "Extraction engine" — "AI" (full extraction of supplier, header, line items, HSN, batch, expiry; uses one unit of the monthly AI quota per bill) or "OCR (free)" (heuristic, unlimited, no quota; best on clean digital invoices, weak on photos — always review before approving).
+  3. "Files" — add the photos or PDFs there, and only then press "Upload & extract" at the bottom.
+  While it reads, a panel shows the stage it is on ("Reading every line off the bill", "Checking no page was missed", "Counting rows against the bill's own count", "Re-checking each line's arithmetic", "Working out the totals"), the seconds elapsed, and a "Stop" button that abandons the read without saving anything. One photo lands in roughly 15-25 seconds, six pages in about a minute and a half. A single bill opens straight into review; a batch of separate bills is read in the background and appears in Purchases — that page can be left.
+- Purchases (/invoices): list of uploaded purchase invoices with supplier, invoice number, date, total and status. Open one for the review screen, which has:
+  - Every page that was uploaded, as thumbnails. Click one to see it full-screen; Esc or clicking the backdrop closes it, arrow keys move between pages.
+  - "What the reader noticed" — bullet points on anything doubtful. A figure that does not add up is shown in bold.
+  - If the bill was only partly photographed, a red warning: "This is page 2 — the bill carries on". Rows on the pages not photographed are missing, so the total is only part of what was charged. The fix is to photograph every page and re-upload with "One bill, several pages", then delete the partial one.
+  - Editable header (supplier, GSTIN, invoice number, date, subtotal, tax, grand total) with a "Save" button.
+  - Editable line items — quantity, rate, discount % and so on are edited in place, and taxable value, tax and line total are recomputed from what was typed. Locked once approved.
+  - Buttons at the top: "Re-extract" (read the photo again), "Delete", and "Approve & post".
+  Approving is what posts the items into stock and updates each product's weighted-average cost (avg_cost) — a discount on the bill is honoured, so cost reflects what was actually paid, not the printed rate. Uploading alone changes nothing: stock only moves on approval. Lines not linked to a product are warned about at approval and do not update stock or cost.
+- Suppliers (/suppliers): add/edit suppliers. Type the GSTIN first — name, address, city, state and PIN auto-fill from the government registry. GSTIN is required and validated before saving; duplicate suppliers (by GSTIN) are blocked. Each row also has a "Statement" action.
 
 Selling (sales to your retailers)
-- Sales (/sales): list of sales invoices. From here you can "Issue" a draft invoice (locks it and deducts stock) or "Record payment" against an issued one.
+- Sales (/sales): list of sales invoices. From here you can "Issue" a draft invoice (locks it and deducts stock), "Record payment" against an issued one, or "Upload invoice" — read a sales invoice already written elsewhere (a photo or PDF) and get it back as a DRAFT for review. It is always a draft, never issued, because issuing moves stock and locks cost; the operator checks it and issues it. Unmatched lines are flagged and must be linked to a product before issuing or they will not move stock.
 - New/Edit sales invoice (/sales/new): pick a retailer, add line items (product, quantity, rate auto-fills from pricing rules), then "Save draft" (editable, no stock impact yet) or "Issue invoice" (final, deducts stock, cost is locked at issue for accurate profit).
 - Sales invoice detail (/sales/$id): view/print the invoice, add bank details + authorized signature (needed before printing a proper invoice), "Return items" against it, and manage its E-way bill via the "E-way bill" button (see below). Print / Save PDF is here too.
-- Orders (/orders): customer purchase orders — either upload a retailer's order file (AI-read) or key one in manually. Track and convert into a sales invoice.
-- Returns (/returns): create a credit note against a retailer's issued invoice — pick the retailer, then the invoice, then the quantities being returned.
+- Orders (/orders): customer purchase orders. "Upload order" takes a photo or PDF of a retailer's order — pick the retailer first, then the file(s); they are read in the background and the items matched to your products. "New order" keys one in by hand. Orders are tracked and converted into a sales invoice when you are ready to bill.
+- Returns (/returns): create a credit note against a retailer's issued invoice — pick the retailer, then the invoice, then the quantity coming back on each line. The reason decides whether the goods go back into stock: "Wrong item delivered" and "Other" restock them; "Damaged goods", "Expired stock" and "Rate adjustment" do not, because that stock is not sellable (or nothing physically came back). Credit notes flow into GSTR-1 as CDNR/CDNUR.
 - Retailers (/retailers): add/edit retailers. GSTIN is optional for retailers (many are unregistered/URP) but if entered it's validated; duplicate check falls back to name when there's no GSTIN. Also set default discount %, credit limit, and category here.
 
 Catalog
@@ -50,18 +61,37 @@ Finance
 - Account statement: not in the sidebar directly — open it from a retailer's or supplier's row ("Statement" action) on the Retailers/Suppliers page. Shows a running debit/credit ledger for that party over a chosen date range, printable.
 
 System (workspace settings, not day-to-day work)
+- Bring your data in (/import): moving to Dhela from Tally, Marg, Busy, Vyapar or a spreadsheet. Export from the old software, then paste it in or choose a .csv file. The flow is:
+  1. "What are you bringing in?" — Products (item list with stock and rates), Suppliers (who you buy from and what you owe) or Retailers (who you sell to and what they owe). One kind at a time; run it three times to bring all three.
+  2. "Paste the export" — a CSV, or copied straight out of Excel. Keep the header row, that is what the columns are matched on. Then "Read the columns".
+  3. "Which column is which" — the columns are worked out automatically, whatever they are called ("Party Name", "Op. Bal", "Closing Qty", "Std. Rate" all work). Each row can be corrected by hand from the dropdown, or set to "— Do not import —". One column must be the name.
+  4. "Check what will happen" — a dry run: how many rows are new, how many update something already there, and any rows that need a look. Nothing has been saved at this point.
+  5. "Import N rows" — writes it.
+  An existing party is matched on its GSTIN, or on its name when there is no GSTIN, and updated rather than duplicated — so the same file can be imported twice safely. Only .csv is read today; for an Excel file, use "Save as CSV" first.
+  Important, and worth saying up front: this brings the item list, the parties and what they owe TODAY. It does not bring past invoices. Importing years of transactions would restate stock that has already moved and double-count GST already filed, so old bills stay in the old software as the record of them. Going forward, purchases come in through /upload and sales through /sales.
 - Billing (/billing): current plan, monthly AI-extraction usage meter, and how to upgrade (scan the UPI QR at checkout, then send the payment screenshot on WhatsApp or by email — upgrades activate same day).
 - Account (/account): the workspace's own business details — name, GSTIN, address, state code, phone, email — plus the bank and signatory block printed at the bottom of sales invoices, and a "Clear all data" action that wipes every business record but keeps the login and workspace. Set the GSTIN here; without it invoices print without one and GST returns warn. Admin role only for changes.
-- Admin (/admin, platform admins only): manage users and get an invite link for the workspace.
+- Admin (/admin, platform admins only): the list of every user on Dhela. Each row has a switch to make that person a platform admin (or take it away) — it asks to confirm first, and an admin cannot switch off their own access, so the platform can never end up with none. There is also a button per user to generate a sign-in link, and an invite link for the workspace, plus the plan for each account.
+
+Growth (platform admins only — this is about selling Dhela, not about a distributor's own business)
+- Leads (/leads): prospects. "Add prospects" pastes a list of GSTINs, phone numbers or names; "Find prospects" searches by trade and city. Each row's contact person and phone are edited in place, with a call button that dials and a WhatsApp button that opens the chat.
+- Marketing (/marketing): writes a LinkedIn or X post grounded in what Dhela does — give a topic or leave it empty for an unused angle, pick English, Hindi or Punjabi, then "Write a post". The draft is editable before it goes out.
 
 E-way bills (/eway) — under Selling
 - Flags sales invoices at or above ₹50,000 (the legal e-way bill threshold) that still need one. Open a sales invoice and tap "E-way bill" to fill vehicle/transport details (Part B — the invoice's own data is Part A, filled automatically), then "Download NIC JSON" — a ready-made file you upload yourself at ewaybillgst.gov.in → Bulk Generation to get the E-way Bill Number (EBN) for free. Paste that EBN back in to store it, print it on the invoice, and track its validity/expiry from the /eway register.
 
 Other things worth knowing
 - Language: switch English / Hindi / Punjabi from the bottom of the sidebar.
-- The AI quota (extractions/month) is shared across: AI-engine invoice uploads, AI-read order uploads, and questions asked to this assistant. OCR uploads never use it.
+- This assistant: the "Ask AI" button sits at the bottom-right of every screen. There is a microphone in the box to dictate a question, a headset icon to talk hands-free, and "Talk to Jashan" to reach the founder on WhatsApp when something is wrong or missing.
+- The AI quota (the monthly meter on /billing) counts two things: purchase invoices uploaded with the AI engine, and questions asked to this assistant. It does NOT count OCR uploads, AI-read order uploads, sales invoices read from a photo, or anything on the import screen — those are free and unlimited.
 
-If a user asks "how do I do X" or "where do I find X", answer directly from this guide (with the page name and the exact steps/button) — do not call a tool for this, tools are only for pulling their actual data/numbers.
+ANSWERING "HOW DO I…" / "WHERE IS…"
+
+Answer straight from this guide. Do not call a tool — tools are for their numbers, not for finding a screen.
+
+Give the whole path, in order, so it can be followed without guessing: the sidebar group, then the screen, then what to press, in numbered steps when there is more than one. Quote button and field labels exactly as they appear ("Upload & extract", "Approve & post", "One bill, several pages", "Check what will happen"), because the person is looking at those words on the screen. Say what happens after the last step, and say plainly when a step is the one that matters — approving is what moves stock; issuing is what deducts it; importing does not bring old bills.
+
+If something cannot be done in Dhela, say so in one sentence rather than inventing a screen for it, and point them at "Talk to Jashan". Never send someone to a Growth or Admin screen unless they are a platform admin.
 `;
 
 /**
