@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,12 +22,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Upload, Loader2, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Upload, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { parseDelimited, sniffDelimiter, toRecords } from "@/lib/csv";
 import {
   proposeImportMapping,
   commitImport,
+  listImportRuns,
+  undoImport,
   IMPORT_FIELDS,
   KEEP_AS_EXTRA,
   type ImportKind,
@@ -68,6 +70,7 @@ function ImportPage() {
   const qc = useQueryClient();
   const propose = useServerFn(proposeImportMapping);
   const commit = useServerFn(commitImport);
+  const undo = useServerFn(undoImport);
 
   const [kind, setKind] = useState<ImportKind>("products");
   const [raw, setRaw] = useState("");
@@ -87,6 +90,19 @@ function ImportPage() {
     setNotes(null);
   };
 
+  // Each step appears below the last, and on a laptop the one that just
+  // started is off the bottom of the window — so the operator presses a button
+  // and nothing appears to happen. Bring the new step to them instead.
+  const mappingRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const bring = (ref: React.RefObject<HTMLDivElement | null>) => {
+    // After paint, or it scrolls to where the card was about to be.
+    requestAnimationFrame(() =>
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+
   const read = async (text: string) => {
     setRaw(text);
     reset();
@@ -101,6 +117,7 @@ function ImportPage() {
     setRecords(r);
     setMapping({}); // nothing decided yet, and the card must say so
     setBusy(true);
+    bring(mappingRef); // the "working them out…" spinner is the feedback
     try {
       // Only the header and three rows are sent, never the whole file.
       const res = await propose({
@@ -122,6 +139,7 @@ function ImportPage() {
       setPreview(
         (await commit({ data: { kind, mapping, rows: records, dryRun: true } })) as Preview,
       );
+      bring(previewRef);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -137,10 +155,45 @@ function ImportPage() {
       qc.invalidateQueries();
       setRaw("");
       reset();
+      // The form empties out, so the only thing left to look at is the run
+      // that just landed — and the button that takes it back.
+      bring(historyRef);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const { data: runs } = useQuery({
+    queryKey: ["import_runs"],
+    queryFn: () => listImportRuns(),
+  });
+
+  const [undoing, setUndoing] = useState<string | null>(null);
+  const revert = async (runId: string) => {
+    if (
+      !confirm(
+        t(
+          "Undo this import? Rows it created are removed, and rows it changed go back to what they were.",
+        ),
+      )
+    )
+      return;
+    setUndoing(runId);
+    try {
+      const r = await undo({ data: { runId } });
+      toast.success(
+        t("{{d}} removed, {{u}} put back", { d: r.deleted, u: r.restored }),
+        // Said out loud rather than left in the history: an undo that could
+        // not finish the job is exactly the thing someone needs to know now.
+        r.note ? { description: r.note, duration: 10_000 } : undefined,
+      );
+      qc.invalidateQueries();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUndoing(null);
     }
   };
 
@@ -262,7 +315,7 @@ function ImportPage() {
       </Card>
 
       {headers.length > 0 && (
-        <Card>
+        <Card ref={mappingRef}>
           <CardHeader>
             <CardTitle className="text-sm">
               {t("Which column is which")}
@@ -337,7 +390,10 @@ function ImportPage() {
       )}
 
       {preview && (
-        <Card className={preview.problemCount ? "border-amber-400/60" : "border-primary/40"}>
+        <Card
+          ref={previewRef}
+          className={preview.problemCount ? "border-amber-400/60" : "border-primary/40"}
+        >
           <CardContent className="space-y-4 pt-6">
             <div className="flex items-start gap-3">
               {preview.problemCount ? (
@@ -420,6 +476,69 @@ function ImportPage() {
               )}
               {t("Import {{n}} rows", { n: preview.willCreate + preview.willUpdate })}
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* What has been brought in before. The dry run stops a bad mapping;
+          nothing stops a bad file, and "I imported last year's export" needs
+          an answer that is not "restore the database". */}
+      {!!runs?.length && (
+        <Card ref={historyRef}>
+          <CardHeader>
+            <CardTitle className="text-sm">{t("What you have brought in")}</CardTitle>
+            <CardDescription>
+              {t(
+                "Undo removes the rows an import created and puts back the ones it changed. Anything since billed against, or edited by hand, is left alone.",
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {runs.map((r) => (
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border p-3 text-sm"
+              >
+                <span className="font-medium capitalize">{t(r.kind)}</span>
+                {/* Worded apart from the preview's "N new, N updated" on
+                    purpose: one is what is about to happen, the other what
+                    already did, and on this screen both are on show at once. */}
+                <span className="text-muted-foreground">
+                  {t("{{c}} added, {{u}} changed", { c: r.created_count, u: r.updated_count })}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(r.created_at).toLocaleString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  {r.undone_at ? (
+                    <span className="text-xs text-muted-foreground">
+                      {t("undone")}
+                      {r.undo_note ? ` — ${r.undo_note}` : ""}
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={undoing === r.id}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => revert(r.id)}
+                    >
+                      {undoing === r.id ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {t("Undo")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

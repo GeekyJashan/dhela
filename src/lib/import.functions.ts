@@ -285,9 +285,14 @@ export const commitImport = createServerFn({ method: "POST" })
     // is no GSTIN, and is compared case- and space-insensitively because
     // "Anand Enterprises" and "ANAND  ENTERPRISES " are one supplier.
     const key = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    // Every column this import could write, so the value each row held
+    // beforehand is known and undo has something to put back.
+    const touchable = ["id", "extra", ...Object.keys(IMPORT_FIELDS[kind])].concat(
+      kind === "products" ? [] : ["state_code"],
+    );
     const { data: existing } = await supabase
       .from(kind)
-      .select(kind === "products" ? "id, name, sku, extra" : "id, name, gstin, extra")
+      .select(touchable.join(", "))
       .eq("org_id", orgId);
     const byName = new Map<string, string>();
     const byGstin = new Map<string, string>();
@@ -295,17 +300,25 @@ export const commitImport = createServerFn({ method: "POST" })
     // replacing it — two exports from two systems can each contribute a field.
     const extraById = new Map<string, Record<string, string>>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rowById = new Map<string, any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const e of (existing ?? []) as any[]) {
       if (!e.id) continue;
       if (e.name) byName.set(key(e.name), e.id);
       if (e.gstin) byGstin.set(String(e.gstin).toUpperCase(), e.id);
       if (e.sku) byName.set(`sku:${key(e.sku)}`, e.id);
       if (e.extra && typeof e.extra === "object") extraById.set(e.id, e.extra);
+      rowById.set(e.id, e);
     }
 
     type Cell = string | number | Record<string, string>;
     const toInsert: Record<string, Cell>[] = [];
-    const toUpdate: { id: string; values: Record<string, Cell> }[] = [];
+    const toUpdate: {
+      id: string;
+      values: Record<string, Cell>;
+      /** What those same fields held before, for undo. */
+      before: Record<string, unknown>;
+    }[] = [];
     const problems: string[] = [];
     const seen = new Set<string>();
 
@@ -374,10 +387,11 @@ export const commitImport = createServerFn({ method: "POST" })
       if (id) {
         // Merged, not replaced: a field this file does not carry stays put.
         const merged = { ...(extraById.get(id) ?? {}), ...kept };
-        toUpdate.push({
-          id,
-          values: Object.keys(merged).length ? { ...values, extra: merged } : values,
-        });
+        const next = Object.keys(merged).length ? { ...values, extra: merged } : values;
+        const was = rowById.get(id) ?? {};
+        const before: Record<string, unknown> = {};
+        for (const f of Object.keys(next)) before[f] = was[f] ?? null;
+        toUpdate.push({ id, values: next, before });
       } else {
         // Left off entirely when empty so the column default applies rather
         // than writing an empty object over it.
@@ -400,9 +414,16 @@ export const commitImport = createServerFn({ method: "POST" })
     if (data.dryRun) return { ...summary, committed: false };
 
     // Chunked: one 5,000-row statement is a request nobody can retry usefully.
+    // Ids come back from the insert because they are the whole of undo for a
+    // created row — without them a bad import can only be cleaned up by hand.
+    const createdIds: string[] = [];
     for (let i = 0; i < toInsert.length; i += 200) {
-      const { error } = await supabase.from(kind).insert(toInsert.slice(i, i + 200));
+      const { data: made, error } = await supabase
+        .from(kind)
+        .insert(toInsert.slice(i, i + 200))
+        .select("id");
       if (error) throw new Error(`Insert failed around row ${i + 2}: ${error.message}`);
+      for (const r of (made ?? []) as { id: string }[]) createdIds.push(r.id);
     }
     for (const u of toUpdate) {
       const { error } = await supabase
@@ -412,6 +433,168 @@ export const commitImport = createServerFn({ method: "POST" })
         .eq("org_id", orgId);
       if (error) throw new Error(`Update failed: ${error.message}`);
     }
-    log.info("import:committed", { kind, created: toInsert.length, updated: toUpdate.length });
-    return { ...summary, committed: true };
+
+    // Recorded after the writes, not before: a run that half-failed should not
+    // leave a history entry claiming it did something it did not.
+    const { data: run, error: runErr } = await supabase
+      .from("import_runs")
+      .insert({
+        org_id: orgId,
+        kind,
+        created_by: userId,
+        mapping,
+        created_count: createdIds.length,
+        updated_count: toUpdate.length,
+        created_ids: createdIds,
+        updated_rows: toUpdate.map((u) => ({ id: u.id, before: u.before, after: u.values })),
+      })
+      .select("id")
+      .single();
+    // A missing history entry is not worth failing an import that has already
+    // landed — but it does mean this one cannot be undone, so say so.
+    if (runErr) log.error("import:run_not_recorded", { err: runErr.message });
+
+    log.info("import:committed", { kind, created: createdIds.length, updated: toUpdate.length });
+    return { ...summary, willCreate: createdIds.length, committed: true, runId: run?.id ?? null };
+  });
+
+/** What has been brought in, newest first. */
+export const listImportRuns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase
+      .from("memberships")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    if (!mem?.org_id) return [];
+    const { data } = await supabase
+      .from("import_runs")
+      // Not the row payloads — this is a list, and updated_rows can run to a
+      // megabyte on a big import. Undo reads them one run at a time.
+      .select("id, kind, created_count, updated_count, mapping, created_at, undone_at, undo_note")
+      .eq("org_id", mem.org_id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    return data ?? [];
+  });
+
+/** True when a and b are the same value, allowing for how the driver types it. */
+function same(a: unknown, b: unknown): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (typeof a === "object" || typeof b === "object") {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+  // numeric(10,4) comes back as "218.9300" where the import sent 218.93, and
+  // those are the same number however differently they print.
+  const na = Number(a),
+    nb = Number(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && String(a).trim() && String(b).trim()) {
+    return na === nb;
+  }
+  return String(a) === String(b);
+}
+
+/**
+ * Put an import back.
+ *
+ * Two halves, and neither is unconditional. A row this run created is deleted
+ * — unless something has been billed against it since, in which case the
+ * database refuses and it stays, because a product referenced by an invoice
+ * line is not the importer's to remove. A row this run changed is put back
+ * only field by field, and only where the value is still the one the import
+ * left; anything edited since is somebody's work and is not thrown away.
+ *
+ * What could not be done is written on the run and shown, rather than an undo
+ * that quietly did three quarters of the job and reported success.
+ */
+export const undoImport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ runId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = context.supabase as any;
+    const { userId } = context;
+    const { data: mem } = await supabase
+      .from("memberships")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
+    if (!mem?.org_id) throw new Error("No organization");
+    const orgId = mem.org_id;
+
+    const { data: run } = await supabase
+      .from("import_runs")
+      .select("*")
+      .eq("id", data.runId)
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (!run) throw new Error("That import is not in this workspace.");
+    if (run.undone_at) throw new Error("That import has already been undone.");
+
+    const kind = run.kind as ImportKind;
+    const createdIds: string[] = run.created_ids ?? [];
+    const updates: {
+      id: string;
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+    }[] = run.updated_rows ?? [];
+
+    // Delete in chunks; when a chunk is refused, go row by row so that one
+    // product that has been sold does not save the other ninety-nine.
+    let deleted = 0;
+    const blocked: string[] = [];
+    for (let i = 0; i < createdIds.length; i += 100) {
+      const chunk = createdIds.slice(i, i + 100);
+      const { error } = await supabase.from(kind).delete().in("id", chunk).eq("org_id", orgId);
+      if (!error) {
+        deleted += chunk.length;
+        continue;
+      }
+      for (const id of chunk) {
+        const { error: one } = await supabase.from(kind).delete().eq("id", id).eq("org_id", orgId);
+        if (one) blocked.push(id);
+        else deleted++;
+      }
+    }
+
+    let restored = 0;
+    let keptEdits = 0;
+    for (const u of updates) {
+      const { data: current } = await supabase
+        .from(kind)
+        .select("*")
+        .eq("id", u.id)
+        .eq("org_id", orgId)
+        .maybeSingle();
+      if (!current) continue; // already gone; nothing to put back
+      const patch: Record<string, unknown> = {};
+      for (const [field, after] of Object.entries(u.after)) {
+        if (same(current[field], after)) patch[field] = u.before[field] ?? null;
+        else keptEdits++; // changed since — leave it alone
+      }
+      if (!Object.keys(patch).length) continue;
+      const { error } = await supabase.from(kind).update(patch).eq("id", u.id).eq("org_id", orgId);
+      if (!error) restored++;
+    }
+
+    const notes: string[] = [];
+    if (blocked.length) {
+      notes.push(`${blocked.length} kept because they are already used on a bill or order`);
+    }
+    if (keptEdits) notes.push(`${keptEdits} field(s) left as they are, edited since the import`);
+    const note = notes.join("; ") || null;
+
+    await supabase
+      .from("import_runs")
+      .update({ undone_at: new Date().toISOString(), undo_note: note })
+      .eq("id", run.id)
+      .eq("org_id", orgId);
+
+    log.info("import:undone", { runId: run.id, kind, deleted, blocked: blocked.length, restored });
+    return { deleted, blocked: blocked.length, restored, keptEdits, note };
   });

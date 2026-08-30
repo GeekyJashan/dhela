@@ -378,6 +378,59 @@ export type Database = {
         }
         Relationships: []
       }
+      import_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_count: number
+          created_ids: string[]
+          id: string
+          kind: string
+          mapping: Json
+          org_id: string
+          undo_note: string | null
+          undone_at: string | null
+          updated_count: number
+          updated_rows: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          created_ids?: string[]
+          id?: string
+          kind: string
+          mapping?: Json
+          org_id: string
+          undo_note?: string | null
+          undone_at?: string | null
+          updated_count?: number
+          updated_rows?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          created_ids?: string[]
+          id?: string
+          kind?: string
+          mapping?: Json
+          org_id?: string
+          undo_note?: string | null
+          undone_at?: string | null
+          updated_count?: number
+          updated_rows?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_lines: {
         Row: {
           batch: string | null
