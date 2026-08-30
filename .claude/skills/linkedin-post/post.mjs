@@ -196,6 +196,35 @@ if (meta.needs_proofread === "true" && publish && !force) {
   process.exit(1);
 }
 
+/**
+ * These go out from the company page, never from a person. A post that says
+ * "I hear this from distributors" reads as an individual, and the reader can
+ * plainly see it came from Dhela — so it lands as a slip, or worse as a company
+ * writing in a voice it has not earned. A note in the skill file is the weakest
+ * kind of guard, so it is checked here too.
+ */
+function firstPerson(text) {
+  const found = new Set();
+  // Word-boundary matches only: "I" the pronoun, not the I in "GSTIN".
+  for (const [re, label] of [
+    [/(^|[^\p{L}])I([^\p{L}]|$)/u, "I"],
+    [/(^|[^\p{L}])(my|mine|me)([^\p{L}]|$)/iu, "my/me"],
+    [/(^|[^\p{L}])I['’](m|ve|ll|d)([^\p{L}]|$)/iu, "I'm/I've"],
+    [/मैं|मेरा|मेरी|मुझे/u, "मैं"],
+    [/ਮੈਂ|ਮੇਰਾ|ਮੇਰੀ|ਮੈਨੂੰ/u, "ਮੈਂ"],
+  ]) if (re.test(text)) found.add(label);
+  return [...found];
+}
+
+const iVoice = firstPerson(raw);
+if (iVoice.length) {
+  console.error(`\n${postPath} is written in the first person singular (${iVoice.join(", ")}).`);
+  console.error("Posts from the company page say \"we\", not \"I\". Rewrite it, or use --force");
+  console.error("if this really is meant to be the founder speaking on the page.");
+  if (publish && !force) process.exit(1);
+  console.error("(dry run — not blocking, but fix it before publishing)\n");
+}
+
 console.log(`${paras.length} paragraphs, ${raw.length} characters${meta.lang ? `, lang=${meta.lang}` : ""}`);
 if (raw.length > 3000) console.warn("warning: LinkedIn truncates around 3000 characters");
 

@@ -67,6 +67,23 @@ Run every script from the repo root so `@playwright/test` resolves.
 
 ## Voice
 
+**Write as "we", never "I".** These go out from the Dhela company page, not
+from Jashan's personal profile — the composer literally says *Dhela* in its
+header, and `post.mjs` aborts if it does not. A post that says "I hear this
+from distributors" or "I wrote up the comparison" reads as a person, and the
+reader can see it came from a company, so it lands as either a slip or a
+company pretending to be a friend. Neither is what you want.
+
+- "The complaint **we** hear most about Marg…" not "the complaint I hear most"
+- "**We** wrote up the full comparison" not "I wrote up"
+- "**Our** price" is right; "my price" is not
+- Hindi/Punjabi: **हम / ਅਸੀਂ**, never मैं / ਮੈਂ
+
+Anything genuinely personal to the founder — a story from his own shop, an
+opinion he wants attributed — belongs on his profile and reshared, not on the
+page in the first person. If a draft needs "I" to work, it is the wrong surface
+for it.
+
 Match the register in `src/locales/hi.json` and `pa.json`: native script for
 ordinary words, **English for technical terms** (`invoice`, `rate`, `margin`,
 `GST`, `e-way bill`, `stock`). That is how this audience actually writes, and
