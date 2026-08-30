@@ -32,6 +32,7 @@ import {
   undoImport,
   IMPORT_FIELDS,
   KEEP_AS_EXTRA,
+  guessByHeader,
   type ImportKind,
 } from "@/lib/import.functions";
 
@@ -79,6 +80,9 @@ function ImportPage() {
   const [mapping, setMapping] = useState<Record<string, string | null>>({});
   const [notes, setNotes] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
+  // Set when the columns were matched on their names because the reader was
+  // unavailable. Shown on the card, not in a toast that fades before it is read.
+  const [fellBack, setFellBack] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const fields = IMPORT_FIELDS[kind];
@@ -88,6 +92,7 @@ function ImportPage() {
     setMapping({});
     setPreview(null);
     setNotes(null);
+    setFellBack(null);
   };
 
   // Each step appears below the last, and on a laptop the one that just
@@ -125,9 +130,18 @@ function ImportPage() {
       });
       setMapping(res.mapping);
       setNotes(res.notes);
+      setFellBack(
+        res.automatic ? null : (res.reason ?? "The columns were matched on their names."),
+      );
     } catch (e) {
+      // The server falls back rather than failing, so reaching here means the
+      // request itself did not land. Still no dead end: match on the headings
+      // in the browser so the operator can work.
       toast.error((e as Error).message);
-      setMapping(Object.fromEntries(h.map((c) => [c, null])));
+      setMapping(guessByHeader(kind, h));
+      setFellBack(
+        t("Could not reach the server to read your columns, so they were matched on their names."),
+      );
     } finally {
       setBusy(false);
     }
@@ -329,6 +343,20 @@ function ImportPage() {
             {notes && <CardDescription>{notes}</CardDescription>}
           </CardHeader>
           <CardContent className="space-y-2">
+            {/* A service being down must not read as a verdict on their file.
+                Said here rather than in a toast, because the toast is gone by
+                the time anyone wonders why nothing matched. */}
+            {!mappingPending && fellBack && (
+              <div className="flex gap-2 rounded-lg border border-amber-400/50 bg-warning/10 p-3 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p>
+                  {t(fellBack)}{" "}
+                  <span className="text-muted-foreground">
+                    {t("Check each row below before importing — some columns may be blank.")}
+                  </span>
+                </p>
+              </div>
+            )}
             {mappingPending && (
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />

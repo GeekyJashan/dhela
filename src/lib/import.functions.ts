@@ -135,6 +135,177 @@ export function capExtra(
   return out;
 }
 
+/**
+ * What accounting software in India actually calls these columns.
+ *
+ * This is the floor the screen stands on when the model cannot be reached —
+ * out of quota, rate limited, network gone. It used to fall back to comparing
+ * a heading against our own field names, which matches almost nothing real:
+ * no export in the country has a column called "current_stock". The operator
+ * was left with every row reading "do not import", the Check button disabled
+ * because no column was the name, and a toast that had already faded. That
+ * looks like a verdict on their file rather than a service being down.
+ */
+const HEADER_SYNONYMS: Record<string, string[]> = {
+  name: [
+    "itemname",
+    "itemdescription",
+    "productname",
+    "prodname",
+    "description",
+    "particulars",
+    "item",
+    "product",
+    "partyname",
+    "ledgername",
+    "ledger",
+    "party",
+    "customername",
+    "suppliername",
+    "accountname",
+    "nameofitem",
+    "shopname",
+    "firmname",
+  ],
+  sku: [
+    "barcode",
+    "itemcode",
+    "prodcode",
+    "productcode",
+    "code",
+    "partno",
+    "partnumber",
+    "sku",
+    "alias",
+    "aliascode",
+    "itemalias",
+  ],
+  hsn: ["hsn", "hsncode", "hsnsac", "hsnsaccode", "tariff", "tariffcode", "sac"],
+  gst_rate: [
+    "gst",
+    "gstrate",
+    "gstpercent",
+    "gstp",
+    "tax",
+    "taxrate",
+    "taxpercent",
+    "taxp",
+    "igst",
+    "gstslab",
+  ],
+  mrp: ["mrp", "maxretailprice", "retailprice", "printedprice", "listprice"],
+  purchase_rate: [
+    "purrate",
+    "purchaserate",
+    "purchprice",
+    "purchaseprice",
+    "buyingrate",
+    "costrate",
+    "purcrate",
+    "prate",
+  ],
+  selling_rate: ["salerate", "sellingrate", "salesrate", "sellrate", "srate", "sellingprice"],
+  avg_cost: [
+    "landingcost",
+    "avgcost",
+    "averagecost",
+    "wtdavgcost",
+    "weightedavgcost",
+    "landedcost",
+    "costprice",
+    "cost",
+  ],
+  current_stock: [
+    "closingqty",
+    "closingstock",
+    "balqty",
+    "balancequantity",
+    "balanceqty",
+    "stock",
+    "qty",
+    "quantity",
+    "instock",
+    "onhand",
+    "closingbal",
+  ],
+  unit: ["unit", "uom", "units", "measure", "unitofmeasure"],
+  pack_size: ["packing", "pack", "packsize", "packof", "conversion"],
+  brand: ["company", "brand", "make", "mfr", "manufacturer", "mfg", "supplier"],
+  category: ["group", "category", "stockgroup", "itemgroup", "class", "segment"],
+  gstin: ["gstin", "gstno", "gstnumber", "gstinno", "gstregno", "gstidentification"],
+  contact: [
+    "mobile",
+    "mobileno",
+    "phone",
+    "phoneno",
+    "contact",
+    "contactno",
+    "cell",
+    "telephone",
+    "tel",
+  ],
+  phone: [
+    "mobile",
+    "mobileno",
+    "phone",
+    "phoneno",
+    "contact",
+    "contactno",
+    "cell",
+    "telephone",
+    "tel",
+  ],
+  email: ["email", "emailid", "mail", "mailid"],
+  city: ["city", "place", "station", "town", "location"],
+  address: ["address", "addr", "add", "street", "addressline"],
+  pincode: ["pin", "pincode", "zip", "zipcode", "postcode", "postalcode"],
+  opening_balance: [
+    "opbal",
+    "openingbalance",
+    "openingbal",
+    "obal",
+    "balance",
+    "outstanding",
+    "closingbalance",
+    "duesamount",
+    "due",
+  ],
+  credit_limit: ["creditlimit", "crlimit", "climit", "creditlimitamount"],
+};
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Best-effort mapping from column headings alone. Never guesses twice. */
+export function guessByHeader(kind: ImportKind, headers: string[]): Record<string, string | null> {
+  const fields = Object.keys(IMPORT_FIELDS[kind]);
+  const out: Record<string, string | null> = {};
+  const used = new Set<string>();
+  // Exact first, so "Sale Rate" takes selling_rate before a looser rule can
+  // hand it to something else.
+  for (const pass of ["exact", "loose"] as const) {
+    for (const h of headers) {
+      if (out[h]) continue;
+      const n = norm(h);
+      const hit = fields.find((f) => {
+        if (used.has(f)) return false;
+        const syns = HEADER_SYNONYMS[f] ?? [norm(f)];
+        return pass === "exact"
+          ? syns.includes(n) || n === norm(f)
+          : // Only the other way round: a heading that contains a synonym.
+            // Matching a synonym that contains the heading turns "s" into
+            // anything.
+            syns.some((s) => s.length >= 4 && n.includes(s));
+      });
+      if (hit) {
+        out[h] = hit;
+        used.add(hit);
+      }
+    }
+  }
+  for (const h of headers) if (!(h in out)) out[h] = null;
+  return out;
+}
+
 export const proposeImportMapping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -155,16 +326,16 @@ export const proposeImportMapping = createServerFn({ method: "POST" })
       .map(([k, v]) => `  ${k}: ${v}`)
       .join("\n");
 
-    // Without a key, fall back to matching on the name. It gets the obvious
-    // ones and the operator fixes the rest, which beats refusing to import.
-    if (!apiKey) {
-      const guess: Record<string, string | null> = {};
-      for (const h of data.headers) {
-        const norm = h.toLowerCase().replace(/[^a-z]/g, "");
-        guess[h] = Object.keys(fields).find((f) => f.replace(/_/g, "") === norm) ?? null;
-      }
-      return { mapping: guess, notes: "Matched on column names only — no AI key configured." };
-    }
+    const kind = data.kind as ImportKind;
+    /** The screen must always get a usable mapping back, never an exception. */
+    const byHeader = (why: string) => ({
+      mapping: guessByHeader(kind, data.headers),
+      notes: null,
+      automatic: false as const,
+      reason: why,
+    });
+
+    if (!apiKey) return byHeader("No AI key is configured on the server.");
 
     const prompt = `A distributor is moving to new software and has exported their ${data.kind} from
 whatever they were using — Tally, Marg, Busy, Vyapar, a spreadsheet, anything.
@@ -207,8 +378,18 @@ Return JSON only: {"mapping": {"<their column>": "<our field or null>"}, "notes"
         }),
       },
     );
-    if (!resp.ok)
-      throw new Error(`Mapping failed: ${resp.status} ${(await resp.text()).slice(0, 160)}`);
+    // Every failure below falls back rather than throwing. A rate limit or a
+    // bad minute upstream is not a reason to hand someone a screen where every
+    // column reads "do not import" and the Import button will not light up.
+    if (!resp.ok) {
+      const body = (await resp.text()).slice(0, 200);
+      log.error("import:mapping_failed", { status: resp.status, body });
+      return byHeader(
+        resp.status === 429
+          ? "The daily AI allowance is used up, so the columns were matched on their names."
+          : `The column reader is unavailable (${resp.status}), so the columns were matched on their names.`,
+      );
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json: any = await resp.json();
     let parsed: { mapping?: Record<string, string | null>; notes?: string } = {};
@@ -219,7 +400,10 @@ Return JSON only: {"mapping": {"<their column>": "<our field or null>"}, "notes"
           .join(""),
       );
     } catch {
-      throw new Error("The mapping came back unreadable. Map the columns by hand.");
+      log.error("import:mapping_unreadable", {});
+      return byHeader(
+        "The column reader replied with something unreadable, so the columns were matched on their names.",
+      );
     }
 
     // Trust nothing: drop fields we do not have, and refuse a field claimed by
@@ -231,8 +415,16 @@ Return JSON only: {"mapping": {"<their column>": "<our field or null>"}, "notes"
       const f = parsed.mapping?.[h] ?? null;
       mapping[h] = f && valid.has(f) && !used.has(f) ? (used.add(f), f) : null;
     }
+    // A reply that placed nothing is not better than the header rules, and on
+    // a file whose columns are ordinary it is plainly worse.
+    if (used.size === 0) {
+      log.error("import:mapping_empty", { of: data.headers.length });
+      return byHeader(
+        "The column reader placed nothing, so the columns were matched on their names.",
+      );
+    }
     log.info("import:mapped", { kind: data.kind, mapped: used.size, of: data.headers.length });
-    return { mapping, notes: parsed.notes ?? null };
+    return { mapping, notes: parsed.notes ?? null, automatic: true as const, reason: null };
   });
 
 const RowSchema = z.record(z.string(), z.string());

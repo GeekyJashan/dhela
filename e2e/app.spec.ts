@@ -1954,6 +1954,74 @@ test.describe("bringing data in from other software", () => {
     expect(api).toMatch(/sampleRows: z\.array\(z\.array\(z\.string\(\)\)\)\.max\(5\)/);
   });
 
+  test("a real export still maps when the column reader is unavailable", async () => {
+    const { guessByHeader } = await import("../src/lib/import.functions");
+    // Exactly the headings of a Busy/Marg-shaped stock export. The old
+    // fallback compared these against our own field names — "current_stock",
+    // "gst_rate" — which no export in the country uses, so it matched nothing
+    // and left the operator with every row on "do not import" and the Import
+    // button dead, from what was only a rate limit upstream.
+    const headers = [
+      "Sr. No.",
+      "Item Description",
+      "Bar Code",
+      "Tariff Code",
+      "Tax %",
+      "M.R.P.",
+      "Pur. Rate",
+      "Sale Rate",
+      "Landing Cost",
+      "Bal. Qty",
+      "U.O.M.",
+      "Packing",
+      "Company",
+      "Group",
+      "Closing Value",
+      "Rack",
+    ];
+    const m = guessByHeader("products", headers);
+
+    expect(m["Item Description"], "without a name there is nothing to import at all").toBe("name");
+    expect(m["Bal. Qty"]).toBe("current_stock");
+    expect(m["Tariff Code"]).toBe("hsn");
+    expect(m["Tax %"]).toBe("gst_rate");
+    expect(m["M.R.P."]).toBe("mrp");
+    expect(m["Pur. Rate"]).toBe("purchase_rate");
+    expect(m["Sale Rate"]).toBe("selling_rate");
+    expect(m["Landing Cost"]).toBe("avg_cost");
+    // A total and a shelf position still belong nowhere, quota or no quota.
+    expect(m["Closing Value"]).toBeNull();
+    expect(m["Sr. No."]).toBeNull();
+    expect(m["Rack"]).toBeNull();
+
+    // Party headings too, since suppliers and retailers use different words.
+    const p = guessByHeader("suppliers", ["Party Name", "GST No", "Mobile", "City", "Op. Bal"]);
+    expect(p["Party Name"]).toBe("name");
+    expect(p["GST No"]).toBe("gstin");
+    expect(p["Mobile"]).toBe("contact");
+    expect(p["Op. Bal"]).toBe("opening_balance");
+
+    // And no field may be claimed twice, or one column silently wins.
+    const taken = Object.values(m).filter(Boolean);
+    expect(new Set(taken).size).toBe(taken.length);
+  });
+
+  test("a failed mapping falls back instead of dead-ending the screen", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
+    // It used to throw on a 429. The client caught it, set every column to
+    // null, and "Check what will happen" stayed disabled because no column was
+    // the name — a dead end produced by a rate limit.
+    expect(api).not.toMatch(/throw new Error\(`Mapping failed/);
+    expect(api).toMatch(/if \(!resp\.ok\) \{/);
+    expect(api).toMatch(/daily AI allowance is used up/);
+    // A reply that placed nothing is worse than the header rules.
+    expect(api).toMatch(/if \(used\.size === 0\)/);
+    // And the operator has to be able to see why, after any toast has gone.
+    expect(ui).toMatch(/fellBack/);
+    expect(ui).toMatch(/Check each row below before importing/);
+  });
+
   test("extra info is capped so a row cannot grow without limit", async () => {
     const { capExtra } = await import("../src/lib/import.functions");
 
