@@ -79,7 +79,9 @@ const NUMERIC: Record<ImportKind, string[]> = {
 
 /** Every import needs something to call the row. */
 const REQUIRED: Record<ImportKind, string> = {
-  products: "name", suppliers: "name", retailers: "name",
+  products: "name",
+  suppliers: "name",
+  retailers: "name",
 };
 
 /**
@@ -110,14 +112,16 @@ const MAX_EXTRA_BYTES = 2000;
 
 /** Exported so the caps can be tested as the rule they are, not inferred. */
 export function capExtra(
-  raw: Record<string, string>, rowNo: number, problems: string[],
+  raw: Record<string, string>,
+  rowNo: number,
+  problems: string[],
 ): Record<string, string> {
   const out: Record<string, string> = {};
   let dropped = 0;
-  let bytes = 2;                                   // the enclosing {}
+  let bytes = 2; // the enclosing {}
   for (const [k, v] of Object.entries(raw)) {
     const value = v.length > MAX_EXTRA_VALUE_CHARS ? v.slice(0, MAX_EXTRA_VALUE_CHARS) : v;
-    const cost = k.length + value.length + 6;      // quotes, colon, comma
+    const cost = k.length + value.length + 6; // quotes, colon, comma
     if (Object.keys(out).length >= MAX_EXTRA_KEYS || bytes + cost > MAX_EXTRA_BYTES) {
       dropped++;
       continue;
@@ -133,17 +137,23 @@ export function capExtra(
 
 export const proposeImportMapping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    kind: z.enum(["products", "suppliers", "retailers"]),
-    headers: z.array(z.string()).min(1).max(60),
-    // A handful of rows is enough to tell a rate column from an MRP column,
-    // and keeps someone's whole catalogue out of a prompt.
-    sampleRows: z.array(z.array(z.string())).max(5),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        kind: z.enum(["products", "suppliers", "retailers"]),
+        headers: z.array(z.string()).min(1).max(60),
+        // A handful of rows is enough to tell a rate column from an MRP column,
+        // and keeps someone's whole catalogue out of a prompt.
+        sampleRows: z.array(z.array(z.string())).max(5),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
     const apiKey = process.env.GOOGLE_API_KEY;
     const fields = IMPORT_FIELDS[data.kind as ImportKind];
-    const fieldList = Object.entries(fields).map(([k, v]) => `  ${k}: ${v}`).join("\n");
+    const fieldList = Object.entries(fields)
+      .map(([k, v]) => `  ${k}: ${v}`)
+      .join("\n");
 
     // Without a key, fall back to matching on the name. It gets the obvious
     // ones and the operator fixes the rest, which beats refusing to import.
@@ -151,7 +161,7 @@ export const proposeImportMapping = createServerFn({ method: "POST" })
       const guess: Record<string, string | null> = {};
       for (const h of data.headers) {
         const norm = h.toLowerCase().replace(/[^a-z]/g, "");
-        guess[h] = Object.keys(fields).find(f => f.replace(/_/g, "") === norm) ?? null;
+        guess[h] = Object.keys(fields).find((f) => f.replace(/_/g, "") === norm) ?? null;
       }
       return { mapping: guess, notes: "Matched on column names only — no AI key configured." };
     }
@@ -164,10 +174,15 @@ Our fields:
 ${fieldList}
 
 Their columns, with sample values:
-${data.headers.map((h, i) => {
-  const vals = data.sampleRows.map(r => r[i]).filter(Boolean).slice(0, 3);
-  return `  "${h}" — examples: ${vals.length ? vals.map(v => JSON.stringify(v)).join(", ") : "(empty)"}`;
-}).join("\n")}
+${data.headers
+  .map((h, i) => {
+    const vals = data.sampleRows
+      .map((r) => r[i])
+      .filter(Boolean)
+      .slice(0, 3);
+    return `  "${h}" — examples: ${vals.length ? vals.map((v) => JSON.stringify(v)).join(", ") : "(empty)"}`;
+  })
+  .join("\n")}
 
 Rules:
 - Judge by the sample values as much as the name. A column called "Rate" holding
@@ -192,13 +207,17 @@ Return JSON only: {"mapping": {"<their column>": "<our field or null>"}, "notes"
         }),
       },
     );
-    if (!resp.ok) throw new Error(`Mapping failed: ${resp.status} ${(await resp.text()).slice(0, 160)}`);
+    if (!resp.ok)
+      throw new Error(`Mapping failed: ${resp.status} ${(await resp.text()).slice(0, 160)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json: any = await resp.json();
     let parsed: { mapping?: Record<string, string | null>; notes?: string } = {};
     try {
-      parsed = JSON.parse((json.candidates?.[0]?.content?.parts ?? [])
-        .map((p: { text?: string }) => p.text ?? "").join(""));
+      parsed = JSON.parse(
+        (json.candidates?.[0]?.content?.parts ?? [])
+          .map((p: { text?: string }) => p.text ?? "")
+          .join(""),
+      );
     } catch {
       throw new Error("The mapping came back unreadable. Map the columns by hand.");
     }
@@ -220,13 +239,17 @@ const RowSchema = z.record(z.string(), z.string());
 
 export const commitImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    kind: z.enum(["products", "suppliers", "retailers"]),
-    mapping: z.record(z.string(), z.string().nullable()),
-    rows: z.array(RowSchema).min(1).max(5000),
-    /** Preview mode: work out what would happen and write nothing. */
-    dryRun: z.boolean().default(true),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        kind: z.enum(["products", "suppliers", "retailers"]),
+        mapping: z.record(z.string(), z.string().nullable()),
+        rows: z.array(RowSchema).min(1).max(5000),
+        /** Preview mode: work out what would happen and write nothing. */
+        dryRun: z.boolean().default(true),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     // The table is chosen at runtime, which the generated per-table types
     // cannot express — every column becomes a union of three tables' columns
@@ -235,7 +258,11 @@ export const commitImport = createServerFn({ method: "POST" })
     const supabase = context.supabase as any;
     const { userId } = context;
     const { data: mem } = await supabase
-      .from("memberships").select("org_id").eq("user_id", userId).limit(1).single();
+      .from("memberships")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
     if (!mem?.org_id) throw new Error("No organization");
     const orgId = mem.org_id;
     const kind = data.kind as ImportKind;
@@ -292,21 +319,33 @@ export const commitImport = createServerFn({ method: "POST" })
         if (!field) continue;
         const raw = (row[col] ?? "").trim();
         if (!raw) continue;
-        if (field === KEEP_AS_EXTRA) { extras[col] = raw; continue; }
+        if (field === KEEP_AS_EXTRA) {
+          extras[col] = raw;
+          continue;
+        }
         if (numeric.has(field)) {
           const n = parseAmount(raw);
-          if (n === null) { problems.push(`Row ${i + 2}: "${raw}" in ${col} is not a number, left blank`); continue; }
+          if (n === null) {
+            problems.push(`Row ${i + 2}: "${raw}" in ${col} is not a number, left blank`);
+            continue;
+          }
           values[field] = n;
         } else {
           values[field] = field === "gstin" ? raw.toUpperCase() : raw;
         }
       }
       const name = values[required] as string | undefined;
-      if (!name) { problems.push(`Row ${i + 2}: no ${required}, skipped`); return; }
+      if (!name) {
+        problems.push(`Row ${i + 2}: no ${required}, skipped`);
+        return;
+      }
 
       // A file that lists the same party twice would otherwise insert it twice.
       const dedupe = typeof values.gstin === "string" ? values.gstin : key(name);
-      if (seen.has(dedupe)) { problems.push(`Row ${i + 2}: "${name}" appears more than once in the file, kept the first`); return; }
+      if (seen.has(dedupe)) {
+        problems.push(`Row ${i + 2}: "${name}" appears more than once in the file, kept the first`);
+        return;
+      }
       seen.add(dedupe);
 
       const gstin = typeof values.gstin === "string" ? values.gstin : null;
@@ -329,7 +368,7 @@ export const commitImport = createServerFn({ method: "POST" })
       // only when there is no GSTIN to go on.
       const id = gstin
         ? byGstin.get(gstin)
-        : (sku ? byName.get(`sku:${key(sku)}`) : undefined) ?? byName.get(key(name));
+        : ((sku ? byName.get(`sku:${key(sku)}`) : undefined) ?? byName.get(key(name)));
 
       const kept = capExtra(extras, i + 2, problems);
       if (id) {
@@ -356,7 +395,7 @@ export const commitImport = createServerFn({ method: "POST" })
       problems: problems.slice(0, 50),
       problemCount: problems.length,
       sample: toInsert.slice(0, 5),
-      extraFields: Object.values(mapping).filter(f => f === KEEP_AS_EXTRA).length,
+      extraFields: Object.values(mapping).filter((f) => f === KEEP_AS_EXTRA).length,
     };
     if (data.dryRun) return { ...summary, committed: false };
 
@@ -366,7 +405,11 @@ export const commitImport = createServerFn({ method: "POST" })
       if (error) throw new Error(`Insert failed around row ${i + 2}: ${error.message}`);
     }
     for (const u of toUpdate) {
-      const { error } = await supabase.from(kind).update(u.values).eq("id", u.id).eq("org_id", orgId);
+      const { error } = await supabase
+        .from(kind)
+        .update(u.values)
+        .eq("id", u.id)
+        .eq("org_id", orgId);
       if (error) throw new Error(`Update failed: ${error.message}`);
     }
     log.info("import:committed", { kind, created: toInsert.length, updated: toUpdate.length });
