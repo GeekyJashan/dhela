@@ -40,9 +40,19 @@ test.describe("navigation", () => {
     if (testInfo.project.name === "mobile") {
       await page.getByRole("button", { name: /open menu/i }).click();
     }
-    for (const label of ["Dashboard", "Insights", "Purchases", "Suppliers",
-                         "Sales", "Retailers", "Products", "Payments", "GST returns",
-                         "Billing", "Account"]) {
+    for (const label of [
+      "Dashboard",
+      "Insights",
+      "Purchases",
+      "Suppliers",
+      "Sales",
+      "Retailers",
+      "Products",
+      "Payments",
+      "GST returns",
+      "Billing",
+      "Account",
+    ]) {
       await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
   });
@@ -64,16 +74,22 @@ test.describe("session", () => {
   // A phone in a lift: the Supabase auth endpoint is unreachable, but the
   // session in localStorage is perfectly valid.
   test("a signed-in operator stays signed in when the network drops", async ({ page }) => {
-    await page.route("**/auth/v1/user*", route => route.abort("connectionfailed"));
+    await page.route("**/auth/v1/user*", (route) => route.abort("connectionfailed"));
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
   });
 
-  test("and is still sent to sign-in when there is genuinely no session", async ({ page, context }) => {
+  test("and is still sent to sign-in when there is genuinely no session", async ({
+    page,
+    context,
+  }) => {
     await context.clearCookies();
     await page.goto("/dashboard");
-    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/auth/);
   });
@@ -89,8 +105,14 @@ test.describe("business pulse", () => {
 
     // It sits above the invoice list: an owner opening this screen has a
     // question about the business, not about the last eight uploads.
-    const pulse = await page.getByText(/working capital locked/i).first().boundingBox();
-    const recent = await page.getByText(/recent invoices/i).first().boundingBox();
+    const pulse = await page
+      .getByText(/working capital locked/i)
+      .first()
+      .boundingBox();
+    const recent = await page
+      .getByText(/recent invoices/i)
+      .first()
+      .boundingBox();
     expect(pulse!.y).toBeLessThan(recent!.y);
   });
 
@@ -109,10 +131,17 @@ test.describe("business pulse", () => {
   test("every suggested action links somewhere you can act", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByText(/working capital locked/i)).toBeVisible({ timeout: 20000 });
-    const card = page.locator("div").filter({ hasText: /^Worth doing this week/ }).first();
-    if (!(await card.count())) return;              // a spotless workspace has nothing to do
-    for (const href of await card.getByRole("link").evaluateAll(ls => ls.map(l => l.getAttribute("href")))) {
-      expect(href, "an action must lead to a screen").toMatch(/^\/(pricing|payments|retailers|products)$/);
+    const card = page
+      .locator("div")
+      .filter({ hasText: /^Worth doing this week/ })
+      .first();
+    if (!(await card.count())) return; // a spotless workspace has nothing to do
+    for (const href of await card
+      .getByRole("link")
+      .evaluateAll((ls) => ls.map((l) => l.getAttribute("href")))) {
+      expect(href, "an action must lead to a screen").toMatch(
+        /^\/(pricing|payments|retailers|products)$/,
+      );
     }
   });
 });
@@ -143,7 +172,10 @@ test.describe("leads", () => {
   test("is admin-only in the nav, the route and the API", () => {
     const nav = fs.readFileSync("src/routes/_authenticated/route.tsx", "utf8");
     // The link may only be added inside the isAdmin branch.
-    const adminBranch = nav.slice(nav.indexOf("const groups: NavGroup[] = isAdmin"), nav.indexOf(": NAV_GROUPS;"));
+    const adminBranch = nav.slice(
+      nav.indexOf("const groups: NavGroup[] = isAdmin"),
+      nav.indexOf(": NAV_GROUPS;"),
+    );
     expect(adminBranch).toContain('label: "Leads"');
     expect(nav.slice(0, nav.indexOf("const groups: NavGroup[]"))).not.toContain('label: "Leads"');
 
@@ -191,7 +223,10 @@ test.describe("leads", () => {
     expect(retail).not.toMatch(/"store"/);
 
     // 2. Indian boards say "Sales Corp", not "sales corporation".
-    const wholesale = src.slice(src.indexOf("const WHOLESALE"), src.indexOf("/** Only unambiguous"));
+    const wholesale = src.slice(
+      src.indexOf("const WHOLESALE"),
+      src.indexOf("/** Only unambiguous"),
+    );
     for (const word of ["sales corp", "dealer", "traders", "agencies", "enterprises"]) {
       expect(wholesale, `"${word}" is on real signage`).toContain(`"${word}"`);
     }
@@ -221,8 +256,9 @@ test.describe("analytics", () => {
   // making, so the recorder must never start there.
   test("session replay stays off every signed-in screen", async ({ page }) => {
     const thirdParty: string[] = [];
-    page.on("request", r => {
-      if (/clarity\.ms|hotjar|fullstory|logrocket|smartlook/i.test(r.url())) thirdParty.push(r.url());
+    page.on("request", (r) => {
+      if (/clarity\.ms|hotjar|fullstory|logrocket|smartlook/i.test(r.url()))
+        thirdParty.push(r.url());
     });
 
     for (const path of ["/dashboard", "/invoices", "/payments", "/retailers"]) {
@@ -262,13 +298,17 @@ test.describe("marketing", () => {
     // by the client first, so one place decides what gets posted.
     expect(api).toMatch(/body: z\.string\(\)[^\n]*optional\(\)/);
     expect(ui).toContain("publish({ data: { id: p.id, body } })");
-    expect(ui, "the client must not write the table directly")
-      .not.toContain('supabase.from("marketing_posts")');
+    expect(ui, "the client must not write the table directly").not.toContain(
+      'supabase.from("marketing_posts")',
+    );
   });
 
   test("Growth is its own admin-only section", () => {
     const nav = fs.readFileSync("src/routes/_authenticated/route.tsx", "utf8");
-    const adminOnly = nav.slice(nav.indexOf("const groups: NavGroup[] = isAdmin"), nav.indexOf(": NAV_GROUPS;"));
+    const adminOnly = nav.slice(
+      nav.indexOf("const groups: NavGroup[] = isAdmin"),
+      nav.indexOf(": NAV_GROUPS;"),
+    );
     expect(adminOnly).toContain('label: "Growth"');
     expect(adminOnly).toContain('label: "Marketing"');
     expect(adminOnly).toContain('label: "Leads"');
@@ -298,19 +338,22 @@ test.describe("granting platform admin", () => {
 
   test("re-checks the caller against the database, not the token they arrived with", () => {
     const src = api();
-    const handler = src.slice(src.indexOf("export const setPlatformAdmin"), src.indexOf("export const generateUserMagicLink"));
+    const handler = src.slice(
+      src.indexOf("export const setPlatformAdmin"),
+      src.indexOf("export const generateUserMagicLink"),
+    );
 
     // context.claims is the JWT payload, minted at sign-in and refreshed about
     // hourly. Trusting it here would leave a demoted admin holding a token that
     // still says admin — long enough to promote themselves straight back.
     expect(handler).toContain("assertPlatformAdmin(context.claims");
-    expect(handler, "the token alone is not enough on this handler")
-      .toContain("getUserById(context.userId)");
-    expect(handler).toContain("if (!callerIsAdmin) throw new Error(\"Forbidden: admin only\")");
+    expect(handler, "the token alone is not enough on this handler").toContain(
+      "getUserById(context.userId)",
+    );
+    expect(handler).toContain('if (!callerIsAdmin) throw new Error("Forbidden: admin only")');
 
     // The live check must run before the write, or it checks nothing.
-    expect(handler.indexOf("callerIsAdmin"))
-      .toBeLessThan(handler.indexOf("updateUserById"));
+    expect(handler.indexOf("callerIsAdmin")).toBeLessThan(handler.indexOf("updateUserById"));
   });
 
   test("writes one flag so the rest of app_metadata survives", () => {
@@ -344,7 +387,9 @@ test.describe("sales import", () => {
   // gets in without retyping it. It must never issue on their behalf: issuing
   // deducts stock and locks cost, and a machine reading a photograph is not
   // grounds for moving someone's inventory.
-  test("importing a sales invoice offers it, and creates a draft not an issue", async ({ page }) => {
+  test("importing a sales invoice offers it, and creates a draft not an issue", async ({
+    page,
+  }) => {
     await page.goto("/sales");
     await expect(page.getByRole("button", { name: /upload invoice/i })).toBeVisible();
     // Writing a new invoice stays the primary action; this is a migration tool.
@@ -359,9 +404,8 @@ test.describe("sales import", () => {
     // And the counterparty on a sales invoice is the buyer, not us.
     const backend = fs.readFileSync("backend/main.py", "utf8");
     expect(backend).toContain("THIS IS A SALES INVOICE THE USER ISSUED");
-    expect(backend).toContain('doc_type: Optional[str] = Form(None)');
+    expect(backend).toContain("doc_type: Optional[str] = Form(None)");
   });
-
 });
 
 test.describe("payments", () => {
@@ -373,7 +417,9 @@ test.describe("payments", () => {
       await expect(page.getByRole("button", { name: f, exact: true })).toBeVisible();
     }
     await page.getByRole("button", { name: "Received", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Received", exact: true })).toHaveClass(/bg-primary/);
+    await expect(page.getByRole("button", { name: "Received", exact: true })).toHaveClass(
+      /bg-primary/,
+    );
   });
 
   test("charts are on Insights, not Payments", async ({ page }) => {
@@ -401,7 +447,9 @@ test.describe("GST returns", () => {
     await expect(page.getByText(/^B2CS \(1\)$/)).toBeVisible();
   });
 
-  test("credit note to an unregistered intrastate buyer nets into B2CS, not CDNUR", async ({ page }) => {
+  test("credit note to an unregistered intrastate buyer nets into B2CS, not CDNUR", async ({
+    page,
+  }) => {
     await page.goto("/gst");
     await page.locator('input[type="month"]').fill("2026-07");
     await expect(page.getByText("GSTR-3B summary")).toBeVisible();
@@ -426,7 +474,9 @@ test.describe("GST returns", () => {
     const t8 = page.locator("table").filter({ hasText: "8B." }).first();
     await expect(t8).toContainText("1416");
     // And it must be reported under 3.1(c), not 3.1(a).
-    await expect(page.getByText("3.1(c) Other outward supplies (nil rated, exempted)")).toBeVisible();
+    await expect(
+      page.getByText("3.1(c) Other outward supplies (nil rated, exempted)"),
+    ).toBeVisible();
 
     // B2B has three rated rows from S-9 and none at rate 0.
     const b2b = page.locator("table").filter({ hasText: "Invoice Number" }).first();
@@ -584,16 +634,20 @@ test.describe("sign up", () => {
   // Stubbed rather than really registering, so the suite never writes to the
   // production auth table.
   test("a signup that needs email confirmation says so instead of bouncing", async ({ page }) => {
-    await page.route("**/auth/v1/signup*", route =>
+    await page.route("**/auth/v1/signup*", (route) =>
       route.fulfill({
-        status: 200, contentType: "application/json",
+        status: 200,
+        contentType: "application/json",
         body: JSON.stringify({ id: "stub", email: "newdistributor@example.com", session: null }),
-      }));
-    await page.route("**/auth/v1/token*", route =>
+      }),
+    );
+    await page.route("**/auth/v1/token*", (route) =>
       route.fulfill({
-        status: 400, contentType: "application/json",
+        status: 400,
+        contentType: "application/json",
         body: JSON.stringify({ error_code: "email_not_confirmed", msg: "Email not confirmed" }),
-      }));
+      }),
+    );
 
     await page.goto("/auth");
     await page.getByRole("tab", { name: /create account/i }).click();
@@ -607,7 +661,9 @@ test.describe("sign up", () => {
     await expect(page).toHaveURL(/\/auth/);
   });
 
-  test("a password under the Supabase minimum is caught before the round trip", async ({ page }) => {
+  test("a password under the Supabase minimum is caught before the round trip", async ({
+    page,
+  }) => {
     await page.goto("/auth");
     await page.getByRole("tab", { name: /create account/i }).click();
     await page.locator("#signup-password").fill("abc");
@@ -641,9 +697,10 @@ test.describe("assistant", () => {
   // local clicking would have caught it. Hence a static check.
   test("the production headers still permit the microphone they gate", () => {
     const conf = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
-    const policy = conf.headers
-      .flatMap((h: { headers: { key: string; value: string }[] }) => h.headers)
-      .find((h: { key: string }) => h.key === "Permissions-Policy")?.value ?? "";
+    const policy =
+      conf.headers
+        .flatMap((h: { headers: { key: string; value: string }[] }) => h.headers)
+        .find((h: { key: string }) => h.key === "Permissions-Policy")?.value ?? "";
 
     expect(policy, "Permissions-Policy must allow this origin a microphone").toMatch(
       /microphone=\((self|\*)[^)]*\)/,
@@ -658,10 +715,10 @@ test.describe("assistant", () => {
   // "star star one lakh star star" or a table read out as pipes and dashes.
   test("answers are rewritten for the ear before they are spoken", () => {
     const spoken = stripForSpeech(
-      "Retailers owe you **₹1,42,500** in total.\n\n"
-      + "| Retailer | Outstanding |\n|---|---:|\n"
-      + "| Shree Sanitary House | ₹98,000 |\n\n"
-      + "- Oldest bill is 42 days past due",
+      "Retailers owe you **₹1,42,500** in total.\n\n" +
+        "| Retailer | Outstanding |\n|---|---:|\n" +
+        "| Shree Sanitary House | ₹98,000 |\n\n" +
+        "- Oldest bill is 42 days past due",
     );
 
     for (const marker of ["**", "|", "---", "#", "₹"]) {
@@ -686,8 +743,8 @@ test.describe("assistant", () => {
   // one, so the answer was an apology and a suggestion to go and look.
   test("every declared assistant tool is implemented, and vice versa", () => {
     const src = fs.readFileSync("src/lib/assistant-tools.ts", "utf8");
-    const declared = [...src.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map(m => m[1]);
-    const implemented = [...src.matchAll(/^\s{4}case "([a-z_]+)": \{$/gm)].map(m => m[1]);
+    const declared = [...src.matchAll(/^\s{4}name: "([a-z_]+)",$/gm)].map((m) => m[1]);
+    const implemented = [...src.matchAll(/^\s{4}case "([a-z_]+)": \{$/gm)].map((m) => m[1]);
 
     expect(declared.length).toBeGreaterThan(5);
     expect([...declared].sort()).toEqual([...implemented].sort());
@@ -697,7 +754,7 @@ test.describe("assistant", () => {
   });
 
   test("speech is chunked so Chrome doesn't cut a long answer off", () => {
-    const long = "You bought four items from Anand Enterprises. " .repeat(20);
+    const long = "You bought four items from Anand Enterprises. ".repeat(20);
     const chunks = splitForSpeech(long);
 
     expect(chunks.length).toBeGreaterThan(1);
@@ -721,9 +778,9 @@ test.describe("assistant", () => {
     // Both length fields have to reconcile with the real buffer.
     expect(wav.readUInt32LE(4) + 8).toBe(wav.length);
     expect(wav.readUInt32LE(40)).toBe(wav.length - 44);
-    expect(wav.readUInt16LE(22)).toBe(1);      // mono
-    expect(wav.readUInt32LE(24)).toBe(24000);  // sample rate
-    expect(wav.readUInt16LE(34)).toBe(16);     // bits per sample
+    expect(wav.readUInt16LE(22)).toBe(1); // mono
+    expect(wav.readUInt32LE(24)).toBe(24000); // sample rate
+    expect(wav.readUInt16LE(34)).toBe(16); // bits per sample
     expect(wav.readUInt32LE(28)).toBe(24000 * 2); // byte rate
 
     // The rate is read off the model's mime type, not assumed.
@@ -742,7 +799,10 @@ test.describe("assistant", () => {
     for (const chunk of splitForSpeech(wordy)) expect(chunk.length).toBeLessThanOrEqual(cap);
   });
 
-  test("holding clips exist, are valid WAV, and are wired to the thinking phase", async ({ page, context }) => {
+  test("holding clips exist, are valid WAV, and are wired to the thinking phase", async ({
+    page,
+    context,
+  }) => {
     await context.grantPermissions(["microphone"]);
 
     // Every clip the manifest advertises must actually resolve and be audio.
@@ -761,38 +821,60 @@ test.describe("assistant", () => {
     // answers in about a second and has nothing to cover. So force the
     // fallback, then assert it preloads them, which is what makes the first
     // one instant.
-    await page.route("**/_serverFn/**", async route =>
+    await page.route("**/_serverFn/**", async (route) =>
       isServerFn(route.request().url(), "live.functions")
-        ? route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"no billing"}' })
-        : route.fallback());
+        ? route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: '{"error":"no billing"}',
+          })
+        : route.fallback(),
+    );
 
     const requested: string[] = [];
-    page.on("request", r => { if (r.url().includes("/speech/")) requested.push(r.url().split("/").pop()!); });
+    page.on("request", (r) => {
+      if (r.url().includes("/speech/")) requested.push(r.url().split("/").pop()!);
+    });
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: /talk to dhela/i }).first().click();
+    await page
+      .getByRole("button", { name: /talk to dhela/i })
+      .first()
+      .click();
     await expect(page.getByRole("dialog", { name: /talk to dhela/i })).toBeVisible();
     // Polled rather than slept on. A fixed wait passes alone and fails under
     // a loaded suite, and a test that fails for timing teaches you to ignore
     // it — which is exactly how a real failure gets waved through.
     await expect.poll(() => requested, { timeout: 15_000 }).toContain("manifest.json");
-    await expect.poll(() => requested.filter(r => r.endsWith(".wav")).length,
-                      { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect
+      .poll(() => requested.filter((r) => r.endsWith(".wav")).length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
   });
 
   // Realtime voice is the default path now. Its session token is minted by a
   // server function, so the test stubs that: it keeps the suite off a billed
   // API, and it is the only way to exercise the fallback deliberately.
-  test("voice mode opens, and falls back to the pipeline when Live can't start", async ({ page, context }) => {
+  test("voice mode opens, and falls back to the pipeline when Live can't start", async ({
+    page,
+    context,
+  }) => {
     await context.grantPermissions(["microphone"]);
     // Fail the token mint. Matching on the payload rather than the URL because
     // TanStack routes every server function through one endpoint.
-    await page.route("**/_serverFn/**", async route =>
+    await page.route("**/_serverFn/**", async (route) =>
       isServerFn(route.request().url(), "live.functions")
-        ? route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"no billing"}' })
-        : route.fallback());
+        ? route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: '{"error":"no billing"}',
+          })
+        : route.fallback(),
+    );
 
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: /talk to dhela/i }).first().click();
+    await page
+      .getByRole("button", { name: /talk to dhela/i })
+      .first()
+      .click();
 
     const overlay = page.getByRole("dialog", { name: /talk to dhela/i });
     await expect(overlay).toBeVisible();
@@ -844,7 +926,9 @@ test.describe("assistant", () => {
     // exactly the bug this shipped with first.
     const bedrock = fs.readFileSync("src/lib/bedrock.ts", "utf8");
     expect(bedrock).toContain("const path = `/model/${model}/converse`");
-    expect(bedrock).toContain("const canonicalPath = `/model/${encodeURIComponent(model)}/converse`");
+    expect(bedrock).toContain(
+      "const canonicalPath = `/model/${encodeURIComponent(model)}/converse`",
+    );
   });
 
   // Realtime voice bills per minute of audio, in and out, for as long as the
@@ -860,7 +944,7 @@ test.describe("assistant", () => {
     // gemini-3.1-flash-live-preview: $0.005/min in (the whole session) plus
     // $0.018/min out (call it a third of it) — about ₹0.90 a minute.
     const worstCaseRupees = PLANS.pro.liveVoiceMinutesPerMonth * 0.9;
-    const proNetMonthly = PLANS.pro.priceYearly / 12 / 1.18;   // ex-GST
+    const proNetMonthly = PLANS.pro.priceYearly / 12 / 1.18; // ex-GST
     expect(worstCaseRupees).toBeLessThan(proNetMonthly * 0.25);
 
     // A session that is never closed is charged at its cap, so the cap is what
@@ -892,7 +976,9 @@ test.describe("assistant", () => {
     await page.getByRole("button", { name: /ask by voice/i }).click();
 
     await expect(page.getByRole("button", { name: /stop dictating/i })).toBeVisible();
-    await expect(page.getByText(/couldn't reach a speech service/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/couldn't reach a speech service/i)).toBeVisible({
+      timeout: 15000,
+    });
     // And the button must come back rather than stay stuck.
     await expect(page.getByRole("button", { name: /ask by voice/i })).toBeVisible();
   });
@@ -905,10 +991,9 @@ test.describe("landing page", () => {
   test("multilingual demo strings still match the locale files", () => {
     for (const code of ["hi", "pa"] as const) {
       const dict = JSON.parse(fs.readFileSync(`src/locales/${code}.json`, "utf8"));
-      const shown = LANG_SAMPLES.find(l => l.code === code)!.rows;
+      const shown = LANG_SAMPLES.find((l) => l.code === code)!.rows;
       SAMPLE_KEYS.forEach((key, i) => {
-        expect(shown[i], `landing demo ${code} "${key}" drifted from ${code}.json`)
-          .toBe(dict[key]);
+        expect(shown[i], `landing demo ${code} "${key}" drifted from ${code}.json`).toBe(dict[key]);
       });
     }
   });
@@ -935,7 +1020,7 @@ test.describe("landing page", () => {
     const ld = html.match(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/s);
     expect(ld, "no JSON-LD in SSR HTML").toBeTruthy();
     const graph = JSON.parse(ld![1])["@graph"] as { "@type": string }[];
-    expect(graph.map(n => n["@type"])).toEqual(
+    expect(graph.map((n) => n["@type"])).toEqual(
       expect.arrayContaining(["Organization", "SoftwareApplication", "FAQPage"]),
     );
   });
@@ -944,7 +1029,7 @@ test.describe("landing page", () => {
     const html = await (await request.get("/")).text();
 
     // Images were the weakest category in the audit: the page had none at all.
-    const imgs = [...html.matchAll(/<img [^>]*>/g)].map(m => m[0]);
+    const imgs = [...html.matchAll(/<img [^>]*>/g)].map((m) => m[0]);
     expect(imgs.length, "landing page should ship real product images").toBeGreaterThanOrEqual(2);
     for (const tag of imgs) {
       expect(tag, `img without alt: ${tag}`).toMatch(/alt="[^"]+"/);
@@ -960,18 +1045,22 @@ test.describe("landing page", () => {
     const graph = JSON.parse(
       html.match(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/s)![1],
     )["@graph"] as Record<string, unknown>[];
-    expect(graph.map(n => n["@type"])).toEqual(
-      expect.arrayContaining(["Organization", "Person", "WebPage"]));
-    const org = graph.find(n => n["@type"] === "Organization")!;
+    expect(graph.map((n) => n["@type"])).toEqual(
+      expect.arrayContaining(["Organization", "Person", "WebPage"]),
+    );
+    const org = graph.find((n) => n["@type"] === "Organization")!;
     // Name the company page specifically: a truthy check still passed when
     // sameAs held only the founder profile, which is the gap two audits flagged.
     // The vanity slug matters — /company/142985997 redirects a crawler to a
     // login wall, and /company/dhela is an unrelated company.
     expect(org.sameAs).toEqual(
-      expect.arrayContaining(["https://www.linkedin.com/company/dhelaa/"]));
+      expect.arrayContaining(["https://www.linkedin.com/company/dhelaa/"]),
+    );
     expect(html).toContain("linkedin.com/company/dhelaa");
     expect((org.address as Record<string, string>).addressLocality).toBe("Jalandhar");
-    expect(graph.find(n => n["@type"] === "WebPage")!.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(graph.find((n) => n["@type"] === "WebPage")!.dateModified).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/,
+    );
   });
 
   test("tour switches screens and keeps the golden connector on the live tab", async ({ page }) => {
@@ -987,8 +1076,10 @@ test.describe("landing page", () => {
     // nothing moves for the rest of the test. The connector's width comes from
     // a measurement effect, so a non-zero width means the component is live.
     await expect
-      .poll(async () => (await page.locator(".tab-wire").boundingBox())?.width ?? 0,
-        { timeout: 10_000, message: "tour should hydrate before the test drives it" })
+      .poll(async () => (await page.locator(".tab-wire").boundingBox())?.width ?? 0, {
+        timeout: 10_000,
+        message: "tour should hydrate before the test drives it",
+      })
       .toBeGreaterThan(0);
     await gstTab.click();
     await expect(img).not.toHaveAttribute("src", before!);
@@ -1002,14 +1093,19 @@ test.describe("landing page", () => {
     // tab restarts the 6.5s auto-advance, so this window cannot span a slide
     // change.
     await expect
-      .poll(async () => {
-        const tab = (await gstTab.boundingBox())!;
-        const wire = (await page.locator(".tab-wire").boundingBox())!;
-        return Math.round(Math.max(
-          Math.abs((tab.x + tab.width / 2) - (wire.x + wire.width / 2)),
-          Math.abs((tab.y + tab.height) - wire.y),
-        ));
-      }, { timeout: 3_000, message: "golden connector should settle under the active tab" })
+      .poll(
+        async () => {
+          const tab = (await gstTab.boundingBox())!;
+          const wire = (await page.locator(".tab-wire").boundingBox())!;
+          return Math.round(
+            Math.max(
+              Math.abs(tab.x + tab.width / 2 - (wire.x + wire.width / 2)),
+              Math.abs(tab.y + tab.height - wire.y),
+            ),
+          );
+        },
+        { timeout: 3_000, message: "golden connector should settle under the active tab" },
+      )
       .toBeLessThan(12);
   });
 
@@ -1051,17 +1147,18 @@ test.describe("blog", () => {
     const r = await request.get("/blog/gstr-1-b2b-b2cl-b2cs-explained");
     expect(r.status()).toBe(200);
     const html = await r.text();
-    expect(html).toContain("Notification 12/2024");   // a fact from mid-article
-    expect(html).toContain("<table");                  // the tables carry the answers
-    expect(html).toMatch(/<h2 id="/);                  // headings are anchorable
+    expect(html).toContain("Notification 12/2024"); // a fact from mid-article
+    expect(html).toContain("<table"); // the tables carry the answers
+    expect(html).toMatch(/<h2 id="/); // headings are anchorable
     expect(html).toContain('rel="canonical"');
   });
 
   test("article schema names an author and both dates", async ({ request }) => {
     const html = await (await request.get("/blog/e-way-bill-for-distributors")).text();
-    const blocks = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)]
-      .map(m => JSON.parse(m[1]));
-    const article = blocks.find(b => b["@type"] === "BlogPosting");
+    const blocks = [
+      ...html.matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs),
+    ].map((m) => JSON.parse(m[1]));
+    const article = blocks.find((b) => b["@type"] === "BlogPosting");
     expect(article, "BlogPosting schema missing").toBeTruthy();
     expect(article.author.name).toBe("Jashan Sehgal");
     expect(article.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -1095,13 +1192,17 @@ test.describe("blog", () => {
 
   test("renders with no horizontal scroll on a phone", async ({ browser, baseURL }) => {
     // The tables are wide by nature; they must scroll inside their own box.
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, baseURL,
-      viewport: { width: 390, height: 844 } });
+    const ctx = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      baseURL,
+      viewport: { width: 390, height: 844 },
+    });
     const page = await ctx.newPage();
     await page.goto("/blog/gstr-1-b2b-b2cl-b2cs-explained");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    expect(await page.evaluate(
-      () => document.body.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    expect(
+      await page.evaluate(() => document.body.scrollWidth > document.documentElement.clientWidth),
+    ).toBe(false);
     await ctx.close();
   });
 });
@@ -1193,8 +1294,9 @@ test.describe("multi-page bills", () => {
     expect(api).toContain("export const proposeInvoiceGroups");
     expect(api).toContain("export const saveInvoiceGroups");
     expect(api).toMatch(/data\.documents\.length > remaining/);
-    expect(api, "quota must not be counted per photo")
-      .not.toMatch(/data\.items\.length > remaining/);
+    expect(api, "quota must not be counted per photo").not.toMatch(
+      /data\.items\.length > remaining/,
+    );
   });
 
   test("page 1 stays where every existing screen already looks for it", () => {
@@ -1301,8 +1403,17 @@ test.describe("correcting a line before approval", () => {
 
   test("every field on a line can be edited", () => {
     const ui = fs.readFileSync("src/routes/_authenticated/invoices.$id.tsx", "utf8");
-    for (const f of ["raw_description", "hsn", "quantity", "free_quantity",
-                     "rate", "discount_pct", "gst_rate", "batch", "expiry_date"]) {
+    for (const f of [
+      "raw_description",
+      "hsn",
+      "quantity",
+      "free_quantity",
+      "rate",
+      "discount_pct",
+      "gst_rate",
+      "batch",
+      "expiry_date",
+    ]) {
       expect(ui, `${f} must be editable`).toContain(`editLine(l.id, "${f}"`);
     }
     // Cost/unit and Total stay derived — they are what the other fields mean,
@@ -1312,8 +1423,10 @@ test.describe("correcting a line before approval", () => {
 
   test("an approved bill is closed to editing, in the server not just the screen", () => {
     const src = api();
-    const fn = src.slice(src.indexOf("export const updateInvoiceLine"),
-                         src.indexOf("export const deletePurchaseInvoice"));
+    const fn = src.slice(
+      src.indexOf("export const updateInvoiceLine"),
+      src.indexOf("export const deletePurchaseInvoice"),
+    );
     // Approving is what moved the stock and the cost. Editing afterwards would
     // leave the ledger and the bill disagreeing with nothing to reconcile them.
     expect(fn).toMatch(/inv\?\.status === "approved"/);
@@ -1350,22 +1463,46 @@ test.describe("what a purchase actually cost", () => {
   test("the printed amount wins, and the discount is never ignored", async () => {
     const { purchaseSpend } = await import("../src/lib/invoices.functions");
     const cases: Array<[string, Parameters<typeof purchaseSpend>[0], number | null]> = [
-      ["printed amount is authoritative",
-       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 }, 8757],
-      ["no printed amount -> discount still applied",
-       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null }, 8757],
-      ["the old bug: list rate would have booked 19460",
-       { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null }, 8757],
-      ["no discount column behaves as before",
-       { quantity: 10, rate: 100, discount_pct: null, taxable_value: null }, 1000],
-      ["live row: 44% off 47.63 is 26.67 paid",
-       { quantity: 1, rate: 47.63, discount_pct: 44, taxable_value: 26.67 }, 26.67],
-      ["amount present but rate missing still costs",
-       { quantity: 1, rate: null, discount_pct: 5, taxable_value: 466 }, 466],
-      ["nothing to go on -> null, caller leaves cost alone",
-       { quantity: 5, rate: null, discount_pct: null, taxable_value: null }, null],
-      ["free-only line carries no spend",
-       { quantity: 0, rate: 100, discount_pct: 0, taxable_value: null }, 0],
+      [
+        "printed amount is authoritative",
+        { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 },
+        8757,
+      ],
+      [
+        "no printed amount -> discount still applied",
+        { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null },
+        8757,
+      ],
+      [
+        "the old bug: list rate would have booked 19460",
+        { quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: null },
+        8757,
+      ],
+      [
+        "no discount column behaves as before",
+        { quantity: 10, rate: 100, discount_pct: null, taxable_value: null },
+        1000,
+      ],
+      [
+        "live row: 44% off 47.63 is 26.67 paid",
+        { quantity: 1, rate: 47.63, discount_pct: 44, taxable_value: 26.67 },
+        26.67,
+      ],
+      [
+        "amount present but rate missing still costs",
+        { quantity: 1, rate: null, discount_pct: 5, taxable_value: 466 },
+        466,
+      ],
+      [
+        "nothing to go on -> null, caller leaves cost alone",
+        { quantity: 5, rate: null, discount_pct: null, taxable_value: null },
+        null,
+      ],
+      [
+        "free-only line carries no spend",
+        { quantity: 0, rate: 100, discount_pct: 0, taxable_value: null },
+        0,
+      ],
     ];
     for (const [name, line, want] of cases) {
       const got = purchaseSpend(line);
@@ -1374,21 +1511,28 @@ test.describe("what a purchase actually cost", () => {
     }
     // The specific regression, stated as itself.
     const listRate = 40 * 486.5;
-    expect(purchaseSpend({ quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 }))
-      .toBeLessThan(listRate);
+    expect(
+      purchaseSpend({ quantity: 40, rate: 486.5, discount_pct: 55, taxable_value: 8757 }),
+    ).toBeLessThan(listRate);
   });
 
   test("approval costs from spend, and no longer gates on rate alone", () => {
     const src = fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
-    const block = src.slice(src.indexOf("export const approveInvoice"),
-                            src.indexOf("export const setLineProduct"));
+    const block = src.slice(
+      src.indexOf("export const approveInvoice"),
+      src.indexOf("export const setLineProduct"),
+    );
     expect(block).toContain("const spend = purchaseSpend(l)");
     // The discount and the printed amount have to be fetched, or the fix is
     // reading columns that were never selected.
-    expect(block).toMatch(/select\("matched_product_id, quantity, free_quantity, rate, discount_pct, taxable_value"\)/);
+    expect(block).toMatch(
+      /select\("matched_product_id, quantity, free_quantity, rate, discount_pct, taxable_value"\)/,
+    );
     // last_purchase_rate feeds pricing.ts as COST, so it must be the net figure.
     expect(block).toContain("update.last_purchase_rate = +(spend / qty).toFixed(4)");
-    expect(block, "must not book the list rate as cost").not.toMatch(/update\.last_purchase_rate = l\.rate/);
+    expect(block, "must not book the list rate as cost").not.toMatch(
+      /update\.last_purchase_rate = l\.rate/,
+    );
     expect(block, "must not cost off qty x rate").not.toMatch(/spend = qty \* Number\(l\.rate\)/);
     // A line with an amount but no rate used to contribute stock and zero cost.
     expect(block).not.toMatch(/if \(l\.rate != null\) \{/);
@@ -1408,7 +1552,9 @@ test.describe("the wait while a bill is read", () => {
     expect(c).toContain("Checking no page was missed");
     expect(py, "…which is _settle_page_assignment").toContain("def _settle_page_assignment");
     expect(c).toContain("Counting rows against the bill's own count");
-    expect(py, "…which is the line_count_on_bill shortfall check").toContain("def _batch_shortfalls");
+    expect(py, "…which is the line_count_on_bill shortfall check").toContain(
+      "def _batch_shortfalls",
+    );
     expect(c).toContain("Re-checking each line's arithmetic");
     expect(py, "…which is _reconcile_lines").toContain("def _reconcile_lines");
     expect(c).toContain("Matching your product catalogue");
@@ -1425,12 +1571,13 @@ test.describe("the wait while a bill is read", () => {
     // A width bound to `pct` is fine: that comes from a real count of finished
     // bills. What must never happen is a width derived from the clock, which
     // would be a guess wearing a number's clothes.
-    const widths = [...code.matchAll(/width:\s*`\$\{([^}]*)\}/g)].map(m => m[1]);
+    const widths = [...code.matchAll(/width:\s*`\$\{([^}]*)\}/g)].map((m) => m[1]);
     for (const w of widths) expect(w, `width bound to ${w}`).toMatch(/pct/);
     // Line-scoped: an unanchored search spans the file and matches any width
     // that happens to appear before the word elapsed anywhere below it.
-    const widthLines = code.split("\n").filter(l => /\bwidth\b/.test(l));
-    for (const l of widthLines) expect(l, "a bar width must not come from the clock").not.toMatch(/elapsed/);
+    const widthLines = code.split("\n").filter((l) => /\bwidth\b/.test(l));
+    for (const l of widthLines)
+      expect(l, "a bar width must not come from the clock").not.toMatch(/elapsed/);
     expect(c).toContain("Indeterminate on purpose");
     expect(c).toMatch(/Math\.floor\(elapsed \/ 1000\)/);
   });
@@ -1456,7 +1603,7 @@ test.describe("the wait while a bill is read", () => {
     // Several reduced-motion blocks exist now that the coin has one, and the
     // bar's is no longer the last. Find the one that governs the bar.
     const blocks = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
-    const bar = blocks.find(b => b.includes("progress-sweep"));
+    const bar = blocks.find((b) => b.includes("progress-sweep"));
     expect(bar, "the progress bar needs a reduced-motion rule").toBeTruthy();
     // Turning the animation off must not make the bar vanish.
     expect(bar!).toMatch(/width: 100%/);
@@ -1469,12 +1616,17 @@ test.describe("the wait while a bill is read", () => {
 test.describe("the wait ends when the work does", () => {
   test("cleared in one place, so no exit path can leave it running", () => {
     const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
-    const fn = ui.slice(ui.indexOf("const startBatch = async"), ui.indexOf("const confirmProposal"));
+    const fn = ui.slice(
+      ui.indexOf("const startBatch = async"),
+      ui.indexOf("const confirmProposal"),
+    );
     // Three paths used to leak: a failed upload returned early, a throw only
     // cleared `busy`, and the queued-batch path never cleared it at all.
     // finally runs on every one of those, so it is the only owner.
     const finallyBlock = fn.slice(fn.lastIndexOf("} finally {"));
-    expect(finallyBlock, "the wait must be cleared in the outer finally").toContain("setWork(null)");
+    expect(finallyBlock, "the wait must be cleared in the outer finally").toContain(
+      "setWork(null)",
+    );
     // And nowhere else inside startBatch, or there are two owners again.
     expect(fn.match(/setWork\(null\)/g)?.length, "exactly one owner").toBe(1);
   });
@@ -1500,8 +1652,10 @@ test.describe("the wait ends when the work does", () => {
 test.describe("stopping an upload", () => {
   test("a queued batch is genuinely cancelled, not just hidden", () => {
     const api = fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
-    const fn = api.slice(api.indexOf("export const cancelQueuedInvoices"),
-                         api.indexOf("export const deletePurchaseInvoice"));
+    const fn = api.slice(
+      api.indexOf("export const cancelQueuedInvoices"),
+      api.indexOf("export const deletePurchaseInvoice"),
+    );
     // Only rows nobody has picked up. Deleting one mid-read fails the worker
     // run rather than stopping it.
     expect(fn).toMatch(/\.eq\("status", "queued"\)/);
@@ -1589,7 +1743,7 @@ test.describe("the guides are findable", () => {
     const { POSTS } = await import("../src/lib/blog-data");
     const canon = async (path: string) => {
       const html = await (await request.get(path)).text();
-      return [...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map(m => m[1]);
+      return [...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((m) => m[1]);
     };
     expect(await canon("/"), "landing").toEqual(["https://dhela.in/"]);
     expect(await canon("/blog"), "index").toEqual(["https://dhela.in/blog"]);
@@ -1600,7 +1754,9 @@ test.describe("the guides are findable", () => {
 
   test("a post carries its article markup and its own dates", async ({ request }) => {
     const html = await (await request.get("/blog/weighted-average-cost-for-distributors")).text();
-    const ld = [...html.matchAll(/application\/ld\+json[^>]*>(.*?)<\/script>/gs)].map(m => m[1]).join(" ");
+    const ld = [...html.matchAll(/application\/ld\+json[^>]*>(.*?)<\/script>/gs)]
+      .map((m) => m[1])
+      .join(" ");
     for (const t of ["BlogPosting", "Person"]) expect(ld, t).toContain(t);
     expect(html).toMatch(/article:published_time/);
     expect(html).toMatch(/<h1/);
@@ -1612,25 +1768,41 @@ test.describe("the guides are findable", () => {
     // original ones orphaned — and those three target the biggest search
     // terms on the site, so they were the worst ones to strand.
     const { POSTS } = await import("../src/lib/blog-data");
-    const out = new Map(POSTS.map(p => [p.slug,
-      new Set([...p.html.matchAll(/href="\/blog\/([a-z0-9-]+)"/g)].map(m => m[1]).filter(x => x !== p.slug))]));
-    const inbound = new Map(POSTS.map(p => [p.slug, 0]));
+    const out = new Map(
+      POSTS.map((p) => [
+        p.slug,
+        new Set(
+          [...p.html.matchAll(/href="\/blog\/([a-z0-9-]+)"/g)]
+            .map((m) => m[1])
+            .filter((x) => x !== p.slug),
+        ),
+      ]),
+    );
+    const inbound = new Map(POSTS.map((p) => [p.slug, 0]));
     for (const [, targets] of out)
-      for (const t of targets)
-        if (inbound.has(t)) inbound.set(t, inbound.get(t)! + 1);
+      for (const t of targets) if (inbound.has(t)) inbound.set(t, inbound.get(t)! + 1);
 
     for (const p of POSTS) {
       expect(out.get(p.slug)!.size, `${p.slug} links to no other guide`).toBeGreaterThan(0);
       expect(inbound.get(p.slug), `nothing links to ${p.slug}`).toBeGreaterThan(0);
       // A link to a post that does not exist is worse than no link.
       for (const t of out.get(p.slug)!)
-        expect(POSTS.some(x => x.slug === t), `${p.slug} links to missing ${t}`).toBe(true);
+        expect(
+          POSTS.some((x) => x.slug === t),
+          `${p.slug} links to missing ${t}`,
+        ).toBe(true);
     }
   });
 
   test("AI answer engines are allowed, and app screens are not", async ({ request }) => {
     const txt = await (await request.get("/robots.txt")).text();
-    for (const bot of ["GPTBot", "OAI-SearchBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]) {
+    for (const bot of [
+      "GPTBot",
+      "OAI-SearchBot",
+      "ClaudeBot",
+      "PerplexityBot",
+      "Google-Extended",
+    ]) {
       expect(txt, bot).toContain(bot);
     }
     expect(txt).toContain("Sitemap: https://dhela.in/sitemap.xml");
@@ -1725,9 +1897,15 @@ test.describe("bringing data in from other software", () => {
     const { parseDelimited, sniffDelimiter, parseAmount } = await import("../src/lib/csv");
     // Splitting on commas breaks on the first product called "PIPE, PVC, 110MM",
     // which on a distributor's catalogue is immediately.
-    expect(parseDelimited('a,b\n"PIPE, PVC, 110MM",x')).toEqual([["a", "b"], ["PIPE, PVC, 110MM", "x"]]);
+    expect(parseDelimited('a,b\n"PIPE, PVC, 110MM",x')).toEqual([
+      ["a", "b"],
+      ["PIPE, PVC, 110MM", "x"],
+    ]);
     expect(parseDelimited('a\n"He said ""hi"""')).toEqual([["a"], ['He said "hi"']]);
-    expect(parseDelimited("a,b\r\n1,2\r\n")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parseDelimited("a,b\r\n1,2\r\n")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
     expect(parseDelimited("\ufeffname,qty\nX,2")[0], "Excel writes a BOM").toEqual(["name", "qty"]);
     expect(sniffDelimiter("a;b\n1;2"), "Tally and some locales use semicolons").toBe(";");
     // Money as accounting software writes it.
@@ -1791,7 +1969,7 @@ test.describe("bringing data in from other software", () => {
     for (let i = 0; i < 40; i++) many[`col${i}`] = "v";
     const capped = capExtra(many, 7, problems);
     expect(Object.keys(capped).length).toBe(20);
-    expect(problems.some(p => p.startsWith("Row 7:") && /did not fit/.test(p))).toBe(true);
+    expect(problems.some((p) => p.startsWith("Row 7:") && /did not fit/.test(p))).toBe(true);
 
     // The whole object stays small enough for Postgres to keep it inline
     // rather than pushing it out to TOAST.
@@ -1812,8 +1990,10 @@ test.describe("bringing data in from other software", () => {
     // sentinel can never come back from the model. Left to a machine every
     // leftover column would be swept in, derived totals included, and a stale
     // total stored beside the figures it came from is worse than none.
-    const propose = api.slice(api.indexOf("export const proposeImportMapping"),
-      api.indexOf("export const commitImport"));
+    const propose = api.slice(
+      api.indexOf("export const proposeImportMapping"),
+      api.indexOf("export const commitImport"),
+    );
     expect(propose).not.toContain("KEEP_AS_EXTRA");
     expect(ui).toMatch(/Keep as extra info/);
     // And it must be plain — in the code and on the screen — that this is
