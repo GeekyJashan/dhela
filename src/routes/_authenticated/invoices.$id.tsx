@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
-  head: () => ({ meta: [{ title: "Review invoice — Dhela" }] }),
+  head: () => ({ meta: [{ title: "Review bill - Dhela" }] }),
   component: InvoiceReview,
 });
 
@@ -267,7 +267,7 @@ function InvoiceReview() {
         tax_total: hdr.tax_total ? Number(hdr.tax_total) : null,
         grand_total: hdr.grand_total ? Number(hdr.grand_total) : null,
       }});
-      toast.success(t("Invoice details saved"));
+      toast.success(t("Bill details saved"));
       qc.invalidateQueries({ queryKey: ["invoice", id] });
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -275,7 +275,7 @@ function InvoiceReview() {
   const doDelete = async () => {
     if (!confirm(inv.status === "approved"
       ? t("Delete this approved purchase? The stock it added will be reversed.")
-      : t("Delete this purchase invoice?"))) return;
+      : t("Delete this purchase bill?"))) return;
     try {
       await removeInvoice({ data: { invoiceId: id } });
       toast.success(t("Purchase deleted"));
@@ -392,7 +392,7 @@ function InvoiceReview() {
               {inv.supplier_name ?? t("Unknown supplier")}
             </h1>
             <p className="text-xs text-muted-foreground truncate">
-              {t("Invoice")} {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}
+              {t("Bill")} {inv.invoice_number ?? "—"} · {inv.invoice_date ?? "—"}
             </p>
           </div>
           <StatusBadge status={inv.status} />
@@ -516,7 +516,7 @@ function InvoiceReview() {
         <Card className="min-h-[500px]">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm">
-              {t("Original invoice")}
+              {t("Original bill")}
               {pages.length > 1 && (
                 <span className="ml-2 font-normal text-muted-foreground">
                   {t("{{n}} pages", { n: pages.length })}
@@ -570,7 +570,7 @@ function InvoiceReview() {
             <CardContent className="grid grid-cols-2 gap-3 text-sm">
               <EditField label={t("Supplier")} value={hdr?.supplier_name ?? ""} onChange={v => setHdr(h => h && { ...h, supplier_name: v })} />
               <EditField label={t("GSTIN")} value={hdr?.supplier_gstin ?? ""} onChange={v => setHdr(h => h && { ...h, supplier_gstin: v.toUpperCase() })} />
-              <EditField label={t("Invoice #")} value={hdr?.invoice_number ?? ""} onChange={v => setHdr(h => h && { ...h, invoice_number: v })} />
+              <EditField label={t("Bill #")} value={hdr?.invoice_number ?? ""} onChange={v => setHdr(h => h && { ...h, invoice_number: v })} />
               <EditField label={t("Date")} type="date" value={hdr?.invoice_date ?? ""} onChange={v => setHdr(h => h && { ...h, invoice_date: v })} />
               <EditField label={t("Subtotal")} type="number" value={hdr?.subtotal ?? ""} onChange={v => setHdr(h => h && { ...h, subtotal: v })} />
               <EditField label={t("Tax")} type="number" value={hdr?.tax_total ?? ""} onChange={v => setHdr(h => h && { ...h, tax_total: v })} />

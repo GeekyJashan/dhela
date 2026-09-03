@@ -110,7 +110,7 @@ function AccountPage() {
       <div>
         <h1 className="font-display text-4xl">{t("Account")}</h1>
         <p className="text-muted-foreground mt-1">
-          {t("Your business details, what prints on your invoices, and your login.")}
+          {t("Your business details, what prints on your bills, and your login.")}
         </p>
       </div>
 
@@ -120,7 +120,7 @@ function AccountPage() {
             <Building2 className="h-4 w-4 text-primary" />{t("Business details")}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t("These print on every invoice and drive your GST returns.")}
+            {t("These print on every bill and drive your GST returns.")}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -133,7 +133,7 @@ function AccountPage() {
               hint={t("The first two digits set your state code automatically.")} />
             <Field id="org-address" label={t("Address")} value={biz.address ?? ""}
               onChange={v => setBiz({ ...biz, address: v })}
-              hint={t("Street, city and PIN — printed as-is on invoices.")} />
+              hint={t("Street, city and PIN — printed as-is on bills.")} />
             <Field id="org-state" label={t("State code")} value={biz.state_code ?? ""} mono
               onChange={v => setBiz({ ...biz, state_code: v })}
               hint={t("Set from your GSTIN when one is entered.")} />
@@ -149,10 +149,10 @@ function AccountPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Landmark className="h-4 w-4 text-primary" />{t("Invoice footer")}
+            <Landmark className="h-4 w-4 text-primary" />{t("Bill footer")}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t("Bank and signatory details printed at the bottom of a sales invoice.")}
+            {t("Bank and signatory details printed at the bottom of a sales bill.")}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -171,9 +171,9 @@ function AccountPage() {
               onChange={v => setBank({ ...bank, signatory_name: v })} />
           </div>
           <p className="text-xs text-muted-foreground">
-            {t("The signature image is uploaded from a sales invoice, where you can see it in place.")}
+            {t("The signature image is uploaded from a sales bill, where you can see it in place.")}
           </p>
-          <Button onClick={submitBank}>{t("Save invoice footer")}</Button>
+          <Button onClick={submitBank}>{t("Save bill footer")}</Button>
         </CardContent>
       </Card>
 

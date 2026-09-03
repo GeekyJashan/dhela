@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/sales/")({
-  head: () => ({ meta: [{ title: "Sales invoices — Dhela" }] }),
+  head: () => ({ meta: [{ title: "Sales bills - Dhela" }] }),
   component: SalesList,
 });
 
@@ -42,10 +42,10 @@ function SalesList() {
   const issue = useServerFn(issueSalesInvoice);
 
   const doIssue = async (id: string) => {
-    if (!confirm(t("Issue this invoice? Stock will be deducted and it becomes a receivable."))) return;
+    if (!confirm(t("Issue this bill? Stock will be deducted and it becomes a receivable."))) return;
     try {
       await issue({ data: { id } });
-      toast.success(t("Invoice issued"));
+      toast.success(t("Bill issued"));
       qc.invalidateQueries({ queryKey: ["sales_invoices"] });
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -118,7 +118,7 @@ function SalesList() {
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">{t("Sales invoices")}</h1>
+          <h1 className="font-display text-4xl">{t("Sales bills")}</h1>
           <p className="text-muted-foreground mt-1">{t("Bill retailers, track GST and profit in real time.")}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -127,14 +127,14 @@ function SalesList() {
               Secondary to writing a new one — this is a migration tool, not
               the daily path. */}
           <ImportSalesInvoice />
-          <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("New sales invoice")}</Button></Link>
+          <Link to="/sales/new"><Button size="lg"><Plus className="h-4 w-4 mr-2" /> {t("New sales bill")}</Button></Link>
         </div>
       </div>
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("Invoice #")}</TableHead>
+              <TableHead>{t("Bill #")}</TableHead>
               <TableHead>{t("Date")}</TableHead>
               <TableHead>{t("Retailer")}</TableHead>
               <TableHead className="text-right">{t("Total")}</TableHead>
@@ -166,7 +166,7 @@ function SalesList() {
                       </Button>
                     )}
                     {isDraft ? (
-                      <Button size="sm" variant="outline" title={t("Issue invoice")} onClick={(e) => { e.stopPropagation(); doIssue(i.id); }}>
+                      <Button size="sm" variant="outline" title={t("Issue bill")} onClick={(e) => { e.stopPropagation(); doIssue(i.id); }}>
                         <Send className="h-3.5 w-3.5 mr-1" /> {t("Issue")}
                       </Button>
                     ) : canPay ? (
@@ -180,7 +180,7 @@ function SalesList() {
             })}
             {!data?.length && (
               <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                {t("No sales invoices yet. Add retailers and products first, then create your first invoice.")}
+                {t("No sales bills yet. Add retailers and products first, then create your first bill.")}
               </TableCell></TableRow>
             )}
           </TableBody>
@@ -229,7 +229,7 @@ function SalesList() {
                 <Input placeholder={t("UTR / cheque no. / UPI ref")} value={pay.reference} onChange={e => setPay({ ...pay, reference: e.target.value })} />
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("The amount is settled against the party's oldest unpaid invoices automatically; anything left over stays as an advance.")}
+                {t("The amount is settled against the party's oldest unpaid bills automatically; anything left over stays as an advance.")}
               </p>
               <DialogFooter>
                 <Button type="submit" disabled={saving}>{t("Save payment")}</Button>
@@ -297,7 +297,7 @@ function ImportSalesInvoice() {
       <Button size="lg" variant="outline" disabled={busy} onClick={() => fileRef.current?.click()}>
         {busy
           ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("Reading…")}</>
-          : <><Upload className="h-4 w-4 mr-2" /> {t("Upload invoice")}</>}
+          : <><Upload className="h-4 w-4 mr-2" /> {t("Upload bill")}</>}
       </Button>
     </>
   );

@@ -242,7 +242,7 @@ function ImportPage() {
           <ArrowRight className="h-4 w-4 shrink-0 mt-0.5" />
           <p>
             {t(
-              "This brings across your item list, your parties and what they owe today. It does not bring past invoices — those stay where they are, and importing them would restate stock that has already moved.",
+              "This brings across your item list, your parties and what they owe today. It does not bring past bills — those stay where they are, and importing them would restate stock that has already moved.",
             )}
           </p>
         </CardContent>

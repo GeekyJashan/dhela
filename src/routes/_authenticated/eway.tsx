@@ -67,7 +67,7 @@ function EwayPage() {
       const a = document.createElement("a");
       a.href = url; a.download = `eway-bulk-${new Date().toISOString().slice(0, 10)}.json`;
       a.click(); URL.revokeObjectURL(url);
-      toast.success(t("{{n}} invoice(s) exported — upload on the e-way bill portal", { n: count }));
+      toast.success(t("{{n}} bill(s) exported — upload on the e-way bill portal", { n: count }));
     } catch (e) { toast.error((e as Error).message); }
     finally { setDownloading(false); }
   };
@@ -97,7 +97,7 @@ function EwayPage() {
         <CardContent>
           <Table>
             <TableHeader><TableRow>
-              <TableHead>{t("Invoice #")}</TableHead><TableHead>{t("Date")}</TableHead>
+              <TableHead>{t("Bill #")}</TableHead><TableHead>{t("Date")}</TableHead>
               <TableHead>{t("Retailer")}</TableHead><TableHead className="text-right">{t("Value")}</TableHead>
               <TableHead>{t("Vehicle")}</TableHead><TableHead>{t("EBN")}</TableHead>
               <TableHead>{t("Status")}</TableHead><TableHead></TableHead>
@@ -116,7 +116,7 @@ function EwayPage() {
                     <TableCell><StatusBadge status={s} validUpto={r.ewb_valid_upto} /></TableCell>
                     <TableCell className="text-right">
                       <Link to="/sales/$id" params={{ id: r.id }}>
-                        <Button size="sm" variant="ghost" title={t("Open invoice")}><FileText className="h-3.5 w-3.5" /></Button>
+                        <Button size="sm" variant="ghost" title={t("Open bill")}><FileText className="h-3.5 w-3.5" /></Button>
                       </Link>
                     </TableCell>
                   </TableRow>

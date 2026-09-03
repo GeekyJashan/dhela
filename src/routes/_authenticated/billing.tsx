@@ -47,7 +47,7 @@ function BillingPage() {
       <div>
         <h1 className="font-display text-4xl">{t("Plan & billing")}</h1>
         <p className="text-muted-foreground mt-1">
-          {t("AI invoice reading is the only metered feature — billing, stock, payments, and statements are unlimited on every plan.")}
+          {t("AI bill reading is the only metered feature — billing, stock, payments, and statements are unlimited on every plan.")}
         </p>
       </div>
 
@@ -86,7 +86,7 @@ function BillingPage() {
           const current = billing?.plan === id;
           const features = [
             t("{{n}} AI bill reads / month", { n: p.aiExtractionsPerMonth }),
-            t("Unlimited invoices, orders & payments"),
+            t("Unlimited bills, orders & payments"),
             t("Unlimited free OCR extraction"),
             t("E-way bills, statements & receivables ageing"),
             t("Stock and true weighted-average cost"),

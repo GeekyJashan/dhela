@@ -46,13 +46,13 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-4xl">{t("Purchase automation")}</h1>
-          <p className="text-muted-foreground mt-1">{t("Every invoice, read and reconciled by AI.")}</p>
+          <p className="text-muted-foreground mt-1">{t("Every bill, read and reconciled by AI.")}</p>
         </div>
-        <Link to="/upload"><Button size="lg"><FileUp className="h-4 w-4 mr-2" /> {t("Upload invoice")}</Button></Link>
+        <Link to="/upload"><Button size="lg"><FileUp className="h-4 w-4 mr-2" /> {t("Upload bill")}</Button></Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard label={t("Total invoices")} value={stats?.total ?? 0} />
+        <StatCard label={t("Total bills")} value={stats?.total ?? 0} />
         <StatCard label={t("Pending review")} value={stats?.pending ?? 0} icon={<Clock className="h-4 w-4 text-warning" />} />
         <StatCard label={t("Approved")} value={stats?.approved ?? 0} icon={<CheckCircle2 className="h-4 w-4 text-success" />} />
         <StatCard label={t("Avg. extraction accuracy")} value={stats?.avgConf ? `${stats.avgConf.toFixed(0)}%` : "—"} />
@@ -64,15 +64,15 @@ function Dashboard() {
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>{t("Recent invoices")}</CardTitle>
+          <CardTitle>{t("Recent bills")}</CardTitle>
           <Link to="/invoices" className="text-sm text-primary hover:underline">{t("View all")}</Link>
         </CardHeader>
         <CardContent>
           {!invoices?.length ? (
             <div className="text-center py-16 border-2 border-dashed rounded-lg">
               <FileUp className="h-8 w-8 mx-auto text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">{t("No invoices yet.")}</p>
-              <Link to="/upload"><Button className="mt-4" size="sm">{t("Upload your first invoice")}</Button></Link>
+              <p className="mt-3 text-sm text-muted-foreground">{t("No bills yet.")}</p>
+              <Link to="/upload"><Button className="mt-4" size="sm">{t("Upload your first bill")}</Button></Link>
             </div>
           ) : (
             <div className="divide-y">

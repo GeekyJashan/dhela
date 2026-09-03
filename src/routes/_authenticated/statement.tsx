@@ -91,7 +91,7 @@ function StatementPage() {
 
   const owesLabel = party === "retailer" ? t("receivable") : t("payable");
   const particulars = (r: LedgerRow) => {
-    if (r.kind === "invoice") return party === "retailer" ? t("Invoice {{n}}", { n: r.ref }) : t("Purchase {{n}}", { n: r.ref });
+    if (r.kind === "invoice") return party === "retailer" ? t("Bill {{n}}", { n: r.ref }) : t("Purchase {{n}}", { n: r.ref });
     if (r.kind === "credit_note") return t("Credit note {{n}} (return)", { n: r.ref });
     return party === "retailer" ? t("Payment received ({{n}})", { n: r.ref }) : t("Payment made ({{n}})", { n: r.ref });
   };

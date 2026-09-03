@@ -508,7 +508,7 @@ function Products() {
           </div>
           <p className="text-sm text-muted-foreground">
             {t(
-              "Grouped by HSN heading (first 4 digits). Set each group's discount for category A / B / C retailers — sales invoices apply them automatically.",
+              "Grouped by HSN heading (first 4 digits). Set each group's discount for category A / B / C retailers — sales bills apply them automatically.",
             )}
           </p>
         </CardHeader>

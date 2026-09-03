@@ -79,7 +79,7 @@ function StockGroupsCard() {
       <CardHeader>
         <CardTitle>{t("Stock group discounts")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {t("Products are grouped automatically by HSN code. Set the discount each retailer category gets — sales invoices pick these up automatically.")}
+          {t("Products are grouped automatically by HSN code. Set the discount each retailer category gets — sales bills pick these up automatically.")}
         </p>
       </CardHeader>
       <CardContent>

@@ -52,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     { to: "/insights", label: "Insights", icon: LineChart },
   ]},
   { label: "Buying", items: [
-    { to: "/upload", label: "Upload invoice", icon: FileUp },
+    { to: "/upload", label: "Upload bill", icon: FileUp },
     { to: "/invoices", label: "Purchases", icon: Files },
     { to: "/suppliers", label: "Suppliers", icon: Users },
   ]},

@@ -29,9 +29,9 @@ export function ExtractionAccuracy({ value }: { value: number | null | undefined
   const lvl = levelOf(pct);
   const short = { high: t("High"), medium: t("Medium"), low: t("Low") }[lvl];
   const advice = {
-    high: t("High — the AI is confident it read this invoice correctly. A quick check is enough."),
+    high: t("High — the AI is confident it read this bill correctly. A quick check is enough."),
     medium: t("Medium — mostly right, but review the key fields (amounts, HSN, GST %) before approving."),
-    low: t("Low — the AI struggled to read this invoice. Review every line carefully before approving."),
+    low: t("Low — the AI struggled to read this bill. Review every line carefully before approving."),
   }[lvl];
   return (
     <TooltipProvider delayDuration={150}>
@@ -60,7 +60,7 @@ export function ExtractionAccuracyLabel() {
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs leading-relaxed">
-          {t("How confident the AI is that it read this invoice correctly. The lower it is, the more carefully you should review the details before approving.")}
+          {t("How confident the AI is that it read this bill correctly. The lower it is, the more carefully you should review the details before approving.")}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

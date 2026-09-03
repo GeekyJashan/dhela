@@ -151,7 +151,7 @@ function ReturnsPage() {
 
   const submit = async () => {
     if (!retailerId) { toast.error(t("Pick the retailer")); return; }
-    if (!invoiceId) { toast.error(t("Pick the invoice being returned against")); return; }
+    if (!invoiceId) { toast.error(t("Pick the bill being returned against")); return; }
     if (!selectedLines.length) { toast.error(t("Enter a return quantity on at least one item")); return; }
     setSaving(true);
     try {
@@ -222,9 +222,9 @@ function ReturnsPage() {
                 </Select>
               </div>
               <div>
-                <Label>{t("Against which invoice?")} *</Label>
+                <Label>{t("Against which bill?")} *</Label>
                 <Select value={invoiceId} onValueChange={v => { setInvoiceId(v); setReturnQty({}); }} disabled={!retailerId}>
-                  <SelectTrigger><SelectValue placeholder={retailerId ? t("Choose invoice") : t("Pick retailer first")} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={retailerId ? t("Choose bill") : t("Pick retailer first")} /></SelectTrigger>
                   <SelectContent>
                     {invoices?.map(i => (
                       <SelectItem key={i.id} value={i.id}>
@@ -240,7 +240,7 @@ function ReturnsPage() {
               <div>
                 <Label>{t("What came back?")}</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {t("Enter the returned quantity next to each item — prices and GST come from the invoice itself.")}
+                  {t("Enter the returned quantity next to each item — prices and GST come from the bill itself.")}
                 </p>
                 <div className="border rounded-md max-h-64 overflow-auto">
                   <Table>

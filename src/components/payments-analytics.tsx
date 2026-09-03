@@ -421,8 +421,8 @@ export function PaymentsAnalytics() {
           <Kpi index={2} tone="primary" icon={<HandCoins className="h-5 w-5" />} label={t("Collected this month")} value={a.collectedCur} prevValue={a.collectedPrev} sub={t("Cash from retailers")} delta={pctChange(a.collectedCur, a.collectedPrev)} spark={spark("cashIn")} sparkColor={C.in} sparkId="sp-coll" />
           <Kpi index={3} tone={a.netCur >= 0 ? "success" : "destructive"} icon={<ArrowLeftRight className="h-5 w-5" />} label={t("Net cash flow")} value={a.netCur} prevValue={a.netPrev} sub={t("In minus out, this month")} delta={pctChange(a.netCur, a.netPrev)} spark={spark("net")} sparkColor={C.primary} sparkId="sp-net" />
           <Kpi index={4} tone={a.overdue > 0 ? "destructive" : "warning"} icon={<Wallet className="h-5 w-5" />} label={t("Outstanding to collect")} value={a.outstanding} goodWhenUp={false} sub={a.overdue > 0 ? t("{{amt}} overdue", { amt: inr(a.overdue) }) : t("Nothing overdue")} />
-          <Kpi index={5} tone="primary" icon={<FileText className="h-5 w-5" />} label={t("Avg invoice value")} value={a.avgCur} prevValue={a.avgPrev} sub={t("Per invoice, this month")} delta={pctChange(a.avgCur, a.avgPrev)} />
-          <Kpi index={6} tone="primary" icon={<Activity className="h-5 w-5" />} label={t("Invoices this month")} value={a.countCur} prevValue={a.countPrev} kind="count" delta={pctChange(a.countCur, a.countPrev)} />
+          <Kpi index={5} tone="primary" icon={<FileText className="h-5 w-5" />} label={t("Avg bill value")} value={a.avgCur} prevValue={a.avgPrev} sub={t("Per bill, this month")} delta={pctChange(a.avgCur, a.avgPrev)} />
+          <Kpi index={6} tone="primary" icon={<Activity className="h-5 w-5" />} label={t("Bills this month")} value={a.countCur} prevValue={a.countPrev} kind="count" delta={pctChange(a.countCur, a.countPrev)} />
           <Kpi index={7} tone="success" icon={<Users className="h-5 w-5" />} label={t("Active retailers")} value={a.activeCount} kind="count" sub={t("Billed this month")} />
         </div>
       </Reveal>

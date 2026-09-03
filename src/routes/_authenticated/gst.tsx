@@ -55,7 +55,7 @@ function GstPage() {
     { key: "nilRated", label: t("Nil rated & exempt"), hint: t("Table 8 — supplies at 0%") },
     { key: "hsnB2b", label: t("HSN — B2B"), hint: t("Table 12, B2B tab") },
     { key: "hsnB2c", label: t("HSN — B2C"), hint: t("Table 12, B2C tab — optional below ₹5 crore turnover") },
-    { key: "docs", label: t("Documents"), hint: t("Table 13 — invoice series issued") },
+    { key: "docs", label: t("Documents"), hint: t("Table 13 — bill series issued") },
   ];
 
   const downloadAll = () => {
@@ -73,7 +73,7 @@ function GstPage() {
       <div>
         <h1 className="font-display text-4xl">{t("GST returns")}</h1>
         <p className="text-muted-foreground mt-1">
-          {t("GSTR-1 and GSTR-3B working papers, built from your issued invoices and approved purchases.")}
+          {t("GSTR-1 and GSTR-3B working papers, built from your issued bills and approved purchases.")}
         </p>
       </div>
 
@@ -83,7 +83,7 @@ function GstPage() {
           <div className="text-sm">
             <p className="font-medium">{t("This is a working paper, not a filing.")}</p>
             <p className="text-muted-foreground mt-1">
-              {t("Dhela does not file returns. Download these, have your accountant check them against your books, and file on the GST portal. Figures come from what you entered in Dhela — if a purchase was never approved, or an invoice is still a draft, it is not counted here.")}
+              {t("Dhela does not file returns. Download these, have your accountant check them against your books, and file on the GST portal. Figures come from what you entered in Dhela — if a purchase was never approved, or a bill is still a draft, it is not counted here.")}
             </p>
           </div>
         </CardContent>
@@ -104,7 +104,7 @@ function GstPage() {
           {isFetching && <p className="text-sm text-muted-foreground">{t("Working it out…")}</p>}
           {data && (
             <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <Stat label={t("Invoices in period")} value={String(data.counts.invoices)} />
+              <Stat label={t("Bills in period")} value={String(data.counts.invoices)} />
               <Stat label={t("Credit notes")} value={String(data.counts.creditNotes)} />
               <Stat label={t("HSN digits expected")}
                 value={t("{{n}} digit", { n: data.hsnDigits })} />
@@ -151,7 +151,7 @@ function GstPage() {
                 // Shown as the working, so the figure above can be checked
                 // against the invoice register rather than taken on trust.
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {t("{{gross}} invoiced less {{cn}} of credit notes. Credit notes reduce outward supply here; they are not input credit.", {
+                  {t("{{gross}} billed less {{cn}} of credit notes. Credit notes reduce outward supply here; they are not input credit.", {
                     gross: inr(data.gstr3b.outwardTaxable),
                     cn: inr(data.gstr3b.creditNoteTaxable),
                   })}
@@ -196,7 +196,7 @@ function GstPage() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <span className="font-medium text-foreground">{t("Table 11 (advances)")}</span>{" — "}
-                {t("not applicable to you. Suppliers of goods don't pay GST on advances (Notification 66/2017) — the liability arises when you issue the invoice, which is already counted above.")}
+                {t("not applicable to you. Suppliers of goods don't pay GST on advances (Notification 66/2017) — the liability arises when you issue the bill, which is already counted above.")}
               </li>
               <li>
                 <span className="font-medium text-foreground">{t("Tables 6A/6B (exports, SEZ)")}</span>{" — "}

@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
-  head: () => ({ meta: [{ title: "Invoices — Dhela" }] }),
+  head: () => ({ meta: [{ title: "Purchase bills - Dhela" }] }),
   component: InvoicesList,
 });
 
@@ -23,7 +23,7 @@ function InvoicesList() {
   const navigate = useNavigate();
   const removeInvoice = useServerFn(deletePurchaseInvoice);
   const del = async (id: string, approved: boolean) => {
-    if (!confirm(approved ? t("Delete this approved purchase? The stock it added will be reversed.") : t("Delete this purchase invoice?"))) return;
+    if (!confirm(approved ? t("Delete this approved purchase? The stock it added will be reversed.") : t("Delete this purchase bill?"))) return;
     try { await removeInvoice({ data: { invoiceId: id } }); qc.invalidateQueries({ queryKey: ["invoices"] }); }
     catch (e) { toast.error((e as Error).message); }
   };
@@ -49,7 +49,7 @@ function InvoicesList() {
           <TableHeader>
             <TableRow>
               <TableHead>{t("Supplier")}</TableHead>
-              <TableHead>{t("Invoice #")}</TableHead>
+              <TableHead>{t("Bill #")}</TableHead>
               <TableHead>{t("Date")}</TableHead>
               <TableHead className="text-right">{t("Total")}</TableHead>
               <TableHead><ExtractionAccuracyLabel /></TableHead>
@@ -73,7 +73,7 @@ function InvoicesList() {
               </TableRow>
             ))}
             {!data?.length && (
-              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">{t("No invoices yet.")}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">{t("No bills yet.")}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

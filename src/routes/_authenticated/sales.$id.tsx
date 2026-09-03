@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/_authenticated/sales/$id")({
-  head: () => ({ meta: [{ title: "Sales invoice — Dhela" }] }),
+  head: () => ({ meta: [{ title: "Sales bill - Dhela" }] }),
   component: SalesInvoiceView,
 });
 
@@ -272,7 +272,7 @@ function SalesInvoiceView() {
               <div><Label>{t("Branch")}</Label><Input value={bank.bank_branch} onChange={e => setBank({ ...bank, bank_branch: e.target.value })} /></div>
               <div><Label>{t("UPI ID")}</Label><Input value={bank.upi_id} onChange={e => setBank({ ...bank, upi_id: e.target.value })} /></div>
             </div>
-            <p className="text-xs text-muted-foreground">{t("Saved on your organization — shown on every invoice.")}</p>
+            <p className="text-xs text-muted-foreground">{t("Saved on your organization — shown on every bill.")}</p>
             <DialogFooter><Button type="submit" loading={savingProfile}>{savingProfile ? t("Saving…") : t("Save")}</Button></DialogFooter>
           </form>
         </DialogContent>

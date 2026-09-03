@@ -23,7 +23,7 @@ import { useTranslation } from "react-i18next";
 const log = createLogger("upload");
 
 export const Route = createFileRoute("/_authenticated/upload")({
-  head: () => ({ meta: [{ title: "Upload invoices — Dhela" }] }),
+  head: () => ({ meta: [{ title: "Upload bills - Dhela" }] }),
   component: Upload,
 });
 
@@ -443,7 +443,7 @@ function Upload() {
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
-      <h1 className="font-display text-4xl mb-2">{t("Upload invoices")}</h1>
+      <h1 className="font-display text-4xl mb-2">{t("Upload bills")}</h1>
       <p className="text-muted-foreground mb-8">
         {t("Drop one or many — up to {{n}}. If a bill runs to several pages, say so below and photograph every page.", { n: MAX_FILES })}
       </p>
@@ -534,7 +534,7 @@ function Upload() {
               <div>
                 <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI</div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per invoice.")}
+                  {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per bill.")}
                 </p>
                 {aiRemaining != null && (
                   <p className={`text-xs mt-1.5 font-medium ${aiRemaining === 0 ? "text-destructive" : "text-primary"}`}>
@@ -551,7 +551,7 @@ function Upload() {
               <div>
                 <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> {t("OCR (free)")}</div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("Header + line items parsed heuristically. Works best on clean, digital invoices — always review before approving. Zero cost.")}
+                  {t("Header + line items parsed heuristically. Works best on clean, digital bills — always review before approving. Zero cost.")}
                 </p>
               </div>
             </label>
@@ -632,7 +632,7 @@ function Upload() {
             <div className="flex gap-2">
               {doneCount > 0 && (
                 <Button variant="outline" onClick={() => navigate({ to: "/invoices" })}>
-                  {t("Go to invoices")}
+                  {t("Go to bills")}
                 </Button>
               )}
               {/* Button spins by itself when onClick returns a promise — an

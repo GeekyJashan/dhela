@@ -23,7 +23,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
-  head: () => ({ meta: [{ title: "New sales invoice — Dhela" }] }),
+  head: () => ({ meta: [{ title: "New sales bill - Dhela" }] }),
   validateSearch: (s: Record<string, unknown>): { orderId?: string; edit?: string } => ({
     ...(typeof s.orderId === "string" ? { orderId: s.orderId } : {}),
     ...(typeof s.edit === "string" ? { edit: s.edit } : {}),
@@ -80,7 +80,7 @@ function NewSalesInvoice() {
         supabase.from("sales_invoices").select("*").eq("id", editId).single(),
         supabase.from("sales_invoice_lines").select("*").eq("sales_invoice_id", editId).order("line_no"),
       ]);
-      if (!invRow) { toast.error(t("Invoice not found")); return; }
+      if (!invRow) { toast.error(t("Bill not found")); return; }
       setRetailerId(invRow.retailer_id);
       prevRetailerRef.current = invRow.retailer_id;
       setInvoiceDate(invRow.invoice_date);
@@ -283,9 +283,9 @@ function NewSalesInvoice() {
           }),
       };
       const res = await save({ data: payload });
-      toast.success(editId ? t("Invoice {{n}} updated", { n: res.invoice_number })
-        : status === "issued" ? t("Invoice {{n}} issued", { n: res.invoice_number })
-        : t("Invoice {{n}} saved as draft", { n: res.invoice_number }));
+      toast.success(editId ? t("Bill {{n}} updated", { n: res.invoice_number })
+        : status === "issued" ? t("Bill {{n}} issued", { n: res.invoice_number })
+        : t("Bill {{n}} saved as draft", { n: res.invoice_number }));
       navigate({ to: "/sales/$id", params: { id: res.id! } });
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
@@ -295,7 +295,7 @@ function NewSalesInvoice() {
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl">{editId ? t("Edit sales invoice") : t("New sales invoice")}</h1>
+          <h1 className="font-display text-4xl">{editId ? t("Edit sales bill") : t("New sales bill")}</h1>
           <p className="text-muted-foreground mt-1">
             {order ? `${t("Against order")} ${order.order_number} · ` : ""}
             {statesKnown
@@ -308,7 +308,7 @@ function NewSalesInvoice() {
           <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>{t("Save draft")}</Button>
           <Button onClick={() => submit("issued")} disabled={saving || blockIssue !== null}
             title={blockIssue ?? undefined}>
-            <Send className="h-4 w-4 mr-2"/>{t("Issue invoice")}
+            <Send className="h-4 w-4 mr-2"/>{t("Issue bill")}
           </Button>
         </div>
       </div>
@@ -320,7 +320,7 @@ function NewSalesInvoice() {
         <div className="mt-4 flex gap-3 rounded-lg border border-amber-400/60 bg-warning/10 p-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
           <div>
-            <p className="font-medium">{t("This invoice cannot be issued yet")}</p>
+            <p className="font-medium">{t("This bill cannot be issued yet")}</p>
             <p className="mt-0.5 text-muted-foreground">{blockIssue}</p>
           </div>
         </div>
@@ -343,7 +343,7 @@ function NewSalesInvoice() {
             </Select>
           </div>
           <div>
-            <Label>{t("Invoice date")}</Label>
+            <Label>{t("Bill date")}</Label>
             <Input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
           </div>
           <div>

@@ -177,7 +177,7 @@ function RetailersPage() {
   };
 
   const del = async (id: string) => {
-    if (!confirm(t("Delete retailer? Their past invoices remain."))) return;
+    if (!confirm(t("Delete retailer? Their past bills remain."))) return;
     try {
       await remove({ data: { id } });
       qc.invalidateQueries({ queryKey: ["retailers"] });

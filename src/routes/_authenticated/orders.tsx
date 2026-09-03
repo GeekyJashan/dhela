@@ -229,7 +229,7 @@ function OrdersPage() {
   };
 
   const del = async (o: Order) => {
-    if (!confirm(t("Delete order {{n}}? Issued invoices remain.", { n: o.order_number }))) return;
+    if (!confirm(t("Delete order {{n}}? Issued bills remain.", { n: o.order_number }))) return;
     try {
       await remove({ data: { id: o.id } });
       qc.invalidateQueries({ queryKey: ["orders"] });
@@ -255,7 +255,7 @@ function OrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-4xl">{t("Orders")}</h1>
-          <p className="text-muted-foreground mt-1">{t("Retailer orders — turn them into invoices when you're ready to bill.")}</p>
+          <p className="text-muted-foreground mt-1">{t("Retailer orders — turn them into bills when you're ready to bill.")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setUpl({ retailerId: "", engine: "ai", files: [] })}>
@@ -448,7 +448,7 @@ function OrdersPage() {
                       {openOrder && (
                         <Button size="sm" variant="outline" className="mr-1"
                           onClick={() => navigate({ to: "/sales/new", search: { orderId: o.id } })}>
-                          <Receipt className="h-3.5 w-3.5 mr-1" /> {t("Invoice")}
+                          <Receipt className="h-3.5 w-3.5 mr-1" /> {t("Bill")}
                         </Button>
                       )}
                       {openOrder && (

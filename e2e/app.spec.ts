@@ -110,7 +110,7 @@ test.describe("business pulse", () => {
       .first()
       .boundingBox();
     const recent = await page
-      .getByText(/recent invoices/i)
+      .getByText(/recent bills/i)
       .first()
       .boundingBox();
     expect(pulse!.y).toBeLessThan(recent!.y);
@@ -391,9 +391,9 @@ test.describe("sales import", () => {
     page,
   }) => {
     await page.goto("/sales");
-    await expect(page.getByRole("button", { name: /upload invoice/i })).toBeVisible();
-    // Writing a new invoice stays the primary action; this is a migration tool.
-    await expect(page.getByRole("link", { name: /new sales invoice/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /upload bill/i })).toBeVisible();
+    // Writing a new bill stays the primary action; this is a migration tool.
+    await expect(page.getByRole("link", { name: /new sales bill/i })).toBeVisible();
 
     const src = fs.readFileSync("src/lib/sales-import.functions.ts", "utf8");
     expect(src, "an import must land as a draft").toContain('status: "draft"');
@@ -534,7 +534,7 @@ test.describe("billing", () => {
 test.describe("upload", () => {
   test("camera button appears on mobile only", async ({ page }, testInfo) => {
     await page.goto("/upload");
-    await expect(page.getByRole("heading", { name: "Upload invoices" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upload bills" })).toBeVisible();
     const camera = page.getByRole("button", { name: /take photo/i });
     if (testInfo.project.name === "mobile") {
       await expect(camera).toBeVisible();
@@ -1992,7 +1992,7 @@ test.describe("bringing data in from other software", () => {
     // Years of past invoices would double-count tax already filed and restate
     // stock that has already moved.
     expect(api).toMatch(/deliberately NOT imported is history/);
-    expect(ui).toMatch(/does not bring past invoices/);
+    expect(ui).toMatch(/does not bring past bills/);
   });
 
   test("only a sample of the file is sent for mapping", () => {

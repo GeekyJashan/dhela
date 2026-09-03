@@ -153,7 +153,7 @@ function PaymentsPage() {
   };
 
   const del = async (p: PaymentRow) => {
-    if (!confirm(t("Delete this {{amt}} payment? Invoice dues will be restored.", { amt: inr(p.amount) }))) return;
+    if (!confirm(t("Delete this {{amt}} payment? Bill dues will be restored.", { amt: inr(p.amount) }))) return;
     try {
       await remove({ data: { id: p.id } });
       invalidate();
@@ -245,7 +245,7 @@ function PaymentsPage() {
                 onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
             <p className="text-xs text-muted-foreground">
-              {t("The amount is settled against the party's oldest unpaid invoices automatically; anything left over stays as an advance.")}
+              {t("The amount is settled against the party's oldest unpaid bills automatically; anything left over stays as an advance.")}
             </p>
             <DialogFooter>
               <Button type="submit" loading={saving}>{saving ? t("Saving…") : t("Save payment")}</Button>
@@ -257,7 +257,7 @@ function PaymentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("Receivables ageing")}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t("Unpaid invoice amounts by how long they've been outstanding.")}</p>
+          <p className="text-sm text-muted-foreground">{t("Unpaid bill amounts by how long they've been outstanding.")}</p>
         </CardHeader>
         <CardContent>
           <Table>
@@ -286,7 +286,7 @@ function PaymentsPage() {
               ))}
               {!ageing?.length && (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  {t("No outstanding invoices — everything is collected.")}
+                  {t("No outstanding bills — everything is collected.")}
                 </TableCell></TableRow>
               )}
             </TableBody>
