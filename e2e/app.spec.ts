@@ -1864,6 +1864,36 @@ test.describe("the tab icon", () => {
     expect(widths.sort((a, b) => a - b)).toEqual([16, 32, 48]);
   });
 
+  test("an unknown state pair is not silently treated as intra-state", async () => {
+    const { splitGst } = await import("../src/lib/pricing");
+
+    // Both known: the answer is real.
+    expect(splitGst("03", "27")).toEqual({ isInterstate: true, known: true });
+    expect(splitGst("03", "03")).toEqual({ isInterstate: false, known: true });
+    expect(splitGst(" 03 ", "03")).toEqual({ isInterstate: false, known: true });
+
+    // Either missing: there is no answer, and `known` has to say so. Returning
+    // isInterstate:false here is not neutral — it charges CGST and SGST, which
+    // put the wrong tax head on real invoices that are now frozen.
+    for (const [a, b] of [["03", null], [null, "27"], [null, null], ["", "27"], ["03", "  "]] as const) {
+      expect(splitGst(a, b).known, `${a} / ${b}`).toBe(false);
+      expect(splitGst(a, b).isInterstate, `${a} / ${b}`).toBe(false);
+    }
+  });
+
+  test("GSTR-3B 3.1(a) is net of credit notes, and they stay out of the ITC block", () => {
+    const api = fs.readFileSync("src/lib/gst.functions.ts", "utf8");
+    const ui = fs.readFileSync("src/routes/_authenticated/gst.tsx", "utf8");
+    // A credit note on a sale reduces outward supply. Reporting 3.1(a) gross
+    // overstates output tax by exactly the note.
+    expect(api).toMatch(/netOutwardTaxable: r2\(outwardTaxable - creditNoteTaxable\)/);
+    expect(api).toMatch(/netOutwardIgst: r2\(outwardIgst - creditNoteIgst\)/);
+    expect(ui).toMatch(/3\.1\(a\)[\s\S]{0,400}netOutwardTaxable/);
+    // And it is not input credit, so it must not be rendered inside section 4.
+    const itcBlock = ui.slice(ui.indexOf("4 Input tax credit"), ui.indexOf("itcSplitAvailable"));
+    expect(itcBlock).not.toMatch(/creditNote/);
+  });
+
   test("the landing page has no long dashes in what a visitor reads", async ({ page }) => {
     // A stack of em dashes is the clearest tell that copy was machine-written,
     // and this is the page deciding whether a distributor trusts us. Checked on

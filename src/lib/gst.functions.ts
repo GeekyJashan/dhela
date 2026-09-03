@@ -87,6 +87,8 @@ export type GstReturns = {
   nilRated: Gstr1Row[];
   gstr3b: {
     outwardTaxable: number; outwardIgst: number; outwardCgst: number; outwardSgst: number;
+    netOutwardTaxable: number; netOutwardIgst: number;
+    netOutwardCgst: number; netOutwardSgst: number;
     creditNoteTaxable: number; creditNoteTax: number;
     inwardTaxable: number; itcTotal: number; itcSplitAvailable: boolean;
     nilRatedTotal: number;
@@ -165,6 +167,14 @@ export const getGstReturns = createServerFn({ method: "POST" })
     }
 
     const warnings: string[] = [];
+    /*
+     * Invoices issued before the state codes were in place. The tax head was
+     * decided at issue and cannot be recomputed here — that would silently
+     * restate a document the buyer already has, and if it is wrong the fix is a
+     * credit note, not a quiet edit. So they are named at filing time, when
+     * somebody is looking, and left alone.
+     */
+    const unverifiableHead: string[] = [];
     const b2b: Gstr1Row[] = [], b2cl: Gstr1Row[] = [], docs: Gstr1Row[] = [];
     const b2csMap = new Map<string, Gstr1Row>();
     let skippedNoGstin = 0;
@@ -178,6 +188,12 @@ export const getGstReturns = createServerFn({ method: "POST" })
       const party = inv.retailer;
       const invLines = linesByInvoice.get(inv.id) ?? [];
       const pos = inv.place_of_supply ?? party?.state_code ?? org?.state_code ?? "";
+
+      // Only worth saying where tax was actually charged.
+      const invTax = n(inv.cgst_total) + n(inv.sgst_total) + n(inv.igst_total);
+      if (invTax > 0 && (!org?.state_code?.trim() || !party?.state_code?.trim())) {
+        unverifiableHead.push(inv.invoice_number ?? inv.id);
+      }
 
       // Sum from lines rather than inv.subtotal so nil-rated value doesn't
       // inflate 3.1(a); it belongs in 3.1(c).
@@ -297,12 +313,17 @@ export const getGstReturns = createServerFn({ method: "POST" })
 
     const cdnr: Gstr1Row[] = [], cdnur: Gstr1Row[] = [];
     let creditNoteTaxable = 0, creditNoteTax = 0;
+    // Split the same way the B2CS adjustment below does, so 3.1(a) can be
+    // reported net on all four figures rather than only on the taxable value.
+    let creditNoteIgst = 0, creditNoteCgst = 0, creditNoteSgst = 0;
     for (const cn of notes) {
       const party = cn.retailer;
       const src = cn.sales_invoice;
       const pos = src?.place_of_supply ?? party?.state_code ?? org?.state_code ?? "";
       creditNoteTaxable += n(cn.subtotal);
       creditNoteTax += n(cn.tax_total);
+      if (src?.is_interstate) creditNoteIgst += n(cn.tax_total);
+      else { creditNoteCgst += n(cn.tax_total) / 2; creditNoteSgst += n(cn.tax_total) / 2; }
       const base = {
         "Note Number": cn.credit_note_number ?? "",
         "Note Date": cn.credit_date ?? "",
@@ -392,6 +413,16 @@ export const getGstReturns = createServerFn({ method: "POST" })
     const hsnDigits: 4 | 6 = annualised > AATO_6_DIGIT_THRESHOLD ? 6 : 4;
 
     if (!org?.gstin) warnings.push("Your workspace has no GSTIN set — add it before filing.");
+    if (unverifiableHead.length) {
+      const shown = unverifiableHead.slice(0, 6).join(", ");
+      warnings.push(
+        `${unverifiableHead.length} invoice(s) charge GST but were issued without both state codes, `
+        + `so IGST vs CGST/SGST could not be checked: ${shown}`
+        + `${unverifiableHead.length > 6 ? ", and others" : ""}. `
+        + "Confirm the tax head against the buyer's state before filing. Newer invoices cannot be "
+        + "issued this way, but these were already out.",
+      );
+    }
 
     log.info("getGstReturns:done", {
       period: data.period, invoices: invoices.length, b2b: b2b.length, b2cs: b2csMap.size,
@@ -409,10 +440,19 @@ export const getGstReturns = createServerFn({ method: "POST" })
       b2b, b2cl, b2cs: [...b2csMap.values()], cdnr, cdnur,
       hsnB2b: [...hsnB2bMap.values()], hsnB2c: [...hsnB2cMap.values()], docs, nilRated,
       gstr3b: {
+        // Gross, kept so the netting below can be shown as working rather than
+        // arrived at.
         outwardTaxable: r2(outwardTaxable),
         outwardIgst: r2(outwardIgst),
         outwardCgst: r2(outwardCgst),
         outwardSgst: r2(outwardSgst),
+        // What 3.1(a) actually wants. A credit note on a sale reduces outward
+        // supply; it is not input credit, and reporting it gross overstates
+        // output tax by exactly the note.
+        netOutwardTaxable: r2(outwardTaxable - creditNoteTaxable),
+        netOutwardIgst: r2(outwardIgst - creditNoteIgst),
+        netOutwardCgst: r2(outwardCgst - creditNoteCgst),
+        netOutwardSgst: r2(outwardSgst - creditNoteSgst),
         creditNoteTaxable: r2(creditNoteTaxable),
         creditNoteTax: r2(creditNoteTax),
         inwardTaxable: r2(inwardTaxable),

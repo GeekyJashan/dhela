@@ -139,12 +139,24 @@ function GstPage() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 {t("3.1(a) Outward taxable supplies")}
               </p>
+              {/* Net of credit notes, which is what 3.1(a) asks for. Reporting
+                  it gross overstates output tax by exactly the note. */}
               <div className="grid gap-3 sm:grid-cols-4 text-sm">
-                <Stat label={t("Taxable value")} value={inr(data.gstr3b.outwardTaxable)} />
-                <Stat label={t("IGST")} value={inr(data.gstr3b.outwardIgst)} />
-                <Stat label={t("CGST")} value={inr(data.gstr3b.outwardCgst)} />
-                <Stat label={t("SGST")} value={inr(data.gstr3b.outwardSgst)} />
+                <Stat label={t("Taxable value")} value={inr(data.gstr3b.netOutwardTaxable)} />
+                <Stat label={t("IGST")} value={inr(data.gstr3b.netOutwardIgst)} />
+                <Stat label={t("CGST")} value={inr(data.gstr3b.netOutwardCgst)} />
+                <Stat label={t("SGST")} value={inr(data.gstr3b.netOutwardSgst)} />
               </div>
+              {data.gstr3b.creditNoteTaxable > 0 && (
+                // Shown as the working, so the figure above can be checked
+                // against the invoice register rather than taken on trust.
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("{{gross}} invoiced less {{cn}} of credit notes. Credit notes reduce outward supply here; they are not input credit.", {
+                    gross: inr(data.gstr3b.outwardTaxable),
+                    cn: inr(data.gstr3b.creditNoteTaxable),
+                  })}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
@@ -158,10 +170,12 @@ function GstPage() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 {t("4 Input tax credit (from approved purchases)")}
               </p>
-              <div className="grid gap-3 sm:grid-cols-3 text-sm">
+              {/* Credit notes used to sit in this block. They are a reduction
+                  of outward supply, not input credit, and section 4 is the one
+                  place they must not appear. */}
+              <div className="grid gap-3 sm:grid-cols-2 text-sm">
                 <Stat label={t("Inward taxable value")} value={inr(data.gstr3b.inwardTaxable)} />
                 <Stat label={t("ITC total")} value={inr(data.gstr3b.itcTotal)} />
-                <Stat label={t("Credit notes")} value={inr(data.gstr3b.creditNoteTaxable)} />
               </div>
               {!data.gstr3b.itcSplitAvailable && (
                 <p className="mt-2 text-xs text-muted-foreground">

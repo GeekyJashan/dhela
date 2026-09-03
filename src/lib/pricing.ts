@@ -77,11 +77,22 @@ export function suggestPrice(
   return { rate: 0, discountPct: null, source: "none" };
 }
 
-/** Split GST by supplier vs buyer state code. */
+/**
+ * Split GST by supplier vs buyer state code.
+ *
+ * `known` is the important half. Two state codes decide whether a supply is
+ * IGST or CGST plus SGST, and with either one missing there is no answer, only
+ * a guess. This used to return isInterstate:false in that case, which is not a
+ * neutral default: it charges CGST and SGST, so an out-of-state buyer whose
+ * state code was blank got the wrong tax head on a real invoice, frozen at
+ * issue time. Callers must check `known` before letting an invoice be issued
+ * with tax on it.
+ */
 export function splitGst(supplierState: string | null | undefined, buyerState: string | null | undefined) {
-  const isInterstate =
-    !!supplierState && !!buyerState && supplierState.trim() !== buyerState.trim();
-  return { isInterstate };
+  const a = supplierState?.trim() ?? "";
+  const b = buyerState?.trim() ?? "";
+  const known = a !== "" && b !== "";
+  return { isInterstate: known && a !== b, known };
 }
 
 export type SalesLineDraft = {

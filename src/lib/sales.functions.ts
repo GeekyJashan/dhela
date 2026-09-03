@@ -201,9 +201,51 @@ export const issueSalesInvoice = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: inv } = await supabase.from("sales_invoices")
-      .select("status, order_id").eq("id", data.id).single();
+      // One string literal: concatenation widens it to `string` and the
+      // generated row types collapse to an error union.
+      .select("status, order_id, org_id, retailer_id, is_interstate, cgst_total, sgst_total, igst_total")
+      .eq("id", data.id).single();
     if (!inv) throw new Error("Invoice not found");
     if (inv.status !== "draft") return { ok: true };  // already issued/paid/cancelled — nothing to do
+
+    /*
+     * Issuing freezes the tax heads. If we cannot tell an intra-state supply
+     * from an inter-state one, the invoice must not go out carrying tax: the
+     * old behaviour was to assume intra-state and charge CGST plus SGST, which
+     * put the wrong head on real invoices and cannot be corrected afterwards
+     * without a credit note.
+     *
+     * Checked on the server, not only in the screen, because this is the last
+     * point at which it is still cheap to be wrong. A zero-tax invoice is left
+     * alone — an unregistered dealer issuing a bill of supply is legitimate.
+     */
+    const taxOnInvoice =
+      Number(inv.cgst_total ?? 0) + Number(inv.sgst_total ?? 0) + Number(inv.igst_total ?? 0);
+    if (taxOnInvoice > 0) {
+      const [{ data: org }, { data: buyer }] = await Promise.all([
+        supabase.from("organizations").select("gstin, state_code").eq("id", inv.org_id).single(),
+        inv.retailer_id
+          ? supabase.from("retailers").select("name, state_code").eq("id", inv.retailer_id).single()
+          : Promise.resolve({ data: null }),
+      ]);
+      const missing: string[] = [];
+      if (!org?.gstin?.trim()) {
+        missing.push("your own GSTIN is not set (Account → Business details)");
+      }
+      if (!org?.state_code?.trim()) {
+        missing.push("your own state code is not set (Account → Business details)");
+      }
+      if (!buyer?.state_code?.trim()) {
+        missing.push(`no state code on ${buyer?.name ?? "this retailer"} (Retailers → edit)`);
+      }
+      if (missing.length) {
+        throw new Error(
+          `This invoice charges ₹${taxOnInvoice.toFixed(2)} of GST, but ${missing.join(", and ")}. `
+          + "Without both state codes there is no way to tell IGST from CGST/SGST, and issuing "
+          + "would lock in a guess. Fill these in and issue again — the draft is untouched.",
+        );
+      }
+    }
 
     const { data: lines } = await supabase.from("sales_invoice_lines")
       .select("id, product_id, quantity, free_quantity, taxable_value").eq("sales_invoice_id", data.id);

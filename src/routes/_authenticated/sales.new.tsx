@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Save, Send } from "lucide-react";
+import { Trash2, Plus, Save, Send, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -60,6 +60,7 @@ function NewSalesInvoice() {
   const getOrg = useServerFn(getCurrentOrg);
 
   const [orgState, setOrgState] = useState<string | null>(null);
+  const [orgGstin, setOrgGstin] = useState<string | null>(null);
   const [orgMargin, setOrgMargin] = useState<number | null>(15);
   const [retailerId, setRetailerId] = useState<string>("");
   const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -102,9 +103,10 @@ function NewSalesInvoice() {
     (async () => {
       const { orgId } = await getOrg();
       const { data } = await supabase.from("organizations")
-        .select("state_code, default_margin_pct").eq("id", orgId).single();
+        .select("state_code, default_margin_pct, gstin").eq("id", orgId).single();
       if (data) {
         setOrgState(data.state_code ?? null);
+        setOrgGstin(data.gstin ?? null);
         setOrgMargin(Number(data.default_margin_pct ?? 15));
       }
     })();
@@ -164,10 +166,28 @@ function NewSalesInvoice() {
   });
 
   const retailer = retailers?.find(r => r.id === retailerId) ?? null;
-  const { isInterstate } = splitGst(orgState, retailer?.state_code);
+  const { isInterstate, known: statesKnown } = splitGst(orgState, retailer?.state_code);
+
 
   const computed = useMemo(() => rows.map(r => ({ ...r, ...computeLine(r, isInterstate) })), [rows, isInterstate]);
   const totals = useMemo(() => computeInvoiceTotals(computed), [computed]);
+
+  // Mirrors the server guard in issueSalesInvoice. Tax on the invoice is what
+  // makes the state pair matter: a bill of supply with no GST is fine without
+  // either, which is how an unregistered dealer legitimately bills.
+  const blockIssue = (() => {
+    if (!retailerId) return null;                 // nothing to judge yet
+    if (totals.tax_total <= 0) return null;        // no tax, no head to get wrong
+    const missing: string[] = [];
+    if (!orgGstin?.trim()) missing.push(t("your own GSTIN is not set (Account)"));
+    if (!orgState?.trim()) missing.push(t("your own state code is not set (Account)"));
+    if (!retailer?.state_code?.trim()) {
+      missing.push(t("{{name}} has no state code (Retailers)", { name: retailer?.name ?? t("this retailer") }));
+    }
+    if (!missing.length) return null;
+    return t("{{reasons}}. Without both state codes there is no way to tell IGST from CGST/SGST, and issuing would lock in a guess. Save it as a draft, fill these in, then issue.",
+      { reasons: missing.join(", and ") });
+  })();
 
   // Rate + discount for a product: override rate chain, then discount from
   // override → stock group × retailer category → retailer default.
@@ -278,15 +298,33 @@ function NewSalesInvoice() {
           <h1 className="font-display text-4xl">{editId ? t("Edit sales invoice") : t("New sales invoice")}</h1>
           <p className="text-muted-foreground mt-1">
             {order ? `${t("Against order")} ${order.order_number} · ` : ""}
-            {isInterstate ? t("Inter-state (IGST)") : t("Intra-state (CGST + SGST)")}
+            {statesKnown
+              ? isInterstate ? t("Inter-state (IGST)") : t("Intra-state (CGST + SGST)")
+              : t("Tax head unknown")}
             {orgState ? ` · ${t("From state")} ${orgState}` : ` · ${t("Set your organization state code in settings")}`}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>{t("Save draft")}</Button>
-          <Button onClick={() => submit("issued")} disabled={saving}><Send className="h-4 w-4 mr-2"/>{t("Issue invoice")}</Button>
+          <Button onClick={() => submit("issued")} disabled={saving || blockIssue !== null}
+            title={blockIssue ?? undefined}>
+            <Send className="h-4 w-4 mr-2"/>{t("Issue invoice")}
+          </Button>
         </div>
       </div>
+
+      {/* Said here rather than only on the server, so nobody keys a whole
+          invoice before finding out it cannot be issued. The draft still
+          saves. */}
+      {blockIssue && (
+        <div className="mt-4 flex gap-3 rounded-lg border border-amber-400/60 bg-warning/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-medium">{t("This invoice cannot be issued yet")}</p>
+            <p className="mt-0.5 text-muted-foreground">{blockIssue}</p>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader><CardTitle>{t("Bill to")}</CardTitle></CardHeader>
