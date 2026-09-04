@@ -106,6 +106,29 @@ test("photos taken with no signal are held, then sent when it returns", async ({
       message: "the queue should empty itself once back online",
     })
     .toBe(0);
+
+  // The flush really does enqueue five bills, so this test creates five rows
+  // every run. Cleaned up, or the invoice list fills with rubbish nobody put
+  // there and the next person debugging a failed read chases ghosts.
+  const { createClient } = await import("@supabase/supabase-js");
+  const env = Object.fromEntries(
+    fs.readFileSync(".env", "utf8").split("\n").filter((l) => l.includes("=")).map((l) => {
+      const i = l.indexOf("=");
+      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")];
+    }),
+  );
+  const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  for (const f of files) {
+    const name = f.split("/").pop();
+    const { data: made } = await db
+      .from("invoices").select("id").like("storage_path", `%${name}`);
+    for (const row of made ?? []) {
+      await db.from("invoice_lines").delete().eq("invoice_id", row.id);
+      await db.from("invoices").delete().eq("id", row.id);
+    }
+  }
 });
 
 /**

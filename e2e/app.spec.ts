@@ -1684,6 +1684,23 @@ test.describe("stopping an upload", () => {
     expect(c).toContain("Determinate, because here the number finished is genuinely");
   });
 
+  test("a reading service that is down says so, and says the photo is safe", () => {
+    const api = fs.readFileSync("src/lib/invoices.functions.ts", "utf8");
+    // Production ran for five weeks with the extraction backend suspended, and
+    // every upload failed with "fetch failed". That tells a distributor
+    // nothing, and reads as though their photograph was the problem.
+    expect(api).toMatch(/const unreachable =/);
+    expect(api).toMatch(/ECONNREFUSED\|ENOTFOUND/);
+    // A suspended host answers 502/503 from the platform, not the service.
+    expect(api).toMatch(/\\b\(502\|503\|504\)\\b/);
+    expect(api).toMatch(/bill reading service is not responding/);
+    // The photo is not lost, and saying so is the difference between "retry"
+    // and "start again".
+    expect(api).toMatch(/Your photo is saved/);
+    // The real reason still reaches the logs, with the URL that failed.
+    expect(api).toMatch(/log\.error\("extract:failed", \{ invoiceId, unreachable, apiUrl/);
+  });
+
   test("the queued wait is ended by the poller, not by startBatch", () => {
     const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
     // startBatch returns long before a background batch is done, so its

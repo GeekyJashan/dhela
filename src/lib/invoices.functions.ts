@@ -147,8 +147,22 @@ async function runExtraction(
     log.info("extract:done", { invoiceId, lineCount: linesToInsert.length, engine });
     return { ok: true, lineCount: linesToInsert.length };
   } catch (err) {
-    const msg = (err as Error).message ?? "Extraction failed";
-    log.error("extract:failed", { invoiceId, err });
+    const raw = (err as Error).message ?? "Extraction failed";
+    /*
+     * "fetch failed" is what a distributor saw when the reading service was
+     * down, which tells them nothing and looks like their photo was the
+     * problem. It is worth naming, because it is the one failure they can do
+     * nothing about and the one where their bill is not lost.
+     *
+     * This is what a suspended backend looks like from here: the host does not
+     * answer, or answers 502/503 from a platform rather than the service.
+     */
+    const unreachable = /fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|socket hang up|network|timed out|abort/i
+      .test(raw) || /\b(502|503|504)\b/.test(raw);
+    const msg = unreachable
+      ? "The bill reading service is not responding right now. Your photo is saved — open this bill and press Re-extract once it is back."
+      : raw;
+    log.error("extract:failed", { invoiceId, unreachable, apiUrl, err });
     await supabase.from("invoices").update({
       status: "failed", error_message: msg,
     }).eq("id", inv.id);
