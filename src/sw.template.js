@@ -20,9 +20,15 @@
  * POST that replays itself later is exactly how you get a duplicate invoice.
  */
 
-// Bumped when the caching rules change, so existing installs re-install.
-// v2 precaches the whole app rather than only what had been visited.
-const VERSION = "v2";
+/*
+ * Replaced at build time with the build's own id, which is the point: a service
+ * worker is only reinstalled when its bytes change. A static sw.js is
+ * byte-identical after every deploy, so the browser never notices a new
+ * version, never re-runs install, and keeps serving the previous build's
+ * chunks forever. Verified: two builds, and the worker stayed active with
+ * waiting:false until this was baked in.
+ */
+const VERSION = "__BUILD_VERSION__";
 const SHELL = `dhela-shell-${VERSION}`;
 const ASSETS = `dhela-assets-${VERSION}`;
 const DATA = `dhela-data-${VERSION}`;
@@ -64,7 +70,14 @@ self.addEventListener("install", (e) => {
       }
     })(),
   );
-  self.skipWaiting();
+  // Deliberately no skipWaiting(). Taking over immediately would activate the
+  // new worker under tabs that are already open, and activate deletes the
+  // previous version's caches — pulling the chunks a running tab still needs
+  // out from under it. That is the "Failed to fetch dynamically imported
+  // module" people were seeing after a deploy.
+  //
+  // Instead the new worker waits. The page notices it waiting, offers a reload,
+  // and only then is it told to take over.
 });
 
 async function fetchOrThrow(url) {
@@ -87,6 +100,9 @@ self.addEventListener("message", (e) => {
   if (e.data === "clear-data-cache") {
     e.waitUntil(caches.delete(DATA));
   }
+  // Sent when the operator accepts the update. Only then does the new worker
+  // take over and clear the old caches.
+  if (e.data === "skip-waiting") self.skipWaiting();
 });
 
 const isAsset = (url) =>

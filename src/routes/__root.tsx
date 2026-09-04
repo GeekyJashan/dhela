@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SiteAnalytics } from "@/components/site-analytics";
 import { applySavedLanguage } from "@/i18n";
@@ -209,13 +210,63 @@ function RootComponent() {
   // than offline.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || import.meta.env.DEV) return;
+
+    /*
+     * A deploy replaces every content-hashed chunk, so a tab left open is
+     * asking for files the server no longer has. Rather than let it discover
+     * that by failing on the next navigation, the waiting worker is noticed and
+     * the reload is offered.
+     *
+     * The toast does not expire. Dismissing it is a choice; having it vanish
+     * while somebody was reading a bill is not.
+     */
+    const offerUpdate = (reg: ServiceWorkerRegistration) => {
+      if (!reg.waiting) return;
+      toast.message("A new version of Dhela is ready", {
+        description: "Reload to pick it up. Anything you have saved is unaffected.",
+        duration: Infinity,
+        action: {
+          label: "Reload",
+          onClick: () => {
+            reg.waiting?.postMessage("skip-waiting");
+          },
+        },
+      });
+    };
+
+    let reloading = false;
+    const onControllerChange = () => {
+      // Fires once the new worker has taken over. Reloading here, rather than
+      // in the click handler, means the page comes back on the new worker
+      // instead of racing it.
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
     const id = window.setTimeout(() => {
       navigator.serviceWorker
         .register("/sw.js")
+        .then((reg) => {
+          offerUpdate(reg);
+          reg.addEventListener("updatefound", () => {
+            reg.installing?.addEventListener("statechange", () => {
+              // Only when something was already controlling this page. On a
+              // first visit there is no previous version to replace.
+              if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg);
+            });
+          });
+        })
         .catch((err) => console.warn("[sw] registration failed", err));
     }, 1200);
-    return () => window.clearTimeout(id);
+
+    return () => {
+      window.clearTimeout(id);
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;

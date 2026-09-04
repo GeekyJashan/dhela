@@ -112,18 +112,27 @@ test("photos taken with no signal are held, then sent when it returns", async ({
   // there and the next person debugging a failed read chases ghosts.
   const { createClient } = await import("@supabase/supabase-js");
   const env = Object.fromEntries(
-    fs.readFileSync(".env", "utf8").split("\n").filter((l) => l.includes("=")).map((l) => {
-      const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")];
-    }),
+    fs
+      .readFileSync(".env", "utf8")
+      .split("\n")
+      .filter((l) => l.includes("="))
+      .map((l) => {
+        const i = l.indexOf("=");
+        return [
+          l.slice(0, i).trim(),
+          l
+            .slice(i + 1)
+            .trim()
+            .replace(/^["']|["']$/g, ""),
+        ];
+      }),
   );
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
   for (const f of files) {
     const name = f.split("/").pop();
-    const { data: made } = await db
-      .from("invoices").select("id").like("storage_path", `%${name}`);
+    const { data: made } = await db.from("invoices").select("id").like("storage_path", `%${name}`);
     for (const row of made ?? []) {
       await db.from("invoice_lines").delete().eq("invoice_id", row.id);
       await db.from("invoices").delete().eq("id", row.id);
@@ -142,7 +151,7 @@ test("photos taken with no signal are held, then sent when it returns", async ({
  * or replaying a write and creating a second invoice.
  */
 test("the service worker never touches a write, and forgets data on sign out", () => {
-  const sw = fs.readFileSync("public/sw.js", "utf8");
+  const sw = fs.readFileSync("src/sw.template.js", "utf8");
 
   // The single most important line in the file. A queued or replayed POST is
   // how you get a duplicate invoice.

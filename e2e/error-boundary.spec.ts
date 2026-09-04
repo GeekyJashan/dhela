@@ -66,7 +66,9 @@ test("each kind gets an answer the operator can act on", () => {
 });
 
 test("the worker precaches the whole app, not only what was visited", () => {
-  const sw = fs.readFileSync("public/sw.js", "utf8");
+  // Emitted by the build now, not served statically, so the source of truth
+  // is the template.
+  const sw = fs.readFileSync("src/sw.template.js", "utf8");
   const vite = fs.readFileSync("vite.config.ts", "utf8");
 
   // The manifest has to be emitted during the build. Nitro bakes its
@@ -80,6 +82,18 @@ test("the worker precaches the whole app, not only what was visited", () => {
   // addAll would drop the entire precache over one stale entry.
   expect(sw).not.toMatch(/cache\.addAll\(/);
   expect(sw).toMatch(/Promise\.allSettled/);
-  // Bumped so existing installs re-install with the new rules.
-  expect(sw).toMatch(/const VERSION = "v2"/);
+  // A static sw.js is byte-identical after every deploy, so the browser never
+  // sees a new worker and serves the previous build's chunks forever. Verified
+  // with two builds: waiting stayed false until the version was baked in.
+  expect(sw).toMatch(/const VERSION = "__BUILD_VERSION__"/);
+  expect(vite).toMatch(/fileName: "sw\.js"/);
+  expect(vite).toMatch(/__BUILD_VERSION__/);
+
+  // And it must not force itself over a running tab: activate clears the old
+  // caches, which pulls out the chunks that tab is still using.
+  expect(sw).not.toMatch(/^\s*self\.skipWaiting\(\);\s*$/m);
+  expect(sw).toMatch(/if \(e\.data === "skip-waiting"\) self\.skipWaiting\(\)/);
+  const root = fs.readFileSync("src/routes/__root.tsx", "utf8");
+  expect(root).toMatch(/A new version of Dhela is ready/);
+  expect(root).toMatch(/controllerchange/);
 });

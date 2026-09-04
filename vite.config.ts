@@ -1,4 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import viteReact from "@vitejs/plugin-react";
@@ -31,11 +33,22 @@ function swAssetManifest() {
         .filter((f) => /\.(js|css|woff2)$/.test(f) && !f.startsWith("_"))
         .map((f) => `/${f}`);
       if (!assets.length) return;
+
+      // Derived from the built filenames, so it changes exactly when the app
+      // does and not on a rebuild of identical source.
+      const version = createHash("sha256").update(assets.join("|")).digest("hex").slice(0, 12);
+
       this.emitFile({
         type: "asset",
         fileName: "asset-manifest.json",
-        source: JSON.stringify({ version: Date.now().toString(36), assets }),
+        source: JSON.stringify({ version, assets }),
       });
+
+      // The worker is emitted rather than served statically from public/. A
+      // static file is byte-identical after every deploy, so the browser never
+      // sees a new worker and the previous build's chunks are served forever.
+      const sw = readFileSync("src/sw.template.js", "utf8").replace("__BUILD_VERSION__", version);
+      this.emitFile({ type: "asset", fileName: "sw.js", source: sw });
     },
   };
 }
