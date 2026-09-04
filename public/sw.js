@@ -20,18 +20,58 @@
  * POST that replays itself later is exactly how you get a duplicate invoice.
  */
 
-const VERSION = "v1";
+// Bumped when the caching rules change, so existing installs re-install.
+// v2 precaches the whole app rather than only what had been visited.
+const VERSION = "v2";
 const SHELL = `dhela-shell-${VERSION}`;
 const ASSETS = `dhela-assets-${VERSION}`;
 const DATA = `dhela-data-${VERSION}`;
 const KEEP = [SHELL, ASSETS, DATA];
 
+/**
+ * Precache the whole app, not just what has been visited.
+ *
+ * Caching only what passed through the worker meant a screen the operator had
+ * not opened that day had never had its chunk stored, so with no signal it
+ * failed with "Failed to fetch dynamically imported module" — the app looking
+ * broken rather than offline. The manifest is written after the build, because
+ * the filenames are content-hashed.
+ *
+ * addAll is not used: it rejects the whole batch if a single file 404s, and
+ * losing the entire precache to one stale entry is worse than missing one file.
+ */
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(SHELL).then((c) => c.addAll(["/", "/manifest.webmanifest"])).catch(() => {}),
+    (async () => {
+      const cache = await caches.open(SHELL);
+      await Promise.allSettled(
+        ["/", "/manifest.webmanifest"].map(async (u) => cache.put(u, await fetchOrThrow(u))),
+      ).catch(() => {});
+      try {
+        const res = await fetch("/asset-manifest.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const { assets = [] } = await res.json();
+        const assetCache = await caches.open(ASSETS);
+        await Promise.allSettled(
+          assets.map(async (u) => {
+            const r = await fetch(u, { cache: "no-store" });
+            if (r.ok) await assetCache.put(u, r);
+          }),
+        );
+      } catch {
+        // No manifest, or offline while installing. The runtime rules below
+        // still cache whatever is visited, so this degrades rather than fails.
+      }
+    })(),
   );
   self.skipWaiting();
 });
+
+async function fetchOrThrow(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(String(r.status));
+  return r;
+}
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(

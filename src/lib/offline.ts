@@ -122,7 +122,11 @@ export async function queuedCount(): Promise<number> {
  * with no route out still reports true, so it is treated as a hint: false is
  * trustworthy, true is not, and anything that matters confirms with a request.
  */
-export const isOnline = () => (typeof navigator === "undefined" ? true : navigator.onLine);
+export const isOnline = () =>
+  // Only an explicit `false` means offline. `onLine` is undefined outside a
+  // browser and in some webviews, and treating unknown as offline would pause
+  // saving for somebody who is perfectly connected.
+  typeof navigator === "undefined" ? true : navigator.onLine !== false;
 
 /** Does a request actually reach our own origin right now? */
 export async function reachable(timeoutMs = 4000): Promise<boolean> {
@@ -165,6 +169,44 @@ export function describeError(e: unknown): string {
     return "No connection, so nothing was saved. Try again when you are back online.";
   }
   return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * What actually went wrong, in words a distributor can act on.
+ *
+ * Three failures reach this boundary and they need three different answers,
+ * where before they all got the raw exception text under "Something went
+ * wrong":
+ *
+ *   stale chunk   The tab was opened before a deploy and is asking for a file
+ *                 hash that no longer exists. The old button could not fix
+ *                 this: router.invalidate() and reset() re-run the route, they
+ *                 cannot re-fetch a module the server no longer has. Only a
+ *                 real reload does, which is why this one reloads itself.
+ *   offline       No signal. Nothing is broken and nothing is lost.
+ *   everything    A genuine bug. The message is still shown, because it is
+ *   else          what gets pasted into a WhatsApp message to us.
+ */
+export function classifyError(error: Error): "stale" | "offline" | "unknown" {
+  const m = error.message ?? "";
+  // Offline is checked first, and that order is the whole point. A screen not
+  // opened before has never had its chunk cached, so with no signal it fails
+  // with the same "dynamically imported module" text as a stale tab. Reading
+  // the message first told somebody with their wifi off that the app had been
+  // updated, and then tried to reload, which offline cannot work.
+  // `=== false` and not `!onLine`: outside a browser, and in some embedded
+  // webviews, `onLine` is undefined, and treating unknown as offline told a
+  // perfectly connected user they had no internet.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
+  if (
+    /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading (CSS )?chunk/i.test(
+      m,
+    )
+  ) {
+    return "stale";
+  }
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return "offline";
+  return "unknown";
 }
 
 /* ------------------------------- flush ------------------------------- */

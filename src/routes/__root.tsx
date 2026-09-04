@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SiteAnalytics } from "@/components/site-analytics";
 import { applySavedLanguage } from "@/i18n";
+import { classifyError } from "@/lib/offline";
 
 function NotFoundComponent() {
   return (
@@ -35,23 +36,71 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
+  const kind = classifyError(error);
+
   useEffect(() => {
-    console.error("[root-error-boundary]", error);
-  }, [error]);
+    console.error("[root-error-boundary]", kind, error);
+  }, [error, kind]);
+
+  // A stale tab cannot recover on its own, so it reloads once by itself.
+  // Guarded through sessionStorage: if the reload lands on the same error the
+  // problem is not staleness, and looping would hide that.
+  useEffect(() => {
+    if (kind !== "stale" || typeof window === "undefined") return;
+    const KEY = "dhela.reloaded-for-stale-chunk";
+    if (sessionStorage.getItem(KEY)) return;
+    sessionStorage.setItem(KEY, "1");
+    window.location.reload();
+  }, [kind]);
+
+  const copy = {
+    stale: {
+      title: "Dhela has been updated",
+      body: "This tab is running an older version. Reloading now to pick up the new one.",
+      action: "Reload",
+    },
+    offline: {
+      title: "No internet connection",
+      body: "Dhela cannot reach the internet right now. Check your signal and try again. Nothing you had already saved is lost.",
+      action: "Try again",
+    },
+    unknown: {
+      title: "Something went wrong",
+      body: "This one is on us. Try again, and if it keeps happening send us the details below.",
+      action: "Try again",
+    },
+  }[kind];
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold">Something went wrong</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        <h1 className="text-xl font-semibold">{copy.title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{copy.body}</p>
         <button
           onClick={() => {
-            router.invalidate();
-            reset();
+            // A stale tab has to fetch fresh HTML. Re-running the route would
+            // ask for the same missing file again.
+            if (kind === "stale") window.location.reload();
+            else {
+              router.invalidate();
+              reset();
+            }
           }}
           className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
         >
-          Try again
+          {copy.action}
         </button>
+        {kind === "unknown" && (
+          // Kept, but folded away. It is for us, not for the person reading it.
+          <details className="mt-6 text-left">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Technical details
+            </summary>
+            <p className="mt-2 break-words rounded bg-muted p-2 font-mono text-[11px] text-muted-foreground">
+              {error.message}
+            </p>
+          </details>
+        )}
       </div>
     </div>
   );
