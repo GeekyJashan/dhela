@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLogger } from "./logger";
-import { geminiModel } from "./ai-provider";
+import { aiProvider, anthropicModel, geminiModel } from "./ai-provider";
 import { parseAmount } from "./csv";
 
 /**
@@ -306,6 +306,51 @@ export function guessByHeader(kind: ImportKind, headers: string[]): Record<strin
   return out;
 }
 
+/**
+ * One prompt in, the model's text out, per provider. Both are asked for JSON
+ * and nothing else; the caller parses and validates, because neither can be
+ * trusted to return only what was asked for.
+ */
+async function askClaude(apiKey: string, prompt: string): Promise<string> {
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const client = new Anthropic({ apiKey });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resp: any = await client.messages.create({
+    model: anthropicModel(),
+    max_tokens: 2048,
+    temperature: 0,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const text = (resp.content ?? [])
+    .filter((b: { type: string }) => b.type === "text")
+    .map((b: { text: string }) => b.text)
+    .join("")
+    .trim();
+  // Claude has no JSON response mode here, so it may wrap the object in a
+  // fenced block. Take the outermost object rather than failing on the fence.
+  const m = text.match(/\{[\s\S]*\}/);
+  return m ? m[0] : text;
+}
+
+async function askGemini(apiKey: string, prompt: string): Promise<string> {
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, responseMimeType: "application/json" },
+      }),
+    },
+  );
+  if (!resp.ok) throw new Error(`${resp.status} ${(await resp.text()).slice(0, 160)}`);
+  const json = await resp.json();
+  return (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p: { text?: string }) => p.text ?? "")
+    .join("");
+}
+
 export const proposeImportMapping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -320,7 +365,33 @@ export const proposeImportMapping = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.GOOGLE_API_KEY;
+    /*
+     * Follows AI_PROVIDER like the assistant and the extraction backend do.
+     * This used to call Gemini directly whatever the setting said, which is why
+     * it was the one feature that broke on the Gemini free tier's twenty a day
+     * while bills, read by Claude, carried on fine.
+     *
+     * Preference, not insistence: if the chosen provider has no key but the
+     * other one does, use it. Otherwise flipping AI_PROVIDER, or deploying with
+     * only one key set, silently turns the column reader off and the operator
+     * is left wondering why the mapping got worse.
+     */
+    const claudeKey = process.env.ANTHROPIC_API_KEY;
+    const geminiKey = process.env.GOOGLE_API_KEY;
+    const preferred = aiProvider();
+    const provider: "anthropic" | "gemini" =
+      preferred === "anthropic"
+        ? claudeKey
+          ? "anthropic"
+          : geminiKey
+            ? "gemini"
+            : "anthropic"
+        : geminiKey
+          ? "gemini"
+          : claudeKey
+            ? "anthropic"
+            : "gemini";
+    const apiKey = provider === "anthropic" ? claudeKey : geminiKey;
     const fields = IMPORT_FIELDS[data.kind as ImportKind];
     const fieldList = Object.entries(fields)
       .map(([k, v]) => `  ${k}: ${v}`)
@@ -367,38 +438,27 @@ Rules:
 
 Return JSON only: {"mapping": {"<their column>": "<our field or null>"}, "notes": "one short sentence about anything ambiguous"}`;
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, responseMimeType: "application/json" },
-        }),
-      },
-    );
     // Every failure below falls back rather than throwing. A rate limit or a
     // bad minute upstream is not a reason to hand someone a screen where every
     // column reads "do not import" and the Import button will not light up.
-    if (!resp.ok) {
-      const body = (await resp.text()).slice(0, 200);
-      log.error("import:mapping_failed", { status: resp.status, body });
+    let replyText: string;
+    try {
+      replyText =
+        provider === "anthropic"
+          ? await askClaude(apiKey, prompt)
+          : await askGemini(apiKey, prompt);
+    } catch (e) {
+      const msg = (e as Error).message;
+      log.error("import:mapping_failed", { provider, err: msg.slice(0, 200) });
       return byHeader(
-        resp.status === 429
-          ? "The daily AI allowance is used up, so the columns were matched on their names."
-          : `The column reader is unavailable (${resp.status}), so the columns were matched on their names.`,
+        /\b429\b/.test(msg)
+          ? "The AI allowance is used up for now, so the columns were matched on their names."
+          : "The column reader is unavailable, so the columns were matched on their names.",
       );
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const json: any = await resp.json();
     let parsed: { mapping?: Record<string, string | null>; notes?: string } = {};
     try {
-      parsed = JSON.parse(
-        (json.candidates?.[0]?.content?.parts ?? [])
-          .map((p: { text?: string }) => p.text ?? "")
-          .join(""),
-      );
+      parsed = JSON.parse(replyText);
     } catch {
       log.error("import:mapping_unreadable", {});
       return byHeader(

@@ -1892,7 +1892,13 @@ test.describe("the tab icon", () => {
     // Either missing: there is no answer, and `known` has to say so. Returning
     // isInterstate:false here is not neutral — it charges CGST and SGST, which
     // put the wrong tax head on real invoices that are now frozen.
-    for (const [a, b] of [["03", null], [null, "27"], [null, null], ["", "27"], ["03", "  "]] as const) {
+    for (const [a, b] of [
+      ["03", null],
+      [null, "27"],
+      [null, null],
+      ["", "27"],
+      ["03", "  "],
+    ] as const) {
       expect(splitGst(a, b).known, `${a} / ${b}`).toBe(false);
       expect(splitGst(a, b).isInterstate, `${a} / ${b}`).toBe(false);
     }
@@ -1924,8 +1930,11 @@ test.describe("the tab icon", () => {
     // The tab title and the share cards are read too.
     expect(await page.title()).not.toMatch(/[—–]/);
     for (const prop of ["og:title", "og:image:alt", "twitter:title"]) {
-      const c = await page.locator(`meta[property="${prop}"], meta[name="${prop}"]`)
-        .first().getAttribute("content").catch(() => null);
+      const c = await page
+        .locator(`meta[property="${prop}"], meta[name="${prop}"]`)
+        .first()
+        .getAttribute("content")
+        .catch(() => null);
       if (c) expect(c, prop).not.toMatch(/[—–]/);
     }
   });
@@ -2072,6 +2081,22 @@ test.describe("bringing data in from other software", () => {
     expect(new Set(taken).size).toBe(taken.length);
   });
 
+  test("the column reader uses whichever model is configured", () => {
+    const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
+    // It used to call Gemini directly whatever AI_PROVIDER said, which is why
+    // this was the one feature that broke on the Gemini free tier's twenty a
+    // day while bills, read by Claude Sonnet, carried on fine.
+    expect(api).toMatch(/const preferred = aiProvider\(\)/);
+    expect(api).toMatch(/askClaude/);
+    expect(api).toMatch(/askGemini/);
+    // Preference, not insistence: one key missing must not silently turn the
+    // reader off and leave the operator wondering why mapping got worse.
+    expect(api).toMatch(/Preference, not insistence/);
+    expect(api).toMatch(/const apiKey = provider === "anthropic" \? claudeKey : geminiKey/);
+    // Claude has no JSON mode here, so a fenced reply must still parse.
+    expect(api).toMatch(/Take the outermost object rather than failing on the fence/);
+  });
+
   test("a failed mapping falls back instead of dead-ending the screen", () => {
     const api = fs.readFileSync("src/lib/import.functions.ts", "utf8");
     const ui = fs.readFileSync("src/routes/_authenticated/import.tsx", "utf8");
@@ -2079,8 +2104,8 @@ test.describe("bringing data in from other software", () => {
     // null, and "Check what will happen" stayed disabled because no column was
     // the name — a dead end produced by a rate limit.
     expect(api).not.toMatch(/throw new Error\(`Mapping failed/);
-    expect(api).toMatch(/if \(!resp\.ok\) \{/);
-    expect(api).toMatch(/daily AI allowance is used up/);
+    expect(api).toMatch(/if \(!resp\.ok\) throw new Error/);
+    expect(api).toMatch(/AI allowance is used up/);
     // A reply that placed nothing is worse than the header rules.
     expect(api).toMatch(/if \(used\.size === 0\)/);
     // And the operator has to be able to see why, after any toast has gone.
