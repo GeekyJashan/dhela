@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { Download, FileText, Truck, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/eway")({
   head: () => ({ meta: [{ title: "E-way bills — Dhela" }] }),
@@ -68,7 +69,7 @@ function EwayPage() {
       a.href = url; a.download = `eway-bulk-${new Date().toISOString().slice(0, 10)}.json`;
       a.click(); URL.revokeObjectURL(url);
       toast.success(t("{{n}} bill(s) exported — upload on the e-way bill portal", { n: count }));
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setDownloading(false); }
   };
 

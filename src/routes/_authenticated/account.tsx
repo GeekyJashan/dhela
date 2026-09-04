@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Building2, Landmark, TriangleAlert, LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({ meta: [{ title: "Account — Dhela" }] }),
@@ -73,7 +74,7 @@ function AccountPage() {
       toast.success(t("Business details saved"));
       qc.invalidateQueries({ queryKey: ["org_profile"] });
       qc.invalidateQueries({ queryKey: ["current_org"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const submitBank = async () => {
@@ -85,7 +86,7 @@ function AccountPage() {
       }});
       toast.success(t("Bank details saved"));
       qc.invalidateQueries({ queryKey: ["org_profile"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const submitClear = async () => {
@@ -95,7 +96,7 @@ function AccountPage() {
       setClearOpen(false);
       setConfirmName("");
       qc.clear();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const signOut = async () => {

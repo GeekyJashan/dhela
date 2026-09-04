@@ -13,6 +13,7 @@ import { StatusBadge } from "./dashboard";
 import { toast } from "sonner";
 import { CheckCircle2, RefreshCw, AlertTriangle, ArrowLeft, Link2, Plus, Trash2, Save, Sparkles, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/$id")({
@@ -269,7 +270,7 @@ function InvoiceReview() {
       }});
       toast.success(t("Bill details saved"));
       qc.invalidateQueries({ queryKey: ["invoice", id] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const doDelete = async () => {
@@ -281,7 +282,7 @@ function InvoiceReview() {
       toast.success(t("Purchase deleted"));
       qc.invalidateQueries();
       navigate({ to: "/invoices" });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   /**
@@ -346,7 +347,7 @@ function InvoiceReview() {
         await linkProduct({ data: { lineId, productId: value === "__none__" ? null : value } });
       }
       qc.invalidateQueries({ queryKey: ["invoice-lines", id] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const buildCatalog = async () => {
@@ -364,7 +365,7 @@ function InvoiceReview() {
       qc.invalidateQueries({ queryKey: ["products_min_match"] });
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBulkBusy(false);
     }
@@ -375,7 +376,7 @@ function InvoiceReview() {
       await extract({ data: { invoiceId: id } });
       toast.success(t("Re-extracted"));
       qc.invalidateQueries();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   return (
@@ -740,7 +741,7 @@ function LineCell({ value, onSave, numeric, disabled, width = "w-20", placeholde
     if (draft === initial) return;
     setSaving(true);
     try { await onSave(draft); }
-    catch (e) { setDraft(initial); toast.error((e as Error).message); }
+    catch (e) { setDraft(initial); toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 

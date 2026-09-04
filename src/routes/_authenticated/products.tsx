@@ -28,6 +28,7 @@ import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
 import { Plus, Search, Sparkles, Loader2, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/products")({
   head: () => ({ meta: [{ title: "Products — Dhela" }] }),
@@ -316,7 +317,7 @@ function Products() {
       handleDialogOpenChange(false);
       qc.invalidateQueries({ queryKey: ["products"] });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setSaving(false);
     }

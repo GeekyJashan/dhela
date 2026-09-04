@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Plus, Trash2, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/returns")({
   head: () => ({ meta: [{ title: "Returns — Dhela" }] }),
@@ -178,7 +179,7 @@ function ReturnsPage() {
       qc.invalidateQueries({ queryKey: ["party_balances"] });
       qc.invalidateQueries({ queryKey: ["receivables_ageing"] });
       qc.invalidateQueries({ queryKey: ["products"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -190,7 +191,7 @@ function ReturnsPage() {
       qc.invalidateQueries({ queryKey: ["party_balances"] });
       qc.invalidateQueries({ queryKey: ["receivables_ageing"] });
       qc.invalidateQueries({ queryKey: ["products"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const reasonLabel = (r: Reason) => t(REASONS.find(x => x.value === r)?.label ?? r);

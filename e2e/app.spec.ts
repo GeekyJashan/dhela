@@ -1688,7 +1688,7 @@ test.describe("stopping an upload", () => {
     const ui = fs.readFileSync("src/routes/_authenticated/upload.tsx", "utf8");
     // startBatch returns long before a background batch is done, so its
     // finally must leave that one alone.
-    expect(ui).toMatch(/setWork\(w => \(w\?\.phase === "batch" \? w : null\)\)/);
+    expect(ui).toMatch(/setWork\(\(?w\)? => \(w\?\.phase === "batch" \? w : null\)\)/);
     expect(ui).toMatch(/if \(work\?\.phase !== "batch"\) return;/);
   });
 });

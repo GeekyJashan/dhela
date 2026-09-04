@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { toast } from "sonner";
 import { Plus, Phone, MessageCircle, Loader2, Trash2, Search, Radar } from "lucide-react";
 import { addLeads, listLeads, updateLead, deleteLead, discoverLeads } from "@/lib/leads.functions";
@@ -93,7 +94,7 @@ function Leads() {
       setPaste(""); setOpen(false);
       qc.invalidateQueries({ queryKey: ["leads"] });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally { setBusy(false); }
   };
 
@@ -141,7 +142,7 @@ function Leads() {
                   toast.success(t("Found {{f}}, added {{a}}, {{d}} already known", { f: r.found, a: r.added, d: r.already }));
                   setFindOpen(false);
                   qc.invalidateQueries({ queryKey: ["leads"] });
-                } catch (e) { toast.error((e as Error).message); }
+                } catch (e) { toast.error(describeError(e)); }
                 finally { setFinding(false); }
               }}>
                 {finding ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t("Searching…")}</> : t("Search")}

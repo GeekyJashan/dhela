@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { toast } from "sonner";
 import { Sparkles, Send, Copy, Trash2, Loader2, ExternalLink, Linkedin, Twitter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +58,7 @@ function Marketing() {
       }
       setTopic("");
       qc.invalidateQueries({ queryKey: ["marketing"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setBusy(false); }
   };
 
@@ -135,7 +136,7 @@ function Marketing() {
                         const r = await publish({ data: { id: p.id, body } });
                         toast.success(r.url ? t("Posted") : t("Posted (no link returned)"));
                         qc.invalidateQueries({ queryKey: ["marketing"] });
-                      } catch (e) { toast.error((e as Error).message); }
+                      } catch (e) { toast.error(describeError(e)); }
                       finally { setSending(null); }
                     }}>
                       {sending === p.id ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />

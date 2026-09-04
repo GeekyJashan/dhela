@@ -1,3 +1,4 @@
+import { describeError } from "@/lib/offline";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -79,7 +80,7 @@ function AdminPage() {
       );
       setPending(null);
       qc.invalidateQueries({ queryKey: ["admin_users"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -88,7 +89,7 @@ function AdminPage() {
     try {
       const res = await magicLink({ data: { email } });
       setLink({ email, url: res.action_link });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setGenerating(null); }
   };
 
@@ -100,7 +101,7 @@ function AdminPage() {
       await changePlan({ data: { orgId, plan, validTill } });
       toast.success(`Plan set to ${PLANS[plan].name}${validTill ? ` till ${validTill}` : ""}`);
       qc.invalidateQueries({ queryKey: ["admin_users"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const copy = async () => {

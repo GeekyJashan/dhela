@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Plus, Trash2, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/payments")({
@@ -148,7 +149,7 @@ function PaymentsPage() {
       setOpen(false);
       setForm(emptyForm);
       invalidate();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -157,7 +158,7 @@ function PaymentsPage() {
     try {
       await remove({ data: { id: p.id } });
       invalidate();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   return (

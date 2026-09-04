@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, IndianRupee, Send, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/sales/")({
   head: () => ({ meta: [{ title: "Sales bills - Dhela" }] }),
@@ -47,7 +48,7 @@ function SalesList() {
       await issue({ data: { id } });
       toast.success(t("Bill issued"));
       qc.invalidateQueries({ queryKey: ["sales_invoices"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const { data } = useQuery({
@@ -102,7 +103,7 @@ function SalesList() {
       qc.invalidateQueries({ queryKey: ["party_balances"] });
       qc.invalidateQueries({ queryKey: ["receivables_ageing"] });
       qc.invalidateQueries({ queryKey: ["payments"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -283,7 +284,7 @@ function ImportSalesInvoice() {
       }
       navigate({ to: "/sales/$id", params: { id: res.invoiceId } });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";

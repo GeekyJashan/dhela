@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { Upload, Loader2, AlertTriangle, CheckCircle2, ArrowRight, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { parseDelimited, sniffDelimiter, toRecords } from "@/lib/csv";
 import {
   proposeImportMapping,
@@ -137,7 +138,7 @@ function ImportPage() {
       // The server falls back rather than failing, so reaching here means the
       // request itself did not land. Still no dead end: match on the headings
       // in the browser so the operator can work.
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
       setMapping(guessByHeader(kind, h));
       setFellBack(
         t("Could not reach the server to read your columns, so they were matched on their names."),
@@ -155,7 +156,7 @@ function ImportPage() {
       );
       bring(previewRef);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
     }
@@ -173,7 +174,7 @@ function ImportPage() {
       // that just landed — and the button that takes it back.
       bring(historyRef);
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
     }
@@ -205,7 +206,7 @@ function ImportPage() {
       );
       qc.invalidateQueries();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setUndoing(null);
     }

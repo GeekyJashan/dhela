@@ -17,6 +17,7 @@ import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
 import { Plus, FileText, CheckCircle2, XCircle, Loader2, Archive } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/suppliers")({
   head: () => ({ meta: [{ title: "Suppliers — Dhela" }] }),
@@ -135,7 +136,7 @@ function Suppliers() {
       setForm({ name: "", gstin: "", contact: "", address: "", state_code: "", city: "", pincode: "", gst_status: "", gst_filer_rating: "", gst_legal_name: "", gst_constitution: "", gst_taxpayer_type: "", gst_registration_date: "" });
       setGst(null);
       qc.invalidateQueries({ queryKey: ["suppliers"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 

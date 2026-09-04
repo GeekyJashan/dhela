@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/sales/$id")({
   head: () => ({ meta: [{ title: "Sales bill - Dhela" }] }),
@@ -82,7 +83,7 @@ function SalesInvoiceView() {
       toast.success(t("Saved"));
       close();
       qc.invalidateQueries({ queryKey: ["sales_invoice", id] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSavingProfile(false); }
   };
 

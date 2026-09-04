@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Truck, Download, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export type EwayInvoice = {
   id: string; invoice_number: string; grand_total: number | null;
@@ -66,7 +67,7 @@ export function EwayBillButton({ invoice, onSaved }: { invoice: EwayInvoice; onS
       toast.success(t("E-way bill details saved"));
       setOpen(false);
       onSaved();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -89,7 +90,7 @@ export function EwayBillButton({ invoice, onSaved }: { invoice: EwayInvoice; onS
       a.click(); URL.revokeObjectURL(url);
       onSaved();
       toast.success(t("NIC JSON downloaded — upload it on the e-way bill portal"));
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setDownloading(false); }
   };
 

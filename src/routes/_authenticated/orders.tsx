@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Receipt, Ban, FileUp, Loader2, X } from "lucide-react";
 import { CaptureInput } from "@/components/capture-input";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 const MAX_ORDER_FILES = 100;
 
@@ -183,7 +184,7 @@ function OrdersPage() {
       toast.success(editing ? t("Order {{n}} updated", { n: res.order_number }) : t("Order {{n}} created", { n: res.order_number }));
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["orders"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -224,7 +225,7 @@ function OrdersPage() {
       toast.success(t("{{n}} order(s) queued — reading in the background", { n: uploaded.length }));
       setUpl(null);
       qc.invalidateQueries({ queryKey: ["orders"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setUplBusy(false); }
   };
 
@@ -233,7 +234,7 @@ function OrdersPage() {
     try {
       await remove({ data: { id: o.id } });
       qc.invalidateQueries({ queryKey: ["orders"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const cancel = async (o: Order) => {
@@ -241,7 +242,7 @@ function OrdersPage() {
     try {
       await setStatus({ data: { id: o.id, status: "cancelled" } });
       qc.invalidateQueries({ queryKey: ["orders"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const progress = (o: Order) => {

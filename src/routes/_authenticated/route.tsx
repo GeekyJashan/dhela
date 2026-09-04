@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { OfflineBanner } from "@/components/offline-banner";
 import { LANGUAGES, setLanguage } from "@/i18n";
 import { Assistant } from "@/components/assistant";
 
@@ -203,6 +204,10 @@ function AuthedLayout() {
         </header>
         {/* pb clears the fixed Ask AI launcher, which otherwise sits on top
             of whatever is at the bottom of the page. */}
+        {/* Above the content, below the header: the state of the connection
+            belongs where it is read before the work, not in a toast that
+            has already gone. print:hidden so it never lands on an invoice. */}
+        <div className="print:hidden"><OfflineBanner /></div>
         <main className="flex-1 overflow-auto pb-20 print:pb-0"><Outlet /></main>
       </div>
 

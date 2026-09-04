@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileUp, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { ExtractionAccuracy, ExtractionAccuracyLabel } from "@/components/extraction-accuracy";
 
 export const Route = createFileRoute("/_authenticated/invoices/")({
@@ -25,7 +26,7 @@ function InvoicesList() {
   const del = async (id: string, approved: boolean) => {
     if (!confirm(approved ? t("Delete this approved purchase? The stock it added will be reversed.") : t("Delete this purchase bill?"))) return;
     try { await removeInvoice({ data: { invoiceId: id } }); qc.invalidateQueries({ queryKey: ["invoices"] }); }
-    catch (e) { toast.error((e as Error).message); }
+    catch (e) { toast.error(describeError(e)); }
   };
   const { data } = useQuery({
     queryKey: ["invoices", "all"],

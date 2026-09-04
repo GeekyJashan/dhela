@@ -20,6 +20,7 @@ import { ExtraInfo } from "@/components/extra-info";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/retailers")({
   head: () => ({ meta: [{ title: "Retailers — Dhela" }] }),
@@ -172,7 +173,7 @@ function RetailersPage() {
       toast.success(editing ? t("Retailer updated") : t("Retailer added"));
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["retailers"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 
@@ -181,7 +182,7 @@ function RetailersPage() {
     try {
       await remove({ data: { id } });
       qc.invalidateQueries({ queryKey: ["retailers"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   return (

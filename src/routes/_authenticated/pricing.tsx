@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/pricing")({
   head: () => ({ meta: [{ title: "Pricing — Dhela" }] }),
@@ -170,7 +171,7 @@ function PricingPage() {
       setForm({ product_id: "", retailer_id: "__none__", selling_rate: "", discount_pct: "" });
       qc.invalidateQueries({ queryKey: ["price_overrides_list"] });
       qc.invalidateQueries({ queryKey: ["price-overrides"] });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
   };
 
   const del = async (id: string) => {

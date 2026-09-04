@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus, Save, Send, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { describeError } from "@/lib/offline";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/sales/new")({
@@ -287,7 +288,7 @@ function NewSalesInvoice() {
         : status === "issued" ? t("Bill {{n}} issued", { n: res.invoice_number })
         : t("Bill {{n}} saved as draft", { n: res.invoice_number }));
       navigate({ to: "/sales/$id", params: { id: res.id! } });
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(describeError(e)); }
     finally { setSaving(false); }
   };
 

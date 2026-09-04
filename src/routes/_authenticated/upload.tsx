@@ -7,11 +7,25 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, ScanText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  ScanText,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  WifiOff,
+} from "lucide-react";
 import { CaptureInput, previewUrl } from "@/components/capture-input";
 import { getCurrentOrg } from "@/lib/org.functions";
 import { enqueueInvoices, extractInvoice, cancelQueuedInvoices } from "@/lib/invoices.functions";
-import { proposeInvoiceGroups, saveInvoiceGroups, MAX_PAGES_PER_BATCH, type ProposedDocument } from "@/lib/invoice-batch.functions";
+import {
+  proposeInvoiceGroups,
+  saveInvoiceGroups,
+  MAX_PAGES_PER_BATCH,
+  type ProposedDocument,
+} from "@/lib/invoice-batch.functions";
 import { InvoiceGroupReview, type PhotoThumb } from "@/components/invoice-group-review";
 import { ExtractionProgress, type ProgressPhase } from "@/components/extraction-progress";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
@@ -19,6 +33,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link as RouterLink } from "@tanstack/react-router";
 import { createLogger } from "@/lib/logger";
 import { useTranslation } from "react-i18next";
+import { queueUpload, isNetworkError, reachable, describeError } from "@/lib/offline";
 
 const log = createLogger("upload");
 
@@ -32,6 +47,8 @@ type Engine = "ai" | "ocr";
 type RowStatus =
   | "pending"
   | "uploading"
+  // Held on the device because the signal went. Not a failure, a wait.
+  | "queued_offline"
   | "queued"
   | "processing"
   | "review"
@@ -69,9 +86,11 @@ function Upload() {
     queryKey: ["billing_info"],
     queryFn: async () => (await fetchBilling()) as BillingInfo,
   });
-  const aiRemaining = billing ? Math.max(0, billing.aiLimitPerMonth - billing.aiUsedThisMonth) : null;
+  const aiRemaining = billing
+    ? Math.max(0, billing.aiLimitPerMonth - billing.aiUsedThisMonth)
+    : null;
   const [busy, setBusy] = useState(false);
-  const photoCount = rows.filter(r => r.file.type.startsWith("image/")).length;
+  const photoCount = rows.filter((r) => r.file.type.startsWith("image/")).length;
   const pendingCount = rows.filter((r) => r.status === "pending").length;
   const overQuota = aiRemaining != null && pendingCount > aiRemaining;
   const pollRef = useRef<number | null>(null);
@@ -129,7 +148,9 @@ function Upload() {
       if (total > MAX_FILES) {
         toast.error(t("Max {{n}} files per batch", { n: MAX_FILES }));
         // Revoke the previews of anything we're dropping on the floor.
-        [...prev, ...next].slice(MAX_FILES).forEach(r => r.preview && URL.revokeObjectURL(r.preview));
+        [...prev, ...next]
+          .slice(MAX_FILES)
+          .forEach((r) => r.preview && URL.revokeObjectURL(r.preview));
         return [...prev, ...next].slice(0, MAX_FILES);
       }
       return [...prev, ...next];
@@ -137,47 +158,107 @@ function Upload() {
   };
 
   const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => {
-      const keep = r.key !== key || r.status === "processing";
-      if (!keep && r.preview) URL.revokeObjectURL(r.preview);
-      return keep;
-    }));
+    setRows((prev) =>
+      prev.filter((r) => {
+        const keep = r.key !== key || r.status === "processing";
+        if (!keep && r.preview) URL.revokeObjectURL(r.preview);
+        return keep;
+      }),
+    );
 
   // Release every object URL when leaving the page.
   const rowsRef = useRef<Row[]>([]);
   rowsRef.current = rows;
-  useEffect(() => () => {
-    rowsRef.current.forEach(r => r.preview && URL.revokeObjectURL(r.preview));
-  }, []);
+  useEffect(
+    () => () => {
+      rowsRef.current.forEach((r) => r.preview && URL.revokeObjectURL(r.preview));
+    },
+    [],
+  );
 
   const patch = useCallback((key: string, p: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...p } : r)));
   }, []);
 
   /** Upload one file to storage, return its path. Runs with concurrency=3. */
-  const uploadOne = async (orgId: string, row: Row): Promise<{ key: string; path: string; mime: string } | null> => {
+  const uploadOne = async (
+    orgId: string,
+    row: Row,
+  ): Promise<{ key: string; path: string; mime: string } | null> => {
     patch(row.key, { status: "uploading" });
+    const mime = row.file.type || "application/octet-stream";
     const path = `${orgId}/${crypto.randomUUID()}-${row.file.name}`;
-    const { error } = await supabase.storage.from("invoices")
-      .upload(path, row.file, { contentType: row.file.type, upsert: false });
+    const { error } = await supabase.storage
+      .from("invoices")
+      .upload(path, row.file, { contentType: mime, upsert: false });
     if (error) {
+      // A dropped signal is not a failure, it is a wait. Hold the photo on the
+      // device and send it when the network is back; the old behaviour marked
+      // the row red and lost the file entirely on the next reload.
+      if (isNetworkError(error)) {
+        await queueUpload({
+          orgId,
+          engine,
+          mode,
+          docType: "purchase",
+          name: row.file.name,
+          mime,
+          blob: row.file,
+        });
+        patch(row.key, { status: "queued_offline" });
+        return null;
+      }
       log.error("upload:storage_failed", { name: row.file.name, err: error });
       patch(row.key, { status: "failed", error: error.message });
       return null;
     }
-    return { key: row.key, path, mime: row.file.type || "application/octet-stream" };
+    return { key: row.key, path, mime };
   };
 
   const startBatch = async () => {
     const pending = rows.filter((r) => r.status === "pending");
     if (!pending.length) return;
     if (mode === "onebill" && pending.length > MAX_PAGES_PER_BATCH) {
-      toast.error(t("One bill can be up to {{n}} pages here. Split it, or upload as separate bills.",
-        { n: MAX_PAGES_PER_BATCH }));
+      toast.error(
+        t("One bill can be up to {{n}} pages here. Split it, or upload as separate bills.", {
+          n: MAX_PAGES_PER_BATCH,
+        }),
+      );
       return;
     }
     setBusy(true);
     try {
+      // Checked before anything is asked of the server. getOrg() is itself a
+      // round trip, so with no signal it threw here and the photos never
+      // reached the queueing code below: the batch failed with nothing held.
+      if (!(await reachable())) {
+        for (const r of pending) {
+          await queueUpload({
+            orgId: null,
+            engine,
+            mode,
+            docType: "purchase",
+            name: r.file.name,
+            mime: r.file.type || "application/octet-stream",
+            blob: r.file,
+          });
+          patch(r.key, { status: "queued_offline" });
+        }
+        toast.message(t("No connection"), {
+          description:
+            mode === "onebill"
+              ? t(
+                  "{{n}} page(s) are saved on this device. Open this screen when you are back online to finish them as one bill.",
+                  { n: pending.length },
+                )
+              : t(
+                  "{{n}} photo(s) are saved on this device and will send themselves when you are back online.",
+                  { n: pending.length },
+                ),
+          duration: 9000,
+        });
+        return;
+      }
       const { orgId } = await getOrg();
       log.info("batch:start", { count: pending.length, engine, mode });
       abortRef.current = new AbortController();
@@ -197,7 +278,18 @@ function Upload() {
       await Promise.all(workers);
 
       if (!uploaded.length) {
-        toast.error(t("All uploads failed"));
+        const held = rows.filter((r) => r.status === "queued_offline").length;
+        if (held) {
+          toast.message(t("No connection"), {
+            description: t(
+              "{{n}} photo(s) are saved on this device and will send themselves when you are back online.",
+              { n: held },
+            ),
+            duration: 8000,
+          });
+        } else {
+          toast.error(t("All uploads failed"));
+        }
         return;
       }
 
@@ -206,8 +298,8 @@ function Upload() {
       // wrong trade: five separate bills read on their own, in parallel, beat
       // one call that has to reason about all five.
       if (engine === "ai" && mode === "onebill" && uploaded.length > 1) {
-        const items = uploaded.map(u => ({ storagePath: u.path, mimeType: u.mime }));
-        uploaded.forEach(u => patch(u.key, { status: "processing" }));
+        const items = uploaded.map((u) => ({ storagePath: u.path, mimeType: u.mime }));
+        uploaded.forEach((u) => patch(u.key, { status: "processing" }));
         setWork({ phase: "reading", photos: uploaded.length });
         try {
           // The grouping is stated, not inferred: one bill, these pages, in
@@ -222,13 +314,13 @@ function Upload() {
             items,
             photos: uploaded.map((u, i) => ({
               index: i,
-              name: rows.find(r => r.key === u.key)?.file.name ?? `Photo ${i + 1}`,
-              preview: rows.find(r => r.key === u.key)?.preview,
+              name: rows.find((r) => r.key === u.key)?.file.name ?? `Photo ${i + 1}`,
+              preview: rows.find((r) => r.key === u.key)?.preview,
             })),
           });
         } catch (e) {
-          uploaded.forEach(u => patch(u.key, { status: "failed", error: (e as Error).message }));
-          toast.error((e as Error).message);
+          uploaded.forEach((u) => patch(u.key, { status: "failed", error: (e as Error).message }));
+          toast.error(describeError(e));
         }
         return;
       }
@@ -249,11 +341,14 @@ function Upload() {
         patch(uploaded[0].key, { status: "processing" });
         setWork({ phase: "reading", photos: 1 });
         try {
-          await runExtract({ data: { invoiceId: ids[0], engine }, signal: abortRef.current?.signal });
+          await runExtract({
+            data: { invoiceId: ids[0], engine },
+            signal: abortRef.current?.signal,
+          });
           navigate({ to: "/invoices/$id", params: { id: ids[0] } });
         } catch (e) {
           patch(uploaded[0].key, { status: "failed", error: (e as Error).message });
-          toast.error((e as Error).message);
+          toast.error(describeError(e));
         }
         return;
       }
@@ -263,19 +358,21 @@ function Upload() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ limit: Math.min(10, uploaded.length) }),
-      }).catch(() => { /* pg_cron will pick it up */ });
+      }).catch(() => {
+        /* pg_cron will pick it up */
+      });
 
       setWork({ phase: "batch", photos: uploaded.length });
     } catch (e) {
       log.error("batch:failed", { err: e });
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
       // Cleared here and nowhere else. finally runs on every early return too,
       // which is what the inner blocks were getting wrong: a failed upload
       // returned with the wait still on screen. The one exception is a queued
       // batch, whose work outlives this function and is ended by the poller.
-      setWork(w => (w?.phase === "batch" ? w : null));
+      setWork((w) => (w?.phase === "batch" ? w : null));
     }
   };
 
@@ -296,11 +393,16 @@ function Upload() {
     setStopping(true);
     try {
       if (phase === "batch") {
-        const ids = rows.filter(r => r.invoiceId && (r.status === "queued" || r.status === "processing"))
-          .map(r => r.invoiceId!);
+        const ids = rows
+          .filter((r) => r.invoiceId && (r.status === "queued" || r.status === "processing"))
+          .map((r) => r.invoiceId!);
         if (ids.length) {
           const { cancelled, stillRunning } = await cancelQueued({ data: { ids } });
-          setRows(prev => prev.filter(r => !(r.invoiceId && ids.includes(r.invoiceId) && r.status === "queued")));
+          setRows((prev) =>
+            prev.filter(
+              (r) => !(r.invoiceId && ids.includes(r.invoiceId) && r.status === "queued"),
+            ),
+          );
           toast.success(
             stillRunning > 0
               ? t("Stopped. {{n}} already being read will still finish.", { n: stillRunning })
@@ -311,14 +413,17 @@ function Upload() {
         abortRef.current?.abort();
         // The photos are already in storage, so they go back to pending rather
         // than being lost — pressing upload again reuses nothing but retries.
-        setRows(prev => prev.map(r => (r.status === "processing" || r.status === "uploading"
-          ? { ...r, status: "pending" } : r)));
+        setRows((prev) =>
+          prev.map((r) =>
+            r.status === "processing" || r.status === "uploading" ? { ...r, status: "pending" } : r,
+          ),
+        );
         toast.message(t("Stopped."), {
           description: t("The read was abandoned. Nothing was saved."),
         });
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setStopping(false);
       setWork(null);
@@ -334,8 +439,8 @@ function Upload() {
         data: { items: proposal.items, documents: proposal.documents },
       });
       setProposal(null);
-      setRows(prev => {
-        prev.forEach(r => r.preview && URL.revokeObjectURL(r.preview));
+      setRows((prev) => {
+        prev.forEach((r) => r.preview && URL.revokeObjectURL(r.preview));
         return [];
       });
       if (invoices.length === 1) {
@@ -345,7 +450,7 @@ function Upload() {
         navigate({ to: "/invoices" });
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
       setWork(null);
@@ -373,7 +478,7 @@ function Upload() {
       });
       toast.success(t("Read again as {{n}} bill(s)", { n: res.documents.length }));
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     } finally {
       setBusy(false);
       setWork(null);
@@ -382,7 +487,9 @@ function Upload() {
 
   const discardProposal = () => {
     setProposal(null);
-    setRows(prev => prev.map(r => (r.status === "processing" ? { ...r, status: "pending" } : r)));
+    setRows((prev) =>
+      prev.map((r) => (r.status === "processing" ? { ...r, status: "pending" } : r)),
+    );
   };
 
   // Poll status for queued/processing rows
@@ -390,52 +497,67 @@ function Upload() {
   // knows. startBatch has long since returned by then.
   useEffect(() => {
     if (work?.phase !== "batch") return;
-    const outstanding = rows.filter(r => r.invoiceId && (r.status === "queued" || r.status === "processing")).length;
+    const outstanding = rows.filter(
+      (r) => r.invoiceId && (r.status === "queued" || r.status === "processing"),
+    ).length;
     if (outstanding === 0) {
       setWork(null);
-      const read = rows.filter(r => r.status === "review" || r.status === "approved").length;
+      const read = rows.filter((r) => r.status === "review" || r.status === "approved").length;
       if (read) toast.success(t("{{n}} bill(s) read and waiting for review", { n: read }));
     }
   }, [rows, work?.phase, t]);
 
   useEffect(() => {
-    const active = rows.filter((r) => r.invoiceId && (r.status === "queued" || r.status === "processing"));
+    const active = rows.filter(
+      (r) => r.invoiceId && (r.status === "queued" || r.status === "processing"),
+    );
     if (!active.length) {
-      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
       return;
     }
     if (pollRef.current) return;
     pollRef.current = window.setInterval(async () => {
-      const ids = rows.filter((r) => r.invoiceId && (r.status === "queued" || r.status === "processing"))
+      const ids = rows
+        .filter((r) => r.invoiceId && (r.status === "queued" || r.status === "processing"))
         .map((r) => r.invoiceId!) as string[];
       if (!ids.length) return;
-      const { data } = await supabase.from("invoices")
+      const { data } = await supabase
+        .from("invoices")
         .select("id, status, supplier_name, grand_total, error_message")
         .in("id", ids);
       if (!data) return;
-      setRows((prev) => prev.map((r) => {
-        if (!r.invoiceId) return r;
-        const found = data.find((d) => d.id === r.invoiceId);
-        if (!found) return r;
-        return {
-          ...r,
-          status: found.status as RowStatus,
-          supplier: found.supplier_name,
-          total: found.grand_total,
-          error: found.error_message ?? undefined,
-        };
-      }));
+      setRows((prev) =>
+        prev.map((r) => {
+          if (!r.invoiceId) return r;
+          const found = data.find((d) => d.id === r.invoiceId);
+          if (!found) return r;
+          return {
+            ...r,
+            status: found.status as RowStatus,
+            supplier: found.supplier_name,
+            total: found.grand_total,
+            error: found.error_message ?? undefined,
+          };
+        }),
+      );
       // Nudge the worker if some are still queued (in case pg_cron isn't set up yet)
       const stillQueued = data.some((d) => d.status === "queued");
       if (stillQueued) {
         fetch("/api/public/hooks/process-invoice-queue", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ limit: 5 }),
         }).catch(() => {});
       }
     }, 3000);
     return () => {
-      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
   }, [rows]);
 
@@ -445,7 +567,10 @@ function Upload() {
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <h1 className="font-display text-4xl mb-2">{t("Upload bills")}</h1>
       <p className="text-muted-foreground mb-8">
-        {t("Drop one or many — up to {{n}}. If a bill runs to several pages, say so below and photograph every page.", { n: MAX_FILES })}
+        {t(
+          "Drop one or many — up to {{n}}. If a bill runs to several pages, say so below and photograph every page.",
+          { n: MAX_FILES },
+        )}
       </p>
 
       {/* Shown instead of the picker while a read is waiting to be confirmed:
@@ -461,13 +586,16 @@ function Upload() {
             photos={work.photos}
             onStop={work.phase === "saving" ? undefined : stopWork}
             stopping={stopping}
-            progress={work.phase === "batch"
-              ? {
-                  done: rows.filter(r => r.invoiceId
-                    && r.status !== "queued" && r.status !== "processing").length,
-                  total: rows.filter(r => r.invoiceId).length,
-                }
-              : undefined}
+            progress={
+              work.phase === "batch"
+                ? {
+                    done: rows.filter(
+                      (r) => r.invoiceId && r.status !== "queued" && r.status !== "processing",
+                    ).length,
+                    total: rows.filter((r) => r.invoiceId).length,
+                  }
+                : undefined
+            }
           />
         </div>
       )}
@@ -494,10 +622,15 @@ function Upload() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup value={mode} onValueChange={v => setMode(v as "separate" | "onebill")}
-            className="grid gap-3 sm:grid-cols-2">
-            <label htmlFor="m-sep"
-              className={`rounded-lg border p-4 cursor-pointer ${mode === "separate" ? "border-primary bg-primary/5" : ""}`}>
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => setMode(v as "separate" | "onebill")}
+            className="grid gap-3 sm:grid-cols-2"
+          >
+            <label
+              htmlFor="m-sep"
+              className={`rounded-lg border p-4 cursor-pointer ${mode === "separate" ? "border-primary bg-primary/5" : ""}`}
+            >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="separate" id="m-sep" />
                 <span className="font-medium">{t("Separate bills")}</span>
@@ -506,14 +639,19 @@ function Upload() {
                 {t("One photo, one bill. Each is read on its own — the quickest way in.")}
               </p>
             </label>
-            <label htmlFor="m-one"
-              className={`rounded-lg border p-4 cursor-pointer ${mode === "onebill" ? "border-primary bg-primary/5" : ""}`}>
+            <label
+              htmlFor="m-one"
+              className={`rounded-lg border p-4 cursor-pointer ${mode === "onebill" ? "border-primary bg-primary/5" : ""}`}
+            >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="onebill" id="m-one" />
                 <span className="font-medium">{t("One bill, several pages")}</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1 ml-6">
-                {t("A long bill photographed page by page. Read together as a single bill, up to {{n}} pages.", { n: MAX_PAGES_PER_BATCH })}
+                {t(
+                  "A long bill photographed page by page. Read together as a single bill, up to {{n}} pages.",
+                  { n: MAX_PAGES_PER_BATCH },
+                )}
               </p>
             </label>
           </RadioGroup>
@@ -528,30 +666,50 @@ function Upload() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup value={engine} onValueChange={(v) => setEngine(v as Engine)} className="grid md:grid-cols-2 gap-3">
-            <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ai" ? "border-primary bg-primary/5" : ""}`}>
+          <RadioGroup
+            value={engine}
+            onValueChange={(v) => setEngine(v as Engine)}
+            className="grid md:grid-cols-2 gap-3"
+          >
+            <label
+              className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ai" ? "border-primary bg-primary/5" : ""}`}
+            >
               <RadioGroupItem value="ai" id="ai" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><Sparkles className="h-4 w-4 text-accent" /> AI</div>
+                <div className="flex items-center gap-2 font-medium">
+                  <Sparkles className="h-4 w-4 text-accent" /> AI
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per bill.")}
+                  {t(
+                    "Full extraction — supplier, header, line items, HSN, batch, expiry. Higher cost per bill.",
+                  )}
                 </p>
                 {aiRemaining != null && (
-                  <p className={`text-xs mt-1.5 font-medium ${aiRemaining === 0 ? "text-destructive" : "text-primary"}`}>
+                  <p
+                    className={`text-xs mt-1.5 font-medium ${aiRemaining === 0 ? "text-destructive" : "text-primary"}`}
+                  >
                     {t("{{n}} AI extractions left this month", { n: aiRemaining })}
                     {aiRemaining === 0 && (
-                      <RouterLink to="/billing" className="ml-1 underline">{t("Upgrade")}</RouterLink>
+                      <RouterLink to="/billing" className="ml-1 underline">
+                        {t("Upgrade")}
+                      </RouterLink>
                     )}
                   </p>
                 )}
               </div>
             </label>
-            <label className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ocr" ? "border-primary bg-primary/5" : ""}`}>
+            <label
+              className={`border rounded-lg p-4 cursor-pointer flex gap-3 ${engine === "ocr" ? "border-primary bg-primary/5" : ""}`}
+            >
               <RadioGroupItem value="ocr" id="ocr" className="mt-1" />
               <div>
-                <div className="flex items-center gap-2 font-medium"><ScanText className="h-4 w-4" /> {t("OCR (free)")}</div>
+                <div className="flex items-center gap-2 font-medium">
+                  <ScanText className="h-4 w-4" /> {t("OCR (free)")}
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("Header + line items parsed heuristically. Works best on clean, digital bills — always review before approving. Zero cost.")}
+                  {t(
+                    "Header + line items parsed heuristically. Works best on clean, digital bills — always review before approving. Zero cost.",
+                  )}
                 </p>
               </div>
             </label>
@@ -562,7 +720,12 @@ function Upload() {
       <Card>
         <CardHeader>
           <CardTitle>{t("Files")}</CardTitle>
-          <CardDescription>{t("PDF, JPG, PNG. Up to {{mb}}MB each, {{n}} per batch.", { mb: MAX_MB, n: MAX_FILES })}</CardDescription>
+          <CardDescription>
+            {t("PDF, JPG, PNG. Up to {{mb}}MB each, {{n}} per batch.", {
+              mb: MAX_MB,
+              n: MAX_FILES,
+            })}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <CaptureInput onFiles={addFiles} photoCount={photoCount} disabled={busy} />
@@ -576,7 +739,8 @@ function Upload() {
                 {aiRemaining === 0
                   ? t("You've used all your AI reads this month.")
                   : t("{{pending}} files ready but only {{left}} AI read(s) left this month.", {
-                      pending: pendingCount, left: aiRemaining,
+                      pending: pendingCount,
+                      left: aiRemaining,
                     })}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -584,11 +748,15 @@ function Upload() {
                   <ScanText className="h-3.5 w-3.5 mr-1.5" /> {t("Use free OCR instead")}
                 </Button>
                 <RouterLink to="/billing">
-                  <Button size="sm" variant="outline">{t("Upgrade")}</Button>
+                  <Button size="sm" variant="outline">
+                    {t("Upgrade")}
+                  </Button>
                 </RouterLink>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("OCR is unlimited and free, but reads clean printed bills far better than photos.")}
+                {t(
+                  "OCR is unlimited and free, but reads clean printed bills far better than photos.",
+                )}
               </p>
             </div>
           )}
@@ -599,8 +767,11 @@ function Upload() {
                 <div key={r.key} className="px-4 py-3 flex items-center gap-3 text-sm">
                   <StatusIcon status={r.status} />
                   {r.preview && (
-                    <img src={r.preview} alt=""
-                      className="h-10 w-10 shrink-0 rounded border object-cover" />
+                    <img
+                      src={r.preview}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded border object-cover"
+                    />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="truncate font-medium">{r.file.name}</div>
@@ -611,7 +782,11 @@ function Upload() {
                     </div>
                   </div>
                   {r.invoiceId && (r.status === "review" || r.status === "approved") && (
-                    <Link to="/invoices/$id" params={{ id: r.invoiceId }} className="text-xs text-primary hover:underline">
+                    <Link
+                      to="/invoices/$id"
+                      params={{ id: r.invoiceId }}
+                      className="text-xs text-primary hover:underline"
+                    >
                       {t("Review")}
                     </Link>
                   )}
@@ -627,7 +802,12 @@ function Upload() {
 
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {rows.length > 0 && t("{{done}} / {{total}} done · {{pending}} to start", { done: doneCount, total: rows.length, pending: pendingCount })}
+              {rows.length > 0 &&
+                t("{{done}} / {{total}} done · {{pending}} to start", {
+                  done: doneCount,
+                  total: rows.length,
+                  pending: pendingCount,
+                })}
             </div>
             <div className="flex gap-2">
               {doneCount > 0 && (
@@ -638,7 +818,9 @@ function Upload() {
               {/* Button spins by itself when onClick returns a promise — an
                   extra Loader2 here renders a second one beside it. */}
               <Button size="lg" onClick={startBatch} disabled={!pendingCount}>
-                {busy ? t("Uploading…") : `${t("Upload & extract")}${pendingCount ? ` (${pendingCount})` : ""}`}
+                {busy
+                  ? t("Uploading…")
+                  : `${t("Upload & extract")}${pendingCount ? ` (${pendingCount})` : ""}`}
               </Button>
             </div>
           </div>
@@ -650,23 +832,35 @@ function Upload() {
 
 function StatusIcon({ status }: { status: RowStatus }) {
   switch (status) {
-    case "pending": return <Clock className="h-4 w-4 text-muted-foreground shrink-0" />;
+    case "pending":
+      return <Clock className="h-4 w-4 text-muted-foreground shrink-0" />;
     case "uploading":
+    case "queued_offline":
+      return <WifiOff className="h-4 w-4 text-amber-600 shrink-0" />;
     case "queued":
-    case "processing": return <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />;
+    case "processing":
+      return <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />;
     case "review":
-    case "approved": return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
-    case "failed": return <AlertCircle className="h-4 w-4 text-destructive shrink-0" />;
+    case "approved":
+      return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
+    case "failed":
+      return <AlertCircle className="h-4 w-4 text-destructive shrink-0" />;
   }
 }
 
 function StatusText({ row }: { row: Row }) {
   const { t } = useTranslation();
   switch (row.status) {
-    case "pending": return <span>{t("Ready")}</span>;
-    case "uploading": return <span>{t("Uploading…")}</span>;
-    case "queued": return <span>{t("Queued")}</span>;
-    case "processing": return <span>{t("Extracting…")}</span>;
+    case "pending":
+      return <span>{t("Ready")}</span>;
+    case "uploading":
+      return <span>{t("Uploading…")}</span>;
+    case "queued_offline":
+      return <span className="text-amber-600">{t("Waiting for network")}</span>;
+    case "queued":
+      return <span>{t("Queued")}</span>;
+    case "processing":
+      return <span>{t("Extracting…")}</span>;
     case "review":
     case "approved":
       return (
@@ -675,6 +869,7 @@ function StatusText({ row }: { row: Row }) {
           {row.total ? ` · ₹ ${Number(row.total).toLocaleString("en-IN")}` : ""}
         </span>
       );
-    case "failed": return <span className="text-destructive">{row.error ?? t("Failed")}</span>;
+    case "failed":
+      return <span className="text-destructive">{row.error ?? t("Failed")}</span>;
   }
 }
