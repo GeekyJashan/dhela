@@ -38,6 +38,11 @@ export const listAppUsers = createServerFn({ method: "POST" })
         email: u.email ?? null,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at ?? null,
+        // Moves when the session is refreshed, which is what an app kept open
+        // does all day. last_sign_in_at only moves when somebody actually
+        // authenticates, so for a user who never signs out it freezes on the
+        // day they last typed a password and reads as though they went quiet.
+        updated_at: u.updated_at ?? null,
         confirmed: !!u.email_confirmed_at,
         org: org?.name ?? null,
         org_id: org?.id ?? null,

@@ -2206,3 +2206,28 @@ test.describe("bringing data in from other software", () => {
     expect(comp).toMatch(/\.eq\("id", id\)/);
   });
 });
+
+// A user who never signs out keeps the same last_sign_in_at forever, so the
+// column that looks like "are they using it" is the one that goes stalest for
+// the people using it most.
+test.describe("admin user list", () => {
+  test("last sign-in and last seen are separate columns", async ({ page }) => {
+    await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Loading users…")).toHaveCount(0, { timeout: 60_000 });
+
+    const heads = await page.locator("table thead th").allInnerTexts();
+    expect(heads).toContain("Last sign-in");
+    expect(heads).toContain("Last seen");
+    // Header count and the empty-state colSpan have to agree, or the "no users"
+    // row sits short of the table.
+    const src = fs.readFileSync("src/routes/_authenticated/admin.tsx", "utf8");
+    expect((src.match(/<TableHead[ >]/g) ?? []).length).toBe(heads.length);
+    expect(src).toMatch(new RegExp(`colSpan=\\{${heads.length}\\}`));
+
+    // Both carry real timestamps, and the two are genuinely different fields.
+    const api = fs.readFileSync("src/lib/admin.functions.ts", "utf8");
+    expect(api).toMatch(/updated_at: u\.updated_at \?\? null/);
+    expect(api).toMatch(/last_sign_in_at only moves when somebody actually/);
+  });
+});

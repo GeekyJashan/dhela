@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 type AppUser = {
   id: string; email: string | null; created_at: string;
-  last_sign_in_at: string | null; confirmed: boolean;
+  last_sign_in_at: string | null; updated_at: string | null; confirmed: boolean;
   org: string | null; org_id: string | null;
   plan: string | null; plan_valid_till: string | null;
   platform_admin: boolean;
@@ -128,7 +128,12 @@ function AdminPage() {
               <TableHead>Organization</TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Signed up</TableHead>
-              <TableHead>Last sign-in</TableHead>
+              <TableHead title="Only moves when somebody actually authenticates. A user who never signs out will show an old date however often they use Dhela.">
+                Last sign-in
+              </TableHead>
+              <TableHead title="Moves when the session is refreshed, so it tracks use far more closely than sign-in. It also moves if the account record is edited, so treat it as a signal rather than a fact.">
+                Last seen
+              </TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Admin</TableHead>
               <TableHead></TableHead>
@@ -168,6 +173,20 @@ function AdminPage() {
                   <TableCell className="whitespace-nowrap">
                     {u.last_sign_in_at ? u.last_sign_in_at.slice(0, 16).replace("T", " ") : "never"}
                   </TableCell>
+                  {/* Highlighted when it is newer than the sign-in, because
+                      that gap is the whole point: the person has been using
+                      Dhela since, and the sign-in column does not show it. */}
+                  <TableCell className="whitespace-nowrap">
+                    {u.updated_at ? (
+                      <span className={
+                        u.last_sign_in_at && u.updated_at > u.last_sign_in_at
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      }>
+                        {u.updated_at.slice(0, 16).replace("T", " ")}
+                      </span>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell>
                     <span className={`text-xs ${u.confirmed ? "text-green-700" : "text-amber-700"}`}>
                       {u.confirmed ? "confirmed" : "unconfirmed"}
@@ -200,7 +219,7 @@ function AdminPage() {
                 </TableRow>
               ))}
               {!users?.length && (
-                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                   Loading users…
                 </TableCell></TableRow>
               )}
