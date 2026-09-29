@@ -22,11 +22,14 @@ export const listAppUsers = createServerFn({ method: "POST" })
     const [{ data: usersData, error }, { data: memberships }] = await Promise.all([
       supabaseAdmin.auth.admin.listUsers({ perPage: 500 }),
       supabaseAdmin.from("memberships")
-        .select("user_id, organization:organizations(id, name, plan, plan_valid_till)"),
+        .select("user_id, organization:organizations(id, name, gstin, plan, plan_valid_till)"),
     ]);
     if (error) throw new Error(error.message);
 
-    type OrgInfo = { id: string; name: string; plan: string; plan_valid_till: string | null };
+    type OrgInfo = {
+      id: string; name: string; gstin: string | null;
+      plan: string; plan_valid_till: string | null;
+    };
     const orgByUser = new Map(
       (memberships ?? []).map(m => [m.user_id, m.organization as OrgInfo | null]),
     );
@@ -46,6 +49,10 @@ export const listAppUsers = createServerFn({ method: "POST" })
         confirmed: !!u.email_confirmed_at,
         org: org?.name ?? null,
         org_id: org?.id ?? null,
+        // GSTIN belongs to the business, not the person — a user who has not
+        // filled in Account → Business details yet simply has none, which is a
+        // legitimate state (unregistered dealers never get one).
+        gstin: org?.gstin ?? null,
         plan: org?.plan ?? null,
         plan_valid_till: org?.plan_valid_till ?? null,
         platform_admin: (u.app_metadata as { platform_admin?: boolean })?.platform_admin === true,
