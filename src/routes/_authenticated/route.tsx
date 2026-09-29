@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { OfflineBanner } from "@/components/offline-banner";
 import { LANGUAGES, setLanguage } from "@/i18n";
 import { Assistant } from "@/components/assistant";
+import { PlanNoticeDialog } from "@/components/plan-notice";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -212,6 +213,10 @@ function AuthedLayout() {
       </div>
 
       <Assistant />
+      {/* Mounted at the layout so a plan change is met wherever the customer
+          happens to open Dhela, not only on the billing screen they have no
+          reason to visit. */}
+      <PlanNoticeDialog />
     </div>
   );
 }

@@ -893,5 +893,14 @@
   "Ask anything about your bills, retailers, products, orders or profit — answers come straight from your own data. Stuck on how to do something in the app? Ask that too.": "अपने बिल, रिटेलर, प्रोडक्ट, ऑर्डर या मुनाफे के बारे में कुछ भी पूछें — जवाब सीधे आपके डेटा से आएंगे। ऐप में कोई काम करने में अटक गए हैं? वो भी पूछें।",
   "Avg bill value": "औसत बिल मूल्य",
   "Per bill, this month": "प्रति बिल, इस महीने",
-  "Bills this month": "इस महीने की बिल"
+  "Bills this month": "इस महीने की बिल",
+  "You are on {{plan}} now": "अब आप {{plan}} पर हैं",
+  "Your plan is now {{plan}}": "आपका प्लान अब {{plan}} है",
+  "Your workspace moved up from {{from}}. Thank you for backing Dhela.": "आपका वर्कस्पेस {{from}} से ऊपर आ गया। ढेला पर भरोसा रखने के लिए धन्यवाद।",
+  "Everything you have recorded stays exactly as it is. Only the monthly allowance changes.": "आपका दर्ज किया हुआ सारा डेटा जैसा है वैसा ही रहेगा। सिर्फ महीने की सीमा बदलती है।",
+  "{{n}} AI bill reads a month": "महीने में {{n}} बिल AI से पढ़े जा सकते हैं",
+  "{{n}} minutes of voice a month": "महीने में {{n}} मिनट वॉइस",
+  "Valid till {{date}}": "{{date}} तक मान्य",
+  "Got it": "समझ गया",
+  "See what is included": "देखें क्या शामिल है"
 }

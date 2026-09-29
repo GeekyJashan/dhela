@@ -511,3 +511,44 @@
   .coin-read-bob, .coin-read-spin, .coin-read-shadow { animation: none !important; }
   .coin-read-shadow { opacity: 0.15; }
 }
+
+/* --- plan upgrade celebration --- */
+/* A plan change is a once-a-year event, so it gets a real moment rather than a
+   toast that slides away while the person is still reading it. The confetti is
+   a dozen divs on two keyframes: a library for this would be 12 KB to animate
+   something that happens when a distributor pays an invoice. */
+/* Holds full opacity for most of the fall. Fading from the tenth percent on,
+   which is the obvious way to write this, leaves the paper translucent for the
+   whole of the visible middle and the burst reads as a smudge. */
+@keyframes confetti-fall {
+  0%   { opacity: 0; transform: translate3d(0, -20px, 0) rotate(0deg); }
+  8%   { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--drift, 0), 340px, 0) rotate(var(--spin, 540deg)); }
+}
+.confetti-bit {
+  position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 1px;
+  will-change: transform, opacity; pointer-events: none;
+  animation: confetti-fall var(--fall, 2.6s) cubic-bezier(0.32, 0.5, 0.55, 1) both;
+}
+/* The plan name lands last, after the confetti is already falling. */
+@keyframes plan-badge-in {
+  0%   { opacity: 0; transform: scale(0.82) translateY(8px); }
+  60%  { opacity: 1; transform: scale(1.04) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.plan-badge-in { animation: plan-badge-in 0.62s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+/* Slow gold sweep across the badge, once the badge has settled. */
+@keyframes plan-badge-sheen { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
+.plan-badge-sheen {
+  background-image: linear-gradient(110deg, transparent 38%, oklch(1 0 0 / 0.35) 50%, transparent 62%);
+  background-size: 220% 100%;
+  animation: plan-badge-sheen 2.4s ease-in-out 0.7s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No falling paper, no sweep. The news is in the words, and they stay. */
+  .confetti-bit { display: none; }
+  .plan-badge-in, .plan-badge-sheen { animation: none !important; }
+  .plan-badge-in { opacity: 1; transform: none; }
+}

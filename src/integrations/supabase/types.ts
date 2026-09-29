@@ -961,6 +961,8 @@ export type Database = {
           name: string
           phone: string | null
           plan: string
+          plan_changed_at: string | null
+          plan_previous: string | null
           plan_valid_till: string | null
           signatory_name: string | null
           signature_image: string | null
@@ -982,6 +984,8 @@ export type Database = {
           name: string
           phone?: string | null
           plan?: string
+          plan_changed_at?: string | null
+          plan_previous?: string | null
           plan_valid_till?: string | null
           signatory_name?: string | null
           signature_image?: string | null
@@ -1003,6 +1007,8 @@ export type Database = {
           name?: string
           phone?: string | null
           plan?: string
+          plan_changed_at?: string | null
+          plan_previous?: string | null
           plan_valid_till?: string | null
           signatory_name?: string | null
           signature_image?: string | null
@@ -1139,6 +1145,32 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_change_acks: {
+        Row: {
+          acknowledged_change_at: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_change_at: string
+          org_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_change_at?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_change_acks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

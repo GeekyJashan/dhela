@@ -72,12 +72,37 @@ export const setOrgPlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     assertPlatformAdmin(context.claims as Record<string, unknown>);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { effectivePlan } = await import("./plans");
+
+    // Read what they are on before writing, so the customer's notice can say
+    // "upgraded from Standard" rather than just announcing a plan.
+    const { data: before } = await supabaseAdmin.from("organizations")
+      .select("plan, plan_valid_till").eq("id", data.orgId).single();
+
+    // Compared as EFFECTIVE plans, which is what the workspace actually gets:
+    // setting "pro" with a date already past grants nothing, and telling
+    // somebody they were upgraded when their limits did not move would be a
+    // lie they discover on the billing screen. Re-saving the same plan to push
+    // the renewal date out is likewise not news, and must not notify.
+    const was = effectivePlan(before?.plan, before?.plan_valid_till);
+    const now = effectivePlan(data.plan, data.validTill);
+    const changed = was !== now;
+
     const { error } = await supabaseAdmin.from("organizations")
-      .update({ plan: data.plan, plan_valid_till: data.validTill })
+      .update({
+        plan: data.plan,
+        plan_valid_till: data.validTill,
+        // Only stamped on a real change. Left alone otherwise, so an
+        // already-delivered notice is not resurrected by an unrelated edit.
+        ...(changed ? { plan_previous: was, plan_changed_at: new Date().toISOString() } : {}),
+      })
       .eq("id", data.orgId);
     if (error) throw new Error(error.message);
-    log.info("setOrgPlan", { org: data.orgId, plan: data.plan, till: data.validTill, by: context.userId });
-    return { ok: true };
+    log.info("setOrgPlan", {
+      org: data.orgId, plan: data.plan, till: data.validTill,
+      was, notified: changed, by: context.userId,
+    });
+    return { ok: true, notified: changed, previousPlan: was };
   });
 
 /**

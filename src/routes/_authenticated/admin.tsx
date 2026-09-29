@@ -98,8 +98,16 @@ function AdminPage() {
     const validTill = plan === "free" ? null
       : new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10);
     try {
-      await changePlan({ data: { orgId, plan, validTill } });
-      toast.success(`Plan set to ${PLANS[plan].name}${validTill ? ` till ${validTill}` : ""}`);
+      const res = await changePlan({ data: { orgId, plan, validTill } }) as
+        { notified: boolean; previousPlan: string };
+      // Says whether the customer gets told, because that is the part you
+      // cannot see from here. Re-saving the same plan to extend the date
+      // changes nothing they would notice, so it raises no notice either.
+      toast.success(`Plan set to ${PLANS[plan].name}${validTill ? ` till ${validTill}` : ""}`, {
+        description: res.notified
+          ? "They will see it in Dhela the next time they open it."
+          : `Already on ${PLANS[res.previousPlan as PlanId]?.name ?? res.previousPlan}, so nothing is announced to them.`,
+      });
       qc.invalidateQueries({ queryKey: ["admin_users"] });
     } catch (e) { toast.error(describeError(e)); }
   };
