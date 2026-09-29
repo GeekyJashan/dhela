@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 type AppUser = {
   id: string; email: string | null; created_at: string;
   last_sign_in_at: string | null; updated_at: string | null; confirmed: boolean;
-  org: string | null; org_id: string | null;
+  org: string | null; org_id: string | null; gstin: string | null;
   plan: string | null; plan_valid_till: string | null;
   platform_admin: boolean;
 };
@@ -126,6 +126,9 @@ function AdminPage() {
             <TableHeader><TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Organization</TableHead>
+              <TableHead title="The GSTIN on the workspace's business details. Blank is normal — an unregistered dealer has none, and a new signup has not filled it in yet.">
+                GSTIN
+              </TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Signed up</TableHead>
               <TableHead title="Only moves when somebody actually authenticates. A user who never signs out will show an old date however often they use Dhela.">
@@ -150,6 +153,11 @@ function AdminPage() {
                     )}
                   </TableCell>
                   <TableCell>{u.org ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  {/* Mono and non-wrapping so the 15 characters can be read off
+                      and compared against a bill, the way they are elsewhere. */}
+                  <TableCell className="font-mono text-xs whitespace-nowrap">
+                    {u.gstin ?? <span className="font-sans text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell>
                     {u.org_id ? (
                       <div>
@@ -219,7 +227,7 @@ function AdminPage() {
                 </TableRow>
               ))}
               {!users?.length && (
-                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
                   Loading users…
                 </TableCell></TableRow>
               )}
