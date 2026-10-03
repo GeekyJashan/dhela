@@ -187,8 +187,23 @@ export function describeError(e: unknown): string {
  *   everything    A genuine bug. The message is still shown, because it is
  *   else          what gets pasted into a WhatsApp message to us.
  */
-export function classifyError(error: Error): "stale" | "offline" | "unknown" {
-  const m = error.message ?? "";
+/** The message of whatever was thrown, without assuming it was an Error. */
+export function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message ?? "";
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const m = (error as { message?: unknown }).message;
+    if (typeof m === "string") return m;
+  }
+  return "";
+}
+
+export function classifyError(error: unknown): "stale" | "offline" | "unknown" {
+  // `unknown`, not `Error`, because an error boundary catches whatever was
+  // thrown. A rejected fetch can hand you a string or a plain object, and
+  // reading .message off one of those used to throw inside the error screen,
+  // which is the worst possible place for a second error.
+  const m = errorMessage(error);
   // Offline is checked first, and that order is the whole point. A screen not
   // opened before has never had its chunk cached, so with no signal it fails
   // with the same "dynamically imported module" text as a stale tab. Reading

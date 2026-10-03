@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -16,7 +17,7 @@ import { toast } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SiteAnalytics } from "@/components/site-analytics";
 import { applySavedLanguage } from "@/i18n";
-import { classifyError } from "@/lib/offline";
+import { classifyError, errorMessage } from "@/lib/offline";
 
 function NotFoundComponent() {
   return (
@@ -35,7 +36,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   const kind = classifyError(error);
 
@@ -98,7 +99,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               Technical details
             </summary>
             <p className="mt-2 break-words rounded bg-muted p-2 font-mono text-[11px] text-muted-foreground">
-              {error.message}
+              {errorMessage(error) || String(error)}
             </p>
           </details>
         )}
