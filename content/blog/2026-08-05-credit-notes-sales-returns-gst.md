@@ -1,13 +1,36 @@
 ---
 title: Credit notes, debit notes and sales returns under GST, without the confusion
-description: Which document to raise when goods come back, the November deadline that kills your tax adjustment, why a credit note is not a discount, and what a return does to your stock and your profit.
+description: A sales return is a credit note, raised by the seller. Here is why it is never a debit note, the November deadline that kills your tax adjustment, how a credit note differs from the return itself, and what a return does to your stock and your profit.
 published: 2026-08-05
+updated: 2026-10-03
 tags: GST, returns, credit notes
 ---
 
-Goods come back. A retailer over-ordered, a carton was damaged in transit, the batch was near expiry, or the rate was wrong on the invoice.
+**A sales return is a credit note.** The seller raises it, and it reduces what the buyer owes. A debit note is the opposite document: the seller raises that when an invoice charged too little.
 
-What you raise next decides whether you get the tax back, whether your stock is right, and whether your profit for the month means anything.
+If you are the buyer sending goods back, you do not raise anything under GST. Your supplier's credit note is the document.
+
+That is the short answer. The rest of this is the deadline that quietly cancels your tax adjustment, why a credit note is not a discount, and what a return should do to your stock and your profit.
+
+## Is a sales return a credit note or a debit note
+
+A credit note, in every normal case.
+
+Goods coming back means the buyer owes you less than the invoice says. Reducing what the buyer owes is what a credit note does. A debit note increases it, which is why a sales return is never a debit note from the seller's side.
+
+The confusion usually comes from the buyer's end of the same transaction. A buyer returning goods often records a debit note in their own books, because the supplier's account is being debited there. That is bookkeeping, and it has no effect under GST. Only the supplier's credit note adjusts tax. If both documents are filed, the same return gets adjusted twice.
+
+## Sales return and credit note are not the same thing
+
+They are not two names for one event, and the queries that bring people to this page suggest the distinction is worth stating.
+
+A **sales return** is the physical event. Goods leave the retailer and arrive back at your godown. It changes your stock the moment it happens, whatever the paperwork says.
+
+A **credit note** is the document that records the money and tax consequences of it. It changes your receivable and your output tax liability, and only once it is raised and declared.
+
+They can come apart, and when they do it is expensive. Goods that came back in March with a credit note raised in December are a stock figure that was right all year and a tax adjustment that may already be out of time. A credit note raised for a return that never physically arrived is the opposite problem, and it is the one auditors look for.
+
+A credit note is also raised in cases where nothing came back at all: an overcharged rate, a quantity billed higher than delivered, a supply cancelled after invoicing. Every sales return should produce a credit note. Not every credit note is a sales return.
 
 ## Credit note or debit note
 
@@ -15,7 +38,7 @@ The direction confuses everyone, so here it is plainly, from the seller's point 
 
 **Credit note** — you are reducing what the buyer owes you. Goods returned, rate charged too high, quantity billed more than delivered, or the supply was cancelled after invoicing.
 
-**Debit note** — you are increasing what the buyer owes you. Rate charged too low, quantity delivered more than billed, a charge you left off.
+**Debit note** — you are increasing what the buyer owes you. Rate charged too low, quantity delivered more than billed, a charge you left off. The four cases, and the deadline rule that works differently from credit notes, are in [when to issue a debit note](/blog/when-to-issue-a-debit-note).
 
 If you are on the buying side and your supplier issues you a credit note, you do not raise anything. Their credit note is the document. Recording a matching debit note of your own is a common habit and it double counts.
 
@@ -25,7 +48,7 @@ A credit note can only carry a **tax adjustment** if it is declared by a cut-off
 
 So a sale made in July 2026 sits in FY 2026-27. A credit note for it must be declared by **30 November 2027**.
 
-Past that date, you can still issue a commercial credit note. What you cannot do is reduce your output tax liability with it. You will refund the goods and keep paying the GST on a sale that came back.
+Past that date, you can still issue a [commercial credit note](/blog/commercial-credit-note-under-gst). What you cannot do is reduce your output tax liability with it. You will refund the goods and keep paying the GST on a sale that came back.
 
 This bites hardest on slow-moving returns — expiry returns in pharma, seasonal stock in FMCG — where the goods sit at the retailer for a year before anyone deals with them.
 
@@ -67,7 +90,7 @@ There is also a separate table for credit notes against unregistered supplies, a
 2. **Decide saleable or write-off.** Expired or damaged goods do not go back into stock.
 3. **Raise the credit note the same week**, referencing the original invoice number and date.
 4. **Check the stock moved and the profit reversed.** If only one of the two happened, you have a problem that will surface at year end.
-5. **Send the retailer an updated statement.** A return they think happened and you did not record is a common cause of a disputed [receivables balance](/blog/receivables-ageing-how-to-read-it). A return they think happened and you did not record is the most common cause of a disputed balance.
+5. **Send the retailer an updated statement.** A return they think happened and you did not record is the most common cause of a disputed [receivables balance](/blog/receivables-ageing-how-to-read-it).
 
 ## Where Dhela fits
 
