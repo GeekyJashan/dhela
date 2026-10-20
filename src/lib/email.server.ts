@@ -77,36 +77,185 @@ export type Mail = {
   unsubscribe: string;
 };
 
-/** Minimal escaping, because the body is plain text going into an HTML part. */
+/** Minimal escaping. Runs before any markup is added, never after. */
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
 /**
- * The HTML part.
+ * Brand colours as hex.
  *
- * Deliberately plain. A mail that looks like a newsletter gets filed like a
- * newsletter, and this is going to distributors who read mail on a phone. One
- * column, system fonts, no images, no tracking pixel.
+ * The app is written in oklch, which no email client understands. These are
+ * the same colours converted once, here, rather than guessed at per template.
  */
-function html(body: string, unsubscribe: string): string {
-  const paragraphs = body
-    .split(/\n{2,}/)
-    .map(p => `<p style="margin:0 0 16px">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#faf8f5">
-<div style="max-width:560px;margin:0 auto;padding:32px 24px;font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1c2b2f">
-${paragraphs}
-<hr style="border:none;border-top:1px solid #e5e0d8;margin:32px 0 16px">
-<p style="margin:0;font-size:12px;color:#7a7268">
-Dhela &middot; <a href="${SITE}" style="color:#7a7268">dhela.in</a><br>
-<a href="${unsubscribe}" style="color:#7a7268">Unsubscribe from these emails</a>
-</p>
-</div></body></html>`;
+const C = {
+  ink: "#1c2b2f",
+  muted: "#7a7268",
+  cream: "#faf8f5",
+  card: "#ffffff",
+  teal: "#0f5d64",
+  gold: "#dfa14b",
+  goldSoft: "#fdf4e6",
+  border: "#e8e2d9",
+};
+
+/**
+ * What the compose box understands.
+ *
+ *   # Heading            a section heading
+ *   ## Smaller heading
+ *   - item               a bullet with a gold dot
+ *   **bold**             bold
+ *   [label](url)         a link, or a button when alone on its line
+ *   > was | now | note   the price block
+ *   ---                  a divider
+ *
+ * Deliberately a small, familiar subset rather than a markdown library. The
+ * person writing these is composing one email a month in a textarea, not
+ * authoring documents, and every extra rule is something to get wrong at the
+ * moment of sending to the entire customer list.
+ */
+function inline(raw: string): string {
+  let t = escapeHtml(raw);
+  t = t.replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${C.ink}">$1</strong>`);
+  t = t.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    `<a href="$2" style="color:${C.teal};text-decoration:underline">$1</a>`,
+  );
+  return t;
 }
 
+/** Bulletproof button: a table cell with a real background, not a styled <a>. */
+function button(label: string, href: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0">
+<tr><td align="center">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="center" bgcolor="${C.teal}" style="border-radius:8px">
+<a href="${href}" style="display:inline-block;padding:14px 36px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px">${escapeHtml(label)}</a>
+</td></tr></table>
+</td></tr></table>`;
+}
+
+/**
+ * The price block: old struck through, new large and gold.
+ *
+ * Text, not an image, and that is the point. Most clients block images until
+ * the reader allows them, and the one thing this email exists to say must not
+ * be the thing that fails to load.
+ */
+function priceBlock(parts: string[]): string {
+  const [was, now, note] = parts;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0">
+<tr><td align="center" bgcolor="${C.goldSoft}" style="padding:24px 16px;border-radius:12px;border:1px solid ${C.gold}33">
+${note ? `<div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:${C.muted};margin-bottom:10px">${escapeHtml(note)}</div>` : ""}
+<span style="font-size:19px;color:${C.muted};text-decoration:line-through;white-space:nowrap">${escapeHtml(was ?? "")}</span>
+<span style="font-size:19px;color:${C.muted};padding:0 9px">&rarr;</span>
+<span style="font-size:30px;font-weight:700;color:${C.ink};white-space:nowrap">${escapeHtml(now ?? "")}</span>
+</td></tr></table>`;
+}
+
+/** Turn one block of source into one block of HTML. */
+function renderBlock(block: string): string {
+  const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return "";
+
+  if (lines.every(l => l === "---")) {
+    return `<hr style="border:none;border-top:1px solid ${C.border};margin:28px 0">`;
+  }
+
+  // A price line: "> ₹3,999 | ₹899 a year | Standard plan"
+  if (lines[0].startsWith(">")) {
+    return priceBlock(lines[0].slice(1).split("|").map(x => x.trim()));
+  }
+
+  // A lone link becomes the call to action.
+  const lone = lines.length === 1 && lines[0].match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+  if (lone) return button(lone[1], lone[2]);
+
+  if (lines[0].startsWith("## ")) {
+    return `<h2 style="margin:28px 0 10px;font-size:19px;font-weight:600;color:${C.ink}">${inline(lines[0].slice(3))}</h2>`
+      + renderBlock(lines.slice(1).join("\n"));
+  }
+  if (lines[0].startsWith("# ")) {
+    return `<h1 style="margin:0 0 14px;font-size:27px;line-height:1.25;font-weight:700;color:${C.ink}">${inline(lines[0].slice(2))}</h1>`
+      + renderBlock(lines.slice(1).join("\n"));
+  }
+
+  if (lines.every(l => l.startsWith("- "))) {
+    // A table rather than <ul>: Outlook's list indentation is its own weather
+    // system, and a two-cell row behaves everywhere.
+    const rows = lines.map(l =>
+      `<tr>
+<td width="22" valign="top" style="padding:5px 0;color:${C.gold};font-size:17px;line-height:1.5">&bull;</td>
+<td valign="top" style="padding:5px 0;font-size:16px;line-height:1.55;color:${C.ink}">${inline(l.slice(2))}</td>
+</tr>`).join("");
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 18px">${rows}</table>`;
+  }
+
+  return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${C.ink}">${lines.map(inline).join("<br>")}</p>`;
+}
+
+/**
+ * The HTML part.
+ *
+ * One column, 600px, tables throughout, every colour inline. No webfonts and
+ * no background images: both fail quietly in enough clients that designing
+ * around them is cheaper than discovering which ones.
+ */
+function html(body: string, unsubscribe: string): string {
+  const content = body.split(/\n{2,}/).map(renderBlock).join("");
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+</head>
+<body style="margin:0;padding:0;background:${C.cream};-webkit-font-smoothing:antialiased">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">Dhela</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.cream}" style="background:${C.cream}">
+<tr><td align="center" style="padding:28px 12px 40px">
+
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
+
+  <tr><td align="center" style="padding:0 0 22px">
+    <a href="${SITE}" style="text-decoration:none">
+      <img src="${SITE}/icon.png" width="40" height="40" alt="Dhela" style="display:inline-block;vertical-align:middle;border:0;border-radius:50%">
+      <span style="display:inline-block;vertical-align:middle;padding-left:10px;font-size:23px;font-weight:700;letter-spacing:-0.2px;color:${C.ink}">Dhela</span>
+    </a>
+  </td></tr>
+
+  <tr><td bgcolor="${C.gold}" style="background:${C.gold};height:4px;line-height:4px;font-size:0;border-radius:14px 14px 0 0">&nbsp;</td></tr>
+
+  <tr><td bgcolor="${C.card}" style="background:${C.card};padding:32px;border-radius:0 0 14px 14px;border:1px solid ${C.border};border-top:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+${content}
+  </td></tr>
+
+  <tr><td align="center" style="padding:22px 16px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:${C.muted}">
+    Dhela &middot; invoice and inventory software for Indian distributors<br>
+    <a href="${SITE}" style="color:${C.muted}">dhela.in</a>
+    &nbsp;&middot;&nbsp;
+    <a href="${unsubscribe}" style="color:${C.muted}">Unsubscribe</a>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+/** The text part, with the markup taken back out. */
 function text(body: string, unsubscribe: string): string {
-  return `${body}\n\n---\nDhela  ${SITE}\nUnsubscribe: ${unsubscribe}\n`;
+  const plain = body
+    .split("\n")
+    .map(l => {
+      const t = l.trim();
+      if (t.startsWith(">")) return t.slice(1).split("|").map(x => x.trim()).filter(Boolean).join("  ");
+      if (t === "---") return "------------------------------";
+      return l
+        .replace(/^#{1,2}\s+/, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2");
+    })
+    .join("\n");
+  return `${plain}\n\n---\nDhela  ${SITE}\nUnsubscribe: ${unsubscribe}\n`;
 }
 
 export type SendResult = { email: string; ok: boolean; error?: string };

@@ -252,10 +252,18 @@ function MassEmail() {
             <Label htmlFor="body">Message</Label>
             <Textarea id="body" rows={10} value={body} onChange={e => setBody(e.target.value)}
               className="mt-1" placeholder="Plain text. A blank line starts a new paragraph." />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Sent as plain text with a matching HTML part. An unsubscribe link is
-              added to every message automatically.
-            </p>
+            <div className="mt-2 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Formatting</p>
+              <p><code className="font-mono"># Heading</code> and <code className="font-mono">## Smaller heading</code></p>
+              <p><code className="font-mono">- item</code> for a bullet, <code className="font-mono">**bold**</code> for bold</p>
+              <p><code className="font-mono">[Label](https://…)</code> for a link, or a button when it is alone on its line</p>
+              <p><code className="font-mono">&gt; ₹3,999 | ₹899 / year | Standard plan</code> for the price block</p>
+              <p><code className="font-mono">---</code> for a divider</p>
+              <p className="pt-1">
+                Goes out as a branded HTML email with the Dhela logo, plus a plain-text
+                copy for clients that want one. The unsubscribe link is added for you.
+              </p>
+            </div>
           </div>
           <Button disabled={!ready} onClick={() => setConfirming(true)}>
             <Send className="h-4 w-4 mr-2" />
