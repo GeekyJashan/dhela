@@ -75,6 +75,18 @@ export type Mail = {
   /** Plain text as typed by the sender. Turned into HTML and a text part. */
   body: string;
   unsubscribe: string;
+  /**
+   * Send it looking like a person wrote it, not a campaign.
+   *
+   * Gmail sorts into Primary or Promotions with a per-recipient classifier,
+   * and the things it reads as promotional are the things a designed email is
+   * made of: a logo, a coloured button, a price panel, a styled footer. The
+   * branded version is the right call for a list of two thousand. For a list
+   * of twenty-two customers who know who you are, a message that looks like
+   * mail from a human gets opened, and a reply is the strongest Primary
+   * signal there is.
+   */
+  plain?: boolean;
 };
 
 /** Minimal escaping. Runs before any markup is added, never after. */
@@ -196,7 +208,49 @@ function renderBlock(block: string): string {
 }
 
 /**
- * The HTML part.
+ * The plain-looking HTML part.
+ *
+ * Still HTML, because a text/plain-only message is itself unusual enough to
+ * be a signal, but with nothing in it that reads as a campaign: no logo, no
+ * button, no panels, no colour beyond a link. Headings and bullets survive
+ * because a person writing a long note uses them too.
+ */
+function plainHtml(body: string, unsubscribe: string): string {
+  const paras = body.split(/\n{2,}/).map(block => {
+    const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return "";
+    if (lines[0].startsWith(">")) {
+      // The price block becomes a sentence rather than a panel. The arrow
+      // belongs between the two prices only; the third part is a label, and
+      // joining all three with arrows read as a three-step price change.
+      const [was, now, note] = lines[0].slice(1).split("|").map(x => x.trim());
+      const money = [was, now].filter(Boolean).map(inline).join(" &rarr; ");
+      return `<p style="margin:0 0 14px">${money}${note ? ` (${inline(note)})` : ""}</p>`;
+    }
+    if (lines.every(l => l === "---")) return "";
+    if (lines.every(l => l.startsWith("- "))) {
+      return `<p style="margin:0 0 14px">${lines.map(l => "&bull; " + inline(l.slice(2))).join("<br>")}</p>`;
+    }
+    const head = lines[0].replace(/^#{1,2}\s+/, "");
+    const rest = lines.slice(1);
+    const first = lines[0].startsWith("#")
+      ? `<strong>${inline(head)}</strong>`
+      : inline(lines[0]);
+    return `<p style="margin:0 0 14px">${[first, ...rest.map(inline)].join("<br>")}</p>`;
+  }).join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:600px">
+${paras}
+<p style="margin:18px 0 0;font-size:13px;color:#888">
+To stop receiving these, <a href="${unsubscribe}" style="color:#888">unsubscribe here</a>.
+</p>
+</div></body></html>`;
+}
+
+/**
+ * The branded HTML part.
  *
  * One column, 600px, tables throughout, every colour inline. No webfonts and
  * no background images: both fail quietly in enough clients that designing
@@ -283,7 +337,7 @@ export async function sendBatch(mails: Mail[]): Promise<SendResult[]> {
       from: emailFrom(),
       to: [m.to],
       subject: m.subject,
-      html: html(m.body, m.unsubscribe),
+      html: m.plain ? plainHtml(m.body, m.unsubscribe) : html(m.body, m.unsubscribe),
       text: text(m.body, m.unsubscribe),
       headers: {
         "List-Unsubscribe": `<${m.unsubscribe}>`,

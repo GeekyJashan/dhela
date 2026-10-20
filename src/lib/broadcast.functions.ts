@@ -136,6 +136,8 @@ export const sendCampaign = createServerFn({ method: "POST" })
     audienceInput.extend({
       subject: z.string().min(1, "A subject is required").max(200),
       body: z.string().min(1, "The message is empty"),
+      /** Strip the branding so it reads as a personal note. */
+      plain: z.boolean().default(false),
       /** Must be true. A send is not something to trigger by accident. */
       confirm: z.literal(true),
     }).parse(d),
@@ -155,7 +157,7 @@ export const sendCampaign = createServerFn({ method: "POST" })
     const { data: campaign, error: cErr } = await supabaseAdmin.from("email_campaigns").insert({
       subject: data.subject,
       body: data.body,
-      audience: { sources: data.sources, include: data.include, exclude: data.exclude },
+      audience: { sources: data.sources, include: data.include, exclude: data.exclude, plain: data.plain },
       status: "sending",
       created_by: context.userId,
     }).select("id").single();
@@ -179,6 +181,7 @@ export const sendCampaign = createServerFn({ method: "POST" })
       subject: data.subject,
       body: data.body,
       unsubscribe: unsubscribeUrl(r.email),
+      plain: data.plain,
     })));
 
     let sent = 0, failed = 0;

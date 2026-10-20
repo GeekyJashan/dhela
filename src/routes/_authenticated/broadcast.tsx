@@ -97,6 +97,7 @@ function MassEmail() {
   const [includeRaw, setIncludeRaw] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [plain, setPlain] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -128,7 +129,7 @@ function MassEmail() {
   const doSend = async () => {
     setSending(true);
     try {
-      const r = await send({ data: { sources, exclude, include, subject, body, confirm: true } });
+      const r = await send({ data: { sources, exclude, include, subject, body, plain, confirm: true } });
       toast.success(`Sent to ${r.sent} recipient${r.sent === 1 ? "" : "s"}`, {
         description: r.failed ? `${r.failed} failed. See the history below.` : undefined,
       });
@@ -265,6 +266,22 @@ function MassEmail() {
               </p>
             </div>
           </div>
+          {/* Defaulted on. Gmail files a branded campaign under Promotions,
+              where it is still delivered but gets a fraction of the opens, and
+              for a list this size a message that looks like a person wrote it
+              is simply the better tool. */}
+          <div className="flex items-start justify-between gap-4 rounded-md border p-3">
+            <div>
+              <Label htmlFor="plain" className="cursor-pointer">Send as a personal email</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                No logo, no button, no panels. Plainer mail is far likelier to land in
+                Gmail's Primary tab than in Promotions, and a reply is the strongest
+                signal that keeps you there. Turn this off for a branded campaign.
+              </p>
+            </div>
+            <Switch id="plain" checked={plain} onCheckedChange={setPlain} />
+          </div>
+
           <Button disabled={!ready} onClick={() => setConfirming(true)}>
             <Send className="h-4 w-4 mr-2" />
             Send to {willSend} recipient{willSend === 1 ? "" : "s"}
