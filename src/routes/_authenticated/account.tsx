@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Building2, Landmark, TriangleAlert, LogOut } from "lucide-react";
@@ -24,6 +25,7 @@ type Org = {
   state_code: string | null; phone: string | null; email: string | null;
   bank_name: string | null; bank_account_no: string | null; bank_ifsc: string | null;
   bank_branch: string | null; upi_id: string | null; signatory_name: string | null;
+  show_dhela_branding: boolean | null;
 };
 
 function AccountPage() {
@@ -39,7 +41,8 @@ function AccountPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("organizations")
         .select("id, name, gstin, address, state_code, phone, email, "
-          + "bank_name, bank_account_no, bank_ifsc, bank_branch, upi_id, signatory_name")
+          + "bank_name, bank_account_no, bank_ifsc, bank_branch, upi_id, signatory_name, "
+          + "show_dhela_branding")
         .limit(1).single();
       if (error) throw error;
       return data as unknown as Org;
@@ -59,7 +62,10 @@ function AccountPage() {
       state_code: org.state_code, phone: org.phone, email: org.email });
     setBank({ bank_name: org.bank_name, bank_account_no: org.bank_account_no,
       bank_ifsc: org.bank_ifsc, bank_branch: org.bank_branch, upi_id: org.upi_id,
-      signatory_name: org.signatory_name });
+      signatory_name: org.signatory_name,
+      // `?? true` so a workspace created before this column reads as on,
+      // which is the default the database gives it anyway.
+      show_dhela_branding: org.show_dhela_branding ?? true });
   }, [org?.id]);
 
   const [clearOpen, setClearOpen] = useState(false);
@@ -83,6 +89,7 @@ function AccountPage() {
         bank_name: bank.bank_name ?? null, bank_account_no: bank.bank_account_no ?? null,
         bank_ifsc: bank.bank_ifsc ?? null, bank_branch: bank.bank_branch ?? null,
         upi_id: bank.upi_id ?? null, signatory_name: bank.signatory_name ?? null,
+        show_dhela_branding: bank.show_dhela_branding ?? true,
       }});
       toast.success(t("Bank details saved"));
       qc.invalidateQueries({ queryKey: ["org_profile"] });
@@ -174,6 +181,23 @@ function AccountPage() {
           <p className="text-xs text-muted-foreground">
             {t("The signature image is uploaded from a sales bill, where you can see it in place.")}
           </p>
+
+          <div className="flex items-start justify-between gap-4 rounded-md border p-3">
+            <div>
+              <Label htmlFor="dhela-mark" className="cursor-pointer">
+                {t("Show \"Billed with Dhela\" on bills")}
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.")}
+              </p>
+            </div>
+            <Switch
+              id="dhela-mark"
+              checked={bank.show_dhela_branding ?? true}
+              onCheckedChange={v => setBank({ ...bank, show_dhela_branding: v })}
+            />
+          </div>
+
           <Button onClick={submitBank}>{t("Save bill footer")}</Button>
         </CardContent>
       </Card>

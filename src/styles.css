@@ -552,3 +552,20 @@
   .plan-badge-in, .plan-badge-sheen { animation: none !important; }
   .plan-badge-in { opacity: 1; transform: none; }
 }
+
+/* --- the mark on a printed bill --- */
+/* The coin mints itself in from opacity 0 on mount. On screen that has long
+   finished by the time anyone reaches for Print, but a print triggered while
+   it is still running would put a blank square on a customer's invoice, and
+   nobody would ever see that happen to report it. Pinned on, flat, always. */
+@media print {
+  .dhela-bill-mark .dhela-coin,
+  .dhela-bill-mark .dhela-mark {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  /* A specular sweep is a CSS background, which most browsers drop in print
+     anyway. Removing it means the coin prints the same everywhere. */
+  .dhela-bill-mark .dhela-shine { display: none !important; }
+}

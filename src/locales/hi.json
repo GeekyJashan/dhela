@@ -902,5 +902,7 @@
   "{{n}} minutes of voice a month": "महीने में {{n}} मिनट वॉइस",
   "Valid till {{date}}": "{{date}} तक मान्य",
   "Got it": "समझ गया",
-  "See what is included": "देखें क्या शामिल है"
+  "See what is included": "देखें क्या शामिल है",
+  "Show \"Billed with Dhela\" on bills": "बिल पर \"Billed with Dhela\" दिखाएं",
+  "One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.": "हर बिक्री बिल के नीचे हमारे लोगो के साथ एक छोटी लाइन। बंद कर दें तो आपके बिल पर हमारा कुछ नहीं रहेगा।"
 }

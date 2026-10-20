@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine } from "lucide-react";
+import { DhelaCoin } from "@/components/logo";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { describeError } from "@/lib/offline";
@@ -27,6 +28,7 @@ type Org = {
   email?: string; state_code?: string;
   bank_name?: string; bank_account_no?: string; bank_ifsc?: string; bank_branch?: string; upi_id?: string;
   signatory_name?: string; signature_image?: string;
+  show_dhela_branding?: boolean;
 };
 
 function SalesInvoiceView() {
@@ -40,7 +42,7 @@ function SalesInvoiceView() {
     queryKey: ["sales_invoice", id],
     queryFn: async () => {
       const [invRes, linesRes] = await Promise.all([
-        supabase.from("sales_invoices").select("*, retailer:retailers(*), org:organizations(id, name, gstin, address, phone, email, state_code, bank_name, bank_account_no, bank_ifsc, bank_branch, upi_id, signatory_name, signature_image)").eq("id", id).single(),
+        supabase.from("sales_invoices").select("*, retailer:retailers(*), org:organizations(id, name, gstin, address, phone, email, state_code, bank_name, bank_account_no, bank_ifsc, bank_branch, upi_id, signatory_name, signature_image, show_dhela_branding)").eq("id", id).single(),
         supabase.from("sales_invoice_lines").select("*").eq("sales_invoice_id", id).order("line_no"),
       ]);
       if (invRes.error) throw invRes.error;
@@ -256,6 +258,18 @@ function SalesInvoiceView() {
             <div className="text-muted-foreground">{t("Cost of goods")}: ₹ {Number(inv.total_cost ?? 0).toLocaleString("en-IN")}</div>
             <div className="text-success text-right font-medium">{t("Profit")}: ₹ {Number(inv.total_profit ?? 0).toLocaleString("en-IN")}</div>
           </div>
+
+          {/* Deliberately not translated. It is a name and a web address, and
+              both are the same in every language.
+
+              `!== false` rather than a truthy check: a workspace that predates
+              the column reads as undefined, and the intended default is on. */}
+          {org.show_dhela_branding !== false && (
+            <div className="dhela-bill-mark flex items-center justify-center gap-1.5 pt-2 text-[11px] text-muted-foreground">
+              <DhelaCoin size={13} idle={false} />
+              <span>Billed with Dhela · dhela.in</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

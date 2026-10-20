@@ -14,6 +14,7 @@ export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
       upi_id: z.string().nullish(),
       signatory_name: z.string().nullish(),
       signature_image: z.string().nullish(),
+      show_dhela_branding: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -31,10 +32,17 @@ export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
       "bank_name", "bank_account_no", "bank_ifsc", "bank_branch", "upi_id",
       "signatory_name", "signature_image",
     ] as const;
-    const update: Partial<Record<(typeof fields)[number], string | null>> = {};
+    const update: Partial<Record<(typeof fields)[number], string | null>> &
+      { show_dhela_branding?: boolean } = {};
     for (const f of fields) {
       const v = data[f];
       if (v !== undefined) update[f] = v === "" ? null : v;
+    }
+    // Kept out of the loop above because that one maps "" to null, which is
+    // right for text and would turn `false` into a null boolean on a NOT NULL
+    // column. Still partial: undefined leaves the current setting alone.
+    if (data.show_dhela_branding !== undefined) {
+      update.show_dhela_branding = data.show_dhela_branding;
     }
     if (Object.keys(update).length === 0) return { ok: true };
     const { error } = await supabase.from("organizations").update(update).eq("id", mem.org_id);

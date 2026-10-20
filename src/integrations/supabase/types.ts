@@ -964,6 +964,7 @@ export type Database = {
           plan_changed_at: string | null
           plan_previous: string | null
           plan_valid_till: string | null
+          show_dhela_branding: boolean
           signatory_name: string | null
           signature_image: string | null
           state_code: string | null
@@ -987,6 +988,7 @@ export type Database = {
           plan_changed_at?: string | null
           plan_previous?: string | null
           plan_valid_till?: string | null
+          show_dhela_branding?: boolean
           signatory_name?: string | null
           signature_image?: string | null
           state_code?: string | null
@@ -1010,6 +1012,7 @@ export type Database = {
           plan_changed_at?: string | null
           plan_previous?: string | null
           plan_valid_till?: string | null
+          show_dhela_branding?: boolean
           signatory_name?: string | null
           signature_image?: string | null
           state_code?: string | null
