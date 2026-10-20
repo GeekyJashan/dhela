@@ -375,7 +375,7 @@
   "valid till": "मान्य तक",
   "The counter resets on the 1st of each month. The free OCR engine never counts against it.": "काउंटर हर महीने की 1 तारीख को रीसेट होता है। मुफ़्त OCR इंजन कभी इसमें नहीं गिना जाता।",
   "Current": "वर्तमान",
-  "year": "वर्ष",
+  "year": "साल",
   "{{n}} AI extractions / month": "{{n}} AI एक्सट्रैक्शन / माह",
   "Unlimited free OCR extraction": "असीमित मुफ़्त OCR एक्सट्रैक्शन",
   "WhatsApp statements & reminders": "WhatsApp विवरण और रिमाइंडर",
@@ -907,5 +907,9 @@
   "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days": "प्राथमिकता सहायता: बताइए क्या खराब है, या कोई छोटी चीज़ चाहिए, 2 कार्यदिवस में आपको मिल जाएगा",
   "Founding price: {{amt}} a year, held for as long as you stay subscribed.": "शुरुआती कीमत: {{amt}} साल, जब तक आप जुड़े रहेंगे यही रहेगी।",
   "Diwali offer: join before {{date}} and your first year runs {{months}} months.": "दिवाली ऑफर: {{date}} से पहले लीजिए और आपका पहला साल {{months}} महीने चलेगा।",
-  "A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you": "हमारी टीम के साथ 15 मिनट की कॉल: बताइए आप क्या बनवाना चाहते हैं, और हम आपके नंबरों पर आपके साथ बैठेंगे"
+  "A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you": "हमारी टीम के साथ 15 मिनट की कॉल: बताइए आप क्या बनवाना चाहते हैं, और हम आपके नंबरों पर आपके साथ बैठेंगे",
+  "Diwali offer": "दिवाली ऑफर",
+  "Save {{pct}}%": "{{pct}}% बचत",
+  "about {{amt}} a month, GST included": "लगभग {{amt}} प्रति माह, GST सहित",
+  "Ends {{date}}. Join before then and your first year runs {{months}} months.": "{{date}} तक। उससे पहले लीजिए और आपका पहला साल {{months}} महीने चलेगा।"
 }

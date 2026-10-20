@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { Reveal, CountUp, useInView } from "@/components/reveal";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { PLANS, LAUNCH_OFFER, savingPct, onOffer, type PlanId } from "@/lib/plans";
 import { whatsappLink, supportPhoneDisplay, supportPhoneDigits, FOUNDER_EMAIL } from "@/lib/support";
 import { cn } from "@/lib/utils";
 import { LANG_SAMPLES } from "@/lib/lang-samples";
@@ -1118,28 +1118,50 @@ function Pricing() {
           {PLAN_ORDER.map((id, i) => {
             const p = PLANS[id];
             const pitch = PLAN_PITCH[id];
+            const sale = onOffer(id);
             const featured = id === "standard";
             return (
               <Reveal key={id} delay={i * 80} className="h-full">
                 <div className={cn(
-                  "relative flex h-full flex-col rounded-2xl border bg-card p-6 card-lift",
-                  featured && "border-primary shadow-lg md:-mt-3",
+                  "relative flex h-full flex-col overflow-hidden rounded-2xl border bg-card card-lift",
+                  featured && !sale && "border-primary shadow-lg md:-mt-3",
+                  // On offer outranks recommended: one badge, not two competing
+                  // for the same corner and saying different things.
+                  sale && "border-accent shadow-xl md:-mt-3",
                 )}>
-                  {featured && (
-                    <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground">
+                  {sale ? (
+                    <div className="flex items-center justify-between bg-accent px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-accent-foreground">
+                      <span>Diwali offer</span>
+                      <span>Save {savingPct(id)}%</span>
+                    </div>
+                  ) : featured ? (
+                    <div className="bg-primary px-5 py-2 text-[11px] font-medium uppercase tracking-wide text-primary-foreground">
                       Recommended
-                    </span>
-                  )}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-1 flex-col p-6">
                   <h3 className="font-display text-2xl">{p.name}</h3>
                   <p className="text-sm text-muted-foreground mt-1 min-h-10">{pitch.for}</p>
                   <div className="mt-5">
+                    {sale && (
+                      <div className="text-sm text-muted-foreground line-through decoration-2">
+                        {inr(p.priceYearlyBefore!)} / year
+                      </div>
+                    )}
                     <span className="font-display text-4xl">
-                      {p.priceYearly ? inr(p.priceMonthly) : "₹0"}
+                      {p.priceYearly ? inr(p.priceYearly) : "₹0"}
                     </span>
-                    <span className="text-sm text-muted-foreground"> / month</span>
+                    {!!p.priceYearly && <span className="text-sm text-muted-foreground"> / year</span>}
                     <div className="text-xs text-muted-foreground mt-1">
-                      {p.priceYearly ? `${inr(p.priceYearly)} a year, incl. GST. No AMC.` : "Free forever, not a trial"}
+                      {p.priceYearly
+                        ? `about ${inr(p.priceMonthly)} a month, incl. GST. No AMC.`
+                        : "Free forever, not a trial"}
                     </div>
+                    {sale && (
+                      <div className="mt-3 rounded-md bg-accent/10 px-3 py-2 text-[11px] leading-snug text-accent-foreground">
+                        Ends 30 November. Join before then and your first year runs {12 + LAUNCH_OFFER.bonusMonths} months.
+                      </div>
+                    )}
                   </div>
                   <ul className="mt-5 space-y-2 text-sm">
                     <li className="flex gap-2">
@@ -1161,10 +1183,11 @@ function Pricing() {
                     ))}
                   </ul>
                   <Link to="/auth" className="mt-auto block pt-6">
-                    <Button className="w-full" variant={featured ? "default" : "outline"}>
-                      {id === "free" ? "Start free" : `Start free, upgrade later`}
+                    <Button className="w-full" variant={sale || featured ? "default" : "outline"}>
+                      {id === "free" ? "Start free" : "Start free, upgrade later"}
                     </Button>
                   </Link>
+                  </div>
                 </div>
               </Reveal>
             );

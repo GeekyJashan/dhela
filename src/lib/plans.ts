@@ -67,6 +67,13 @@ export const PLANS: Record<PlanId, {
   priceYearly: number;          // ₹, incl. GST
   /** Rounded, for the "about ₹x a month" line. priceYearly is what is charged. */
   priceMonthly: number;
+  /**
+   * What this plan cost before the current offer, or null when it is not on
+   * one. A sale nobody can see the old price of is not a sale, it is just a
+   * number, so this is what the struck-through figure on every plan card and
+   * in the launch email is read from.
+   */
+  priceYearlyBefore: number | null;
   aiExtractionsPerMonth: number;
   /**
    * Seconds, not minutes.
@@ -83,6 +90,7 @@ export const PLANS: Record<PlanId, {
     name: "Free",
     priceYearly: 0,
     priceMonthly: 0,
+    priceYearlyBefore: null,
     aiExtractionsPerMonth: 15,
     liveVoiceSecondsPerMonth: 0,
     gstinLookup: false,
@@ -91,6 +99,7 @@ export const PLANS: Record<PlanId, {
     name: "Standard",
     priceYearly: 899,
     priceMonthly: 75,
+    priceYearlyBefore: 3999,
     aiExtractionsPerMonth: 200,
     // Half a minute a month is not a feature, it is a demonstration: enough to
     // hear the thing answer out loud once and understand what Pro is for.
@@ -102,6 +111,8 @@ export const PLANS: Record<PlanId, {
     // Untouched. Only Standard is on offer, and Pro is what pays for it.
     priceYearly: 7999,
     priceMonthly: 667,
+    // Not on offer. Only Standard is.
+    priceYearlyBefore: null,
     aiExtractionsPerMonth: 500,
     // An hour. A literally uncapped allowance is not possible on a feature
     // billed by the minute that bills while nobody is talking, and at ₹7,999
@@ -130,6 +141,18 @@ export const LAUNCH_OFFER = {
 
 export function launchOfferLive(today = new Date().toISOString().slice(0, 10)): boolean {
   return today <= LAUNCH_OFFER.until;
+}
+
+/** Whole percent off, for the badge. Rounded down so it is never overstated. */
+export function savingPct(plan: PlanId): number | null {
+  const p = PLANS[plan];
+  if (!p.priceYearlyBefore || p.priceYearlyBefore <= p.priceYearly) return null;
+  return Math.floor((1 - p.priceYearly / p.priceYearlyBefore) * 100);
+}
+
+/** True when this plan should be shown as on offer right now. */
+export function onOffer(plan: PlanId): boolean {
+  return savingPct(plan) !== null && launchOfferLive();
 }
 
 /** Hard ceiling on one conversation, so a forgotten tab has a bounded cost. */

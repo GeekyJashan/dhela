@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
-import { PLANS, LAUNCH_OFFER, launchOfferLive, type PlanId } from "@/lib/plans";
+import { PLANS, LAUNCH_OFFER, launchOfferLive, savingPct, onOffer, type PlanId } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, MessageCircle, Sparkles, ScanLine, Copy, Mail } from "lucide-react";
@@ -101,6 +101,7 @@ function BillingPage() {
         {planOrder.map(id => {
           const p = PLANS[id];
           const current = billing?.plan === id;
+          const sale = onOffer(id);
           const features = [
             t("{{n}} AI bill reads / month", { n: p.aiExtractionsPerMonth }),
             t("Unlimited bills, orders & payments"),
@@ -122,7 +123,19 @@ function BillingPage() {
                 : []),
           ];
           return (
-            <Card key={id} className={cn("flex flex-col", current && "border-primary shadow-sm")}>
+            <Card key={id} className={cn(
+              "relative flex flex-col overflow-hidden",
+              current && "border-primary shadow-sm",
+              // The plan on offer is the one being sold, so it is the one that
+              // looks sold: gold edge, raised, ribbon across the head.
+              sale && "border-accent shadow-md md:-mt-2",
+            )}>
+              {sale && (
+                <div className="flex items-center justify-between bg-accent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent-foreground">
+                  <span>{t("Diwali offer")}</span>
+                  <span>{t("Save {{pct}}%", { pct: savingPct(id) })}</span>
+                </div>
+              )}
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between text-base font-medium text-muted-foreground">
                   {p.name}
@@ -133,15 +146,29 @@ function BillingPage() {
                   )}
                 </CardTitle>
                 <div className="pt-1">
+                  {sale && (
+                    <div className="text-sm text-muted-foreground line-through decoration-2">
+                      {inr(p.priceYearlyBefore!)} / {t("year")}
+                    </div>
+                  )}
                   <span className="font-display text-4xl">
-                    {p.priceYearly ? inr(p.priceMonthly) : "₹0"}
+                    {p.priceYearly ? inr(p.priceYearly) : "₹0"}
                   </span>
-                  <span className="text-sm text-muted-foreground"> / {t("month")}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {p.priceYearly ? <> / {t("year")}</> : null}
+                  </span>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {p.priceYearly
-                      ? t("{{amt}} billed yearly", { amt: inr(p.priceYearly) })
+                      ? t("about {{amt}} a month, GST included", { amt: inr(p.priceMonthly) })
                       : t("Free forever")}
                   </div>
+                  {sale && (
+                    <div className="mt-2 rounded-md bg-accent/10 px-2 py-1.5 text-[11px] leading-snug text-accent-foreground">
+                      {t("Ends {{date}}. Join before then and your first year runs {{months}} months.", {
+                        date: "30 November", months: 12 + LAUNCH_OFFER.bonusMonths,
+                      })}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
 
