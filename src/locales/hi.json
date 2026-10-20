@@ -379,7 +379,6 @@
   "{{n}} AI extractions / month": "{{n}} AI एक्सट्रैक्शन / माह",
   "Unlimited free OCR extraction": "असीमित मुफ़्त OCR एक्सट्रैक्शन",
   "WhatsApp statements & reminders": "WhatsApp विवरण और रिमाइंडर",
-  "Priority support": "प्राथमिकता सहायता",
   "Upgrade on WhatsApp": "WhatsApp पर अपग्रेड करें",
   "Contact your administrator to upgrade this workspace.": "इस वर्कस्पेस को अपग्रेड करने के लिए अपने एडमिन से संपर्क करें।",
   "Payment is collected via UPI/bank transfer after you reach out — your plan is activated the same day.": "संपर्क करने के बाद भुगतान UPI/बैंक ट्रांसफर से लिया जाता है — आपका प्लान उसी दिन सक्रिय हो जाता है।",
@@ -759,7 +758,6 @@
   "Listening — just talk": "सुन रहे हैं — बस बोलिए",
   "Voice mode ended": "वॉइस मोड खत्म",
   "Speak naturally — you can interrupt. Press Esc to close.": "आराम से बोलिए — बीच में रोक भी सकते हैं। बंद करने के लिए Esc दबाइए।",
-  "Instant voice is a Pro feature. Using standard voice — upgrade on the Billing page.": "इंस्टेंट वॉइस Pro में मिलता है। फ़िलहाल सामान्य वॉइस चल रहा है — Billing पेज से अपग्रेड कीजिए।",
   "This month's instant voice minutes are used up. Using standard voice.": "इस महीने के इंस्टेंट वॉइस मिनट खत्म हो गए। सामान्य वॉइस चल रहा है।",
   "{{n}} voice minutes left this month": "इस महीने {{n}} वॉइस मिनट बाकी",
   "Voice mode closed after a minute of silence.": "एक मिनट चुप्पी के बाद वॉइस मोड बंद हो गया।",
@@ -904,5 +902,9 @@
   "Got it": "समझ गया",
   "See what is included": "देखें क्या शामिल है",
   "Show \"Billed with Dhela\" on bills": "बिल पर \"Billed with Dhela\" दिखाएं",
-  "One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.": "हर बिक्री बिल के नीचे हमारे लोगो के साथ एक छोटी लाइन। बंद कर दें तो आपके बिल पर हमारा कुछ नहीं रहेगा।"
+  "One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.": "हर बिक्री बिल के नीचे हमारे लोगो के साथ एक छोटी लाइन। बंद कर दें तो आपके बिल पर हमारा कुछ नहीं रहेगा।",
+  "Instant voice is not available. Using standard voice instead.": "इंस्टैंट वॉइस उपलब्ध नहीं है। सामान्य वॉइस का उपयोग किया जा रहा है।",
+  "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days": "प्राथमिकता सहायता: बताइए क्या खराब है, या कोई छोटी चीज़ चाहिए, 2 कार्यदिवस में आपको मिल जाएगा",
+  "Founding price: {{amt}} a year, held for as long as you stay subscribed.": "शुरुआती कीमत: {{amt}} साल, जब तक आप जुड़े रहेंगे यही रहेगी।",
+  "Diwali offer: join before {{date}} and your first year runs {{months}} months.": "दिवाली ऑफर: {{date}} से पहले लीजिए और आपका पहला साल {{months}} महीने चलेगा।"
 }

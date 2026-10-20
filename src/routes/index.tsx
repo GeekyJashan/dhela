@@ -1021,7 +1021,7 @@ const COMPARE: { label: string; dhela: boolean | string; legacy: boolean | strin
   { label: "Receivables ageing", dhela: true, legacy: true, manual: false },
   { label: "Ask your own data a question", dhela: true, legacy: false, manual: false },
   { label: "Opens on a phone browser", dhela: true, legacy: "Varies", manual: false },
-  { label: "What it costs", dhela: `${inr(3999)} to ${inr(7999)} / year`, legacy: "Licence + yearly AMC", manual: "A salary" },
+  { label: "What it costs", dhela: `Free, or ${inr(PLANS.standard.priceYearly)} / year`, legacy: "Licence + yearly AMC", manual: "A salary" },
 ];
 
 function Cell({ v }: { v: boolean | string }) {
@@ -1080,10 +1080,20 @@ const PLAN_ORDER: PlanId[] = ["free", "standard", "pro"];
 
 const PLAN_PITCH: Record<PlanId, { for: string; extras: string[] }> = {
   free: { for: "To see if it fits, with no conversation about money.", extras: [] },
-  standard: { for: "A working distributor doing a few bills a day.", extras: ["Priority support"] },
+  standard: {
+    for: "A working distributor running the business on it.",
+    extras: [
+      "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days",
+      "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating",
+    ],
+  },
   pro: {
-    for: "Higher volume, or you want the GST checks on your parties.",
-    extras: ["Priority support", "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating"],
+    for: "Higher volume, and you want to talk to it rather than type.",
+    extras: [
+      "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days",
+      "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating",
+      "An hour a month of instant voice, not a 30-second taste",
+    ],
   },
 };
 
@@ -1122,11 +1132,11 @@ function Pricing() {
                   <p className="text-sm text-muted-foreground mt-1 min-h-10">{pitch.for}</p>
                   <div className="mt-5">
                     <span className="font-display text-4xl">
-                      {p.priceYearly ? inr(Math.round(p.priceYearly / 12)) : "₹0"}
+                      {p.priceYearly ? inr(p.priceMonthly) : "₹0"}
                     </span>
                     <span className="text-sm text-muted-foreground"> / month</span>
                     <div className="text-xs text-muted-foreground mt-1">
-                      {p.priceYearly ? `${inr(p.priceYearly)} billed yearly, incl. GST` : "Free forever"}
+                      {p.priceYearly ? `${inr(p.priceYearly)} a year, incl. GST. No AMC.` : "Free forever, not a trial"}
                     </div>
                   </div>
                   <ul className="mt-5 space-y-2 text-sm">

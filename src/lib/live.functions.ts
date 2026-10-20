@@ -92,7 +92,7 @@ export const createLiveSession = createServerFn({ method: "POST" })
     // feature for other plans, but hiding is presentation — this is the part
     // that stops a crafted request from opening a billed socket.
     const billing = await getOrgBilling(supabase, orgId);
-    const allowanceSeconds = PLANS[billing.plan].liveVoiceMinutesPerMonth * 60;
+    const allowanceSeconds = PLANS[billing.plan].liveVoiceSecondsPerMonth;
     if (allowanceSeconds <= 0) {
       throw new Error("LIVE_NOT_ON_PLAN");
     }
@@ -242,7 +242,10 @@ export const liveVoiceAllowance = createServerFn({ method: "POST" })
 
     const orgId = mem.org_id as string;
     const billing = await getOrgBilling(supabase, orgId);
-    const allowedMinutes = PLANS[billing.plan].liveVoiceMinutesPerMonth;
+    // Reported in minutes because that is what the panel shows. Standard's
+    // thirty seconds floors to zero minutes remaining, which is honest: there
+    // is not a minute to be had.
+    const allowedMinutes = PLANS[billing.plan].liveVoiceSecondsPerMonth / 60;
     if (allowedMinutes <= 0) return { plan: billing.plan, allowedMinutes: 0, remainingMinutes: 0 };
 
     let used = 0;

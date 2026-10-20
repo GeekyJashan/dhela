@@ -9,7 +9,7 @@
  * alongside "Warehouse / Depot" is this product's customer in a way a retail
  * counter is not, however healthy that business is. After that it is who can
  * say yes — a proprietor decides over one call, a public limited runs a
- * procurement for ₹7,999 a year — then whether they file monthly returns at
+ * procurement for ₹899 a year — then whether they file monthly returns at
  * all, how long they have traded, and whether you can drive there.
  *
  * The score is a sort order. The reasons are the useful output: "wholesale

@@ -192,7 +192,9 @@ export function Assistant() {
   const fallBackToPipeline = (reason: string) => {
     setLiveDown(true);
     if (reason.includes("LIVE_NOT_ON_PLAN")) {
-      toast.info(t("Instant voice is a Pro feature. Using standard voice — upgrade on the Billing page."));
+      // Not "upgrade to get it": no plan carries instant voice any more, so
+      // pointing at Billing would send a paying customer to buy what they have.
+      toast.info(t("Instant voice is not available. Using standard voice instead."));
     } else if (reason.includes("LIVE_ALLOWANCE_SPENT")) {
       toast.info(t("This month's instant voice minutes are used up. Using standard voice."));
     }

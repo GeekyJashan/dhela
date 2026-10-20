@@ -207,7 +207,7 @@ function extractTaxpayer(json: Record<string, unknown>): Taxpayer {
 export const verifyGstin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ gstin: z.string() }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const gstin = data.gstin.trim().toUpperCase();
     const formatOk = GSTIN_RE.test(gstin);
     const checksumOk = formatOk && checksumValid(gstin);
@@ -233,6 +233,25 @@ export const verifyGstin = createServerFn({ method: "POST" })
       lookupUnavailable: false,  // Pro, but the API couldn't return real data (no credits / bad key)
     };
     if (!checksumOk) return base;
+
+    // Format and checksum are free on every plan, and stay free. They are
+    // arithmetic done on this machine, they cost nothing, and they are what
+    // stops a mistyped GSTIN reaching a GST return. Gating that would make
+    // the free plan worse at the one job it has to do properly.
+    //
+    // What is paid for is the registry lookup below: legal name, trade name,
+    // filer rating, address. That one calls a provider we are billed by.
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id").eq("user_id", userId).limit(1).maybeSingle();
+    if (mem) {
+      const { getOrgBilling } = await import("./billing.functions");
+      const { PLANS } = await import("./plans");
+      const billing = await getOrgBilling(supabase, mem.org_id);
+      // proRequired is already rendered by the supplier and retailer screens
+      // as a link to Billing, so there is nothing to build on that side.
+      if (!PLANS[billing.plan].gstinLookup) return { ...base, proRequired: true };
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

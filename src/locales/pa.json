@@ -379,7 +379,6 @@
   "{{n}} AI extractions / month": "{{n}} AI ਐਕਸਟ੍ਰੈਕਸ਼ਨ / ਮਹੀਨਾ",
   "Unlimited free OCR extraction": "ਬੇਅੰਤ ਮੁਫ਼ਤ OCR ਐਕਸਟ੍ਰੈਕਸ਼ਨ",
   "WhatsApp statements & reminders": "WhatsApp ਵੇਰਵੇ ਅਤੇ ਯਾਦ-ਦਹਾਨੀਆਂ",
-  "Priority support": "ਤਰਜੀਹੀ ਸਹਾਇਤਾ",
   "Upgrade on WhatsApp": "WhatsApp ਤੇ ਅੱਪਗ੍ਰੇਡ ਕਰੋ",
   "Contact your administrator to upgrade this workspace.": "ਇਸ ਵਰਕਸਪੇਸ ਨੂੰ ਅੱਪਗ੍ਰੇਡ ਕਰਨ ਲਈ ਆਪਣੇ ਐਡਮਿਨ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।",
   "Payment is collected via UPI/bank transfer after you reach out — your plan is activated the same day.": "ਸੰਪਰਕ ਕਰਨ ਤੋਂ ਬਾਅਦ ਭੁਗਤਾਨ UPI/ਬੈਂਕ ਟ੍ਰਾਂਸਫਰ ਰਾਹੀਂ ਲਿਆ ਜਾਂਦਾ ਹੈ — ਤੁਹਾਡਾ ਪਲਾਨ ਉਸੇ ਦਿਨ ਚਾਲੂ ਹੋ ਜਾਂਦਾ ਹੈ।",
@@ -759,7 +758,6 @@
   "Listening — just talk": "ਸੁਣ ਰਹੇ ਹਾਂ — ਬਸ ਬੋਲੋ",
   "Voice mode ended": "ਵੌਇਸ ਮੋਡ ਖ਼ਤਮ",
   "Speak naturally — you can interrupt. Press Esc to close.": "ਆਰਾਮ ਨਾਲ ਬੋਲੋ — ਵਿਚਾਲੇ ਰੋਕ ਵੀ ਸਕਦੇ ਹੋ। ਬੰਦ ਕਰਨ ਲਈ Esc ਦਬਾਓ।",
-  "Instant voice is a Pro feature. Using standard voice — upgrade on the Billing page.": "ਇੰਸਟੈਂਟ ਵੌਇਸ Pro ਵਿੱਚ ਮਿਲਦਾ ਹੈ। ਹਾਲੇ ਆਮ ਵੌਇਸ ਚੱਲ ਰਿਹਾ ਹੈ — Billing ਪੰਨੇ ਤੋਂ ਅੱਪਗ੍ਰੇਡ ਕਰੋ।",
   "This month's instant voice minutes are used up. Using standard voice.": "ਇਸ ਮਹੀਨੇ ਦੇ ਇੰਸਟੈਂਟ ਵੌਇਸ ਮਿੰਟ ਮੁੱਕ ਗਏ। ਆਮ ਵੌਇਸ ਚੱਲ ਰਿਹਾ ਹੈ।",
   "{{n}} voice minutes left this month": "ਇਸ ਮਹੀਨੇ {{n}} ਵੌਇਸ ਮਿੰਟ ਬਾਕੀ",
   "Voice mode closed after a minute of silence.": "ਇੱਕ ਮਿੰਟ ਚੁੱਪ ਤੋਂ ਬਾਅਦ ਵੌਇਸ ਮੋਡ ਬੰਦ ਹੋ ਗਿਆ।",
@@ -904,5 +902,9 @@
   "Got it": "ਸਮਝ ਗਿਆ",
   "See what is included": "ਵੇਖੋ ਕੀ ਸ਼ਾਮਲ ਹੈ",
   "Show \"Billed with Dhela\" on bills": "ਬਿੱਲ ਉੱਤੇ \"Billed with Dhela\" ਵਿਖਾਓ",
-  "One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.": "ਹਰ ਵਿਕਰੀ ਬਿੱਲ ਦੇ ਹੇਠਾਂ ਸਾਡੇ ਲੋਗੋ ਨਾਲ ਇੱਕ ਛੋਟੀ ਲਾਈਨ। ਬੰਦ ਕਰ ਦਿਓ ਤਾਂ ਤੁਹਾਡੇ ਬਿੱਲ ਉੱਤੇ ਸਾਡਾ ਕੁਝ ਨਹੀਂ ਰਹੇਗਾ।"
+  "One small line with our logo at the foot of every sales bill. Switch it off and your bills carry nothing of ours.": "ਹਰ ਵਿਕਰੀ ਬਿੱਲ ਦੇ ਹੇਠਾਂ ਸਾਡੇ ਲੋਗੋ ਨਾਲ ਇੱਕ ਛੋਟੀ ਲਾਈਨ। ਬੰਦ ਕਰ ਦਿਓ ਤਾਂ ਤੁਹਾਡੇ ਬਿੱਲ ਉੱਤੇ ਸਾਡਾ ਕੁਝ ਨਹੀਂ ਰਹੇਗਾ।",
+  "Instant voice is not available. Using standard voice instead.": "ਇੰਸਟੈਂਟ ਵੌਇਸ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਸਧਾਰਨ ਵੌਇਸ ਵਰਤੀ ਜਾ ਰਹੀ ਹੈ।",
+  "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days": "ਤਰਜੀਹੀ ਸਹਾਇਤਾ: ਦੱਸੋ ਕੀ ਖਰਾਬ ਹੈ, ਜਾਂ ਕੋਈ ਛੋਟੀ ਚੀਜ਼ ਚਾਹੀਦੀ ਹੈ, 2 ਕੰਮ ਵਾਲੇ ਦਿਨਾਂ ਵਿੱਚ ਤੁਹਾਨੂੰ ਮਿਲ ਜਾਵੇਗਾ",
+  "Founding price: {{amt}} a year, held for as long as you stay subscribed.": "ਸ਼ੁਰੂਆਤੀ ਕੀਮਤ: {{amt}} ਸਾਲ, ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਜੁੜੇ ਰਹੋਗੇ ਇਹੀ ਰਹੇਗੀ।",
+  "Diwali offer: join before {{date}} and your first year runs {{months}} months.": "ਦੀਵਾਲੀ ਆਫ਼ਰ: {{date}} ਤੋਂ ਪਹਿਲਾਂ ਲਵੋ ਅਤੇ ਤੁਹਾਡਾ ਪਹਿਲਾ ਸਾਲ {{months}} ਮਹੀਨੇ ਚੱਲੇਗਾ।"
 }

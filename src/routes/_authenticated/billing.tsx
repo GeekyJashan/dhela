@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { getBillingInfo, type BillingInfo } from "@/lib/billing.functions";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { PLANS, LAUNCH_OFFER, launchOfferLive, type PlanId } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, MessageCircle, Sparkles, ScanLine, Copy, Mail } from "lucide-react";
@@ -40,7 +40,7 @@ function BillingPage() {
   const upgradeHref = (plan: PlanId) =>
     whatsappLink(`Hi! I want to upgrade my Dhela workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`);
 
-  const planOrder: PlanId[] = ["free", "standard", "pro"];
+  const planOrder: PlanId[] = ["free", "pro"];
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
@@ -48,6 +48,20 @@ function BillingPage() {
         <h1 className="font-display text-4xl">{t("Plan & billing")}</h1>
         <p className="text-muted-foreground mt-1">
           {t("AI bill reading is the only metered feature — billing, stock, payments, and statements are unlimited on every plan.")}
+        </p>
+        {/* The founding-price promise is the reason the number can be this low
+            in writing. It belongs next to the number, not in a blog post. */}
+        <p className="text-sm mt-2">
+          {t("Founding price: {{amt}} a year, held for as long as you stay subscribed.", {
+            amt: inr(PLANS.standard.priceYearly),
+          })}
+          {launchOfferLive() && (
+            <span className="ml-1 font-medium text-primary">
+              {t("Diwali offer: join before {{date}} and your first year runs {{months}} months.", {
+                date: "30 November", months: 12 + LAUNCH_OFFER.bonusMonths,
+              })}
+            </span>
+          )}
         </p>
       </div>
 
@@ -91,11 +105,15 @@ function BillingPage() {
             t("E-way bills, statements & receivables ageing"),
             t("Stock and true weighted-average cost"),
             t("English, हिंदी & ਪੰਜਾਬੀ"),
-            ...(id !== "free" ? [t("Priority support")] : []),
-            ...(p.liveVoiceMinutesPerMonth > 0
-              ? [t("Talk to the assistant — {{n}} min / month of instant voice", { n: p.liveVoiceMinutesPerMonth })]
-              : []),
-            ...(id === "pro" ? [t("Live GSTIN lookup + GST filer rating")] : []),
+            // The actual promise, not the category. "Priority support" means
+            // nothing on its own; every piece of software claims it.
+            ...(id !== "free" ? [t("Priority support: tell us what is broken, or something small you need, and you get it in 2 working days")] : []),
+            ...(p.gstinLookup ? [t("Live GSTIN lookup + GST filer rating")] : []),
+            ...(p.liveVoiceSecondsPerMonth >= 60
+              ? [t("Talk to the assistant: {{n}} min / month of instant voice", { n: Math.round(p.liveVoiceSecondsPerMonth / 60) })]
+              : p.liveVoiceSecondsPerMonth > 0
+                ? [t("A {{n}}-second taste of instant voice each month", { n: p.liveVoiceSecondsPerMonth })]
+                : []),
           ];
           return (
             <Card key={id} className={cn("flex flex-col", current && "border-primary shadow-sm")}>
@@ -110,7 +128,7 @@ function BillingPage() {
                 </CardTitle>
                 <div className="pt-1">
                   <span className="font-display text-4xl">
-                    {p.priceYearly ? inr(Math.round(p.priceYearly / 12)) : "₹0"}
+                    {p.priceYearly ? inr(p.priceMonthly) : "₹0"}
                   </span>
                   <span className="text-sm text-muted-foreground"> / {t("month")}</span>
                   <div className="text-xs text-muted-foreground mt-0.5">

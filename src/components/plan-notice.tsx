@@ -165,9 +165,9 @@ export function PlanNoticeDialog() {
             <Perk icon={ScanLine}>
               {t("{{n}} AI bill reads a month", { n: notice.aiPerMonth })}
             </Perk>
-            {notice.voiceMinutesPerMonth > 0 && (
+            {notice.voiceSecondsPerMonth >= 60 && (
               <Perk icon={Mic}>
-                {t("{{n}} minutes of voice a month", { n: notice.voiceMinutesPerMonth })}
+                {t("{{n}} minutes of voice a month", { n: Math.round(notice.voiceSecondsPerMonth / 60) })}
               </Perk>
             )}
             {notice.planValidTill && (

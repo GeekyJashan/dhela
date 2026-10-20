@@ -2,6 +2,7 @@
 title: Marg's renewal keeps going up. Where should you shift?
 description: What Marg actually costs once the AMC is counted, why the renewal climbs every year, and an honest shortlist of where to go instead — including the cases where the answer is to stay exactly where you are.
 published: 2026-08-31
+updated: 2026-10-20
 tags: Marg, software, pricing, distribution
 ---
 
@@ -80,7 +81,9 @@ Worth a look for one specific problem, and it is not "cheaper ERP":
 - Cost is computed from [what you actually paid after discount](/blog/weighted-average-cost-for-distributors), not the printed rate, so margins stop drifting.
 - [Dead stock](/blog/dead-stock-how-to-find-it) and [receivables ageing](/blog/receivables-ageing-how-to-read-it) are a screen rather than an afternoon in a spreadsheet.
 
-Our price, since the complaint is that nobody can find Marg's: **₹0, ₹3,999 a year, or ₹7,999 a year. GST included. No dealer quote, no AMC, no separate renewal.** The free tier is a tier, not a trial that expires.
+Our price, since the complaint is that nobody can find Marg's: **₹0, ₹899 a year, or ₹1,799 a year. GST included. No dealer quote, no AMC, no separate renewal.** The free tier is a tier, not a trial that expires.
+
+Run the same five years as the table above. Marg lands between ₹25,200 and ₹30,240 before GST. Five years of Dhela, on the plan most distributors want, is ₹4,495, and we publish it.
 
 And what it is not: **not an accounting package**, no offline billing, no local dealer, and it prepares GST working papers rather than filing returns. If you need a ledger, keep the one you have.
 

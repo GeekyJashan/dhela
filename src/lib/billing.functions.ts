@@ -63,7 +63,7 @@ export type PlanNotice = {
   direction: "upgrade" | "downgrade";
   planValidTill: string | null;
   aiPerMonth: number;
-  voiceMinutesPerMonth: number;
+  voiceSecondsPerMonth: number;
   changedAt: string;
 };
 
@@ -107,7 +107,7 @@ export const getPlanNotice = createServerFn({ method: "POST" })
       direction: PLAN_RANK[plan] > PLAN_RANK[previousPlan] ? "upgrade" : "downgrade",
       planValidTill: org.plan_valid_till ?? null,
       aiPerMonth: PLANS[plan].aiExtractionsPerMonth,
-      voiceMinutesPerMonth: PLANS[plan].liveVoiceMinutesPerMonth,
+      voiceSecondsPerMonth: PLANS[plan].liveVoiceSecondsPerMonth,
       changedAt: org.plan_changed_at,
     };
   });
