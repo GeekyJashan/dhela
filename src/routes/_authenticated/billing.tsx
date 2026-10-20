@@ -40,7 +40,10 @@ function BillingPage() {
   const upgradeHref = (plan: PlanId) =>
     whatsappLink(`Hi! I want to upgrade my Dhela workspace to the ${PLANS[plan].name} plan (${inr(PLANS[plan].priceYearly)}/year).`);
 
-  const planOrder: PlanId[] = ["free", "pro"];
+  // Every plan that exists, in the order they are read. Derived from PLANS
+  // rather than listed by hand, which is how Standard went missing from this
+  // screen while the landing page still showed it.
+  const planOrder = Object.keys(PLANS) as PlanId[];
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
