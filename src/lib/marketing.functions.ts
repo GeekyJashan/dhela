@@ -54,7 +54,7 @@ Dhela is billing, stock and GST software for Indian distributors.
 - A photo of a supplier's bill becomes line items, stock and true weighted-average cost, without typing.
 - Sales invoices, e-way bills, retailer statements, receivables ageing.
 - GSTR-1 and GSTR-3B working papers, ready before the 11th. It does not file; the taxpayer files.
-- English, Hindi and Punjabi. Free plan; Standard is ₹899 a year and Pro ₹2,400 a year, GST included.
+- English, Hindi and Punjabi. Free plan; Standard is ₹899 a year and Pro ₹7,999 a year, GST included.
 Written by Jashan Sehgal, who builds it.`;
 
 const VOICE = `

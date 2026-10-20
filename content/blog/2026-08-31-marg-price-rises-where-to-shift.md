@@ -81,7 +81,7 @@ Worth a look for one specific problem, and it is not "cheaper ERP":
 - Cost is computed from [what you actually paid after discount](/blog/weighted-average-cost-for-distributors), not the printed rate, so margins stop drifting.
 - [Dead stock](/blog/dead-stock-how-to-find-it) and [receivables ageing](/blog/receivables-ageing-how-to-read-it) are a screen rather than an afternoon in a spreadsheet.
 
-Our price, since the complaint is that nobody can find Marg's: **₹0, ₹899 a year, or ₹1,799 a year. GST included. No dealer quote, no AMC, no separate renewal.** The free tier is a tier, not a trial that expires.
+Our price, since the complaint is that nobody can find Marg's: **₹0, ₹899 a year, or ₹7,999 a year. GST included. No dealer quote, no AMC, no separate renewal.** The free tier is a tier, not a trial that expires.
 
 Run the same five years as the table above. Marg lands between ₹25,200 and ₹30,240 before GST. Five years of Dhela, on the plan most distributors want, is ₹4,495, and we publish it.
 

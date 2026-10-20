@@ -107,7 +107,10 @@ function BillingPage() {
             t("English, हिंदी & ਪੰਜਾਬੀ"),
             // The actual promise, not the category. "Priority support" means
             // nothing on its own; every piece of software claims it.
-            ...(id !== "free" ? [t("Priority support: tell us what is broken, or something small you need, and you get it in 2 working days")] : []),
+            ...(id !== "free" ? [
+              t("Priority support: tell us what is broken, or something small you need, and you get it in 2 working days"),
+              t("A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you"),
+            ] : []),
             ...(p.gstinLookup ? [t("Live GSTIN lookup + GST filer rating")] : []),
             ...(p.liveVoiceSecondsPerMonth >= 60
               ? [t("Talk to the assistant: {{n}} min / month of instant voice", { n: Math.round(p.liveVoiceSecondsPerMonth / 60) })]

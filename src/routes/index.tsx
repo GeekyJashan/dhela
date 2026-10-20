@@ -1085,6 +1085,7 @@ const PLAN_PITCH: Record<PlanId, { for: string; extras: string[] }> = {
     extras: [
       "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days",
       "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating",
+      "A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you",
     ],
   },
   pro: {
@@ -1092,7 +1093,8 @@ const PLAN_PITCH: Record<PlanId, { for: string; extras: string[] }> = {
     extras: [
       "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days",
       "Live GSTIN lookup: auto-fill business name plus GST filer/defaulter rating",
-      "An hour a month of instant voice, not a 30-second taste",
+      "A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you",
+      "A full hour a month of instant voice, not a 30-second taste",
     ],
   },
 };

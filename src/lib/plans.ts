@@ -9,7 +9,7 @@
  *
  *   Free      ₹0
  *   Standard  ₹899 a year, about ₹75 a month
- *   Pro       ₹1,799 a year, about ₹150 a month
+ *   Pro       ₹7,999 a year, unchanged
  *
  * Standard used to be ₹3,999 and Pro ₹7,999, and nobody ever chose Standard:
  * of 28 workspaces, 23 sat on Free and 5 on Pro. That was not a pricing
@@ -39,15 +39,15 @@
  *             200 reads ≈ ₹24, 30 seconds of voice ≈ ₹0.45
  *             → about ₹39 left at the worst case the caps allow
  *
- *   Pro       ₹1,799/yr = ₹127/month net
- *             400 reads ≈ ₹48, 30 minutes of voice ≈ ₹27
- *             → about ₹52 left
+ *   Pro       ₹7,999/yr = ₹565/month net
+ *             500 reads ≈ ₹60, 60 minutes of voice ≈ ₹54
+ *             → about ₹451 left
  *
- * Pro's price is set by its voice allowance and almost nothing else. An hour
- * a month costs ₹54 and forced Pro to ₹2,400 to clear 26%. Half an hour costs
- * ₹27, which pays for a ₹1,799 Pro at a healthier 41% and is still more voice
- * than anybody has ever used. Doubling Standard's price is also an easier step
- * for a customer to take than tripling it.
+ * Only Standard moved. Pro is the price it has always been, and that is the
+ * point of the pair: the cheap plan is what gets a distributor through the
+ * door, and Pro is what makes the arithmetic work across the book. An hour of
+ * voice costs ₹54 a month, which is affordable at ₹7,999 and was not at the
+ * ₹1,799 Pro briefly priced at.
  *
  * Standard's thirty seconds is deliberate and is worth about forty-five paise
  * a month. It is not a usable allowance and is not meant to be one: it is the
@@ -99,15 +99,14 @@ export const PLANS: Record<PlanId, {
   },
   pro: {
     name: "Pro",
-    priceYearly: 1799,
-    priceMonthly: 150,
-    aiExtractionsPerMonth: 400,
-    // Thirty minutes, which at a minute a day is unlimited for anybody
-    // actually working: live voice has run for nine minutes in the life of
-    // the product, across every workspace. A literally uncapped allowance is
-    // not possible on a feature billed by the minute that bills while nobody
-    // is talking, and an hour of it is what made Pro cost ₹2,400.
-    liveVoiceSecondsPerMonth: 30 * 60,
+    // Untouched. Only Standard is on offer, and Pro is what pays for it.
+    priceYearly: 7999,
+    priceMonthly: 667,
+    aiExtractionsPerMonth: 500,
+    // An hour. A literally uncapped allowance is not possible on a feature
+    // billed by the minute that bills while nobody is talking, and at ₹7,999
+    // an hour is comfortably affordable where at ₹1,799 it was not.
+    liveVoiceSecondsPerMonth: 60 * 60,
     gstinLookup: true,
   },
 };

@@ -906,5 +906,6 @@
   "Instant voice is not available. Using standard voice instead.": "इंस्टैंट वॉइस उपलब्ध नहीं है। सामान्य वॉइस का उपयोग किया जा रहा है।",
   "Priority support: tell us what is broken, or something small you need, and you get it in 2 working days": "प्राथमिकता सहायता: बताइए क्या खराब है, या कोई छोटी चीज़ चाहिए, 2 कार्यदिवस में आपको मिल जाएगा",
   "Founding price: {{amt}} a year, held for as long as you stay subscribed.": "शुरुआती कीमत: {{amt}} साल, जब तक आप जुड़े रहेंगे यही रहेगी।",
-  "Diwali offer: join before {{date}} and your first year runs {{months}} months.": "दिवाली ऑफर: {{date}} से पहले लीजिए और आपका पहला साल {{months}} महीने चलेगा।"
+  "Diwali offer: join before {{date}} and your first year runs {{months}} months.": "दिवाली ऑफर: {{date}} से पहले लीजिए और आपका पहला साल {{months}} महीने चलेगा।",
+  "A 15 minute call with our team: tell us what you want us to build, and we go through your numbers with you": "हमारी टीम के साथ 15 मिनट की कॉल: बताइए आप क्या बनवाना चाहते हैं, और हम आपके नंबरों पर आपके साथ बैठेंगे"
 }
