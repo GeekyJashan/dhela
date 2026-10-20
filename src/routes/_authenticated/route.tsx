@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target, Megaphone , Upload} from "lucide-react";
+import { LayoutDashboard, FileUp, Package, Users, LogOut, Files, Receipt, Store, Tag, ClipboardList, IndianRupee, Undo2, ShieldCheck, Globe, CreditCard, Truck, Menu, X, LineChart, FileSpreadsheet, Settings, Target, Megaphone , Upload, Send} from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OfflineBanner } from "@/components/offline-banner";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { LANGUAGES, setLanguage } from "@/i18n";
 import { Assistant } from "@/components/assistant";
 import { PlanNoticeDialog } from "@/components/plan-notice";
@@ -104,6 +105,7 @@ function AuthedLayout() {
         { label: "Growth", items: [
           { to: "/leads", label: "Leads", icon: Target },
           { to: "/marketing", label: "Marketing", icon: Megaphone },
+          { to: "/broadcast", label: "Broadcast", icon: Send },
         ] },
       ]
     : NAV_GROUPS;
@@ -208,6 +210,7 @@ function AuthedLayout() {
         {/* Above the content, below the header: the state of the connection
             belongs where it is read before the work, not in a toast that
             has already gone. print:hidden so it never lands on an invoice. */}
+        <div className="print:hidden"><AnnouncementBanner /></div>
         <div className="print:hidden"><OfflineBanner /></div>
         <main className="flex-1 overflow-auto pb-20 print:pb-0"><Outlet /></main>
       </div>

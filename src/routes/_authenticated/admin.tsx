@@ -1,5 +1,5 @@
 import { describeError } from "@/lib/offline";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { KeyRound, Copy, ShieldCheck, ExternalLink } from "lucide-react";
+import { KeyRound, Copy, ShieldCheck, ExternalLink, Send } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — Dhela" }] }),
@@ -125,6 +125,11 @@ function AdminPage() {
         <p className="text-muted-foreground mt-1">
           Every account on the platform. Generate a sign-in link to debug a tenant as that user.
         </p>
+        <Link to="/broadcast" className="inline-block mt-3">
+          <Button variant="outline" size="sm">
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Email everyone, or put up a banner
+          </Button>
+        </Link>
       </div>
 
       <Card>

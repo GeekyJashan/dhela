@@ -264,6 +264,107 @@ export type Database = {
           },
         ]
       }
+      email_campaigns: {
+        Row: {
+          audience: Json
+          body: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          failed_count: number
+          id: string
+          sent_at: string | null
+          sent_count: number
+          status: string
+          subject: string
+        }
+        Insert: {
+          audience?: Json
+          body: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          failed_count?: number
+          id?: string
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          subject: string
+        }
+        Update: {
+          audience?: Json
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          failed_count?: number
+          id?: string
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_optouts: {
+        Row: {
+          created_at: string
+          email: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      email_recipients: {
+        Row: {
+          campaign_id: string
+          email: string
+          error: string | null
+          id: string
+          name: string | null
+          sent_at: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          email: string
+          error?: string | null
+          id?: string
+          name?: string | null
+          sent_at?: string | null
+          source: string
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          email?: string
+          error?: string | null
+          id?: string
+          name?: string | null
+          sent_at?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gstin_cache: {
         Row: {
           address: string | null
@@ -1674,6 +1775,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_announcements: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          dismissible: boolean
+          ends_at: string | null
+          id: string
+          link_label: string | null
+          link_url: string | null
+          message: string
+          starts_at: string | null
+          tone: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          dismissible?: boolean
+          ends_at?: string | null
+          id?: string
+          link_label?: string | null
+          link_url?: string | null
+          message: string
+          starts_at?: string | null
+          tone?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          dismissible?: boolean
+          ends_at?: string | null
+          id?: string
+          link_label?: string | null
+          link_url?: string | null
+          message?: string
+          starts_at?: string | null
+          tone?: string
+        }
+        Relationships: []
       }
       stock_groups: {
         Row: {
