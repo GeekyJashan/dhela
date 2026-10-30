@@ -18,7 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Save, Send, AlertTriangle } from "lucide-react";
+import { Trash2, Plus, Save, Send, AlertTriangle, Columns3 } from "lucide-react";
+import { BillColumnsDialog } from "@/components/bill-columns-dialog";
+import {
+  layoutForNewBill, normaliseLayout, builtIn, isCustom, customId, headingFor,
+  MAX_VALUE_LEN, type BillLayout,
+} from "@/lib/bill-columns";
 import { useTranslation } from "react-i18next";
 import { describeError } from "@/lib/offline";
 import { toast } from "sonner";
@@ -44,13 +49,13 @@ type Retailer = {
   category: RetailerCategory | null;
 };
 
-type RowDraft = SalesLineDraft & { key: string };
+type RowDraft = SalesLineDraft & { key: string; extra: Record<string, string> };
 
 const blankRow = (): RowDraft => ({
   key: crypto.randomUUID(),
   product_id: null, description: "", hsn: null, batch: null, expiry_date: null,
   quantity: 1, free_quantity: 0, unit: null, mrp: null, rate: 0,
-  discount_pct: 0, gst_rate: 0, cost_price: null,
+  discount_pct: 0, gst_rate: 0, cost_price: null, extra: {},
 });
 
 function NewSalesInvoice() {
@@ -69,6 +74,14 @@ function NewSalesInvoice() {
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<RowDraft[]>([blankRow()]);
   const [saving, setSaving] = useState(false);
+  /*
+   * The layout starts as the workspace default and is saved onto this bill.
+   * Changing it here is a one-off: the workspace default is only edited on
+   * Account, so tweaking one bill never silently re-formats the next one.
+   */
+  const [layout, setLayout] = useState<BillLayout>(layoutForNewBill(null));
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [billFields, setBillFields] = useState<{ label: string; value: string }[]>([]);
   const prevRetailerRef = useRef("");
 
   // Edit mode: load the existing invoice + lines once.
@@ -87,6 +100,16 @@ function NewSalesInvoice() {
       setInvoiceDate(invRow.invoice_date);
       setDueDate(invRow.due_date ?? "");
       setNotes(invRow.notes ?? "");
+      // A saved bill carries its own layout; keep editing it the way it prints.
+      const saved = normaliseLayout((invRow as { bill_columns?: unknown }).bill_columns);
+      if (saved.columns.length) setLayout(saved);
+      const onBill = (invRow as { extra?: Record<string, string> | null }).extra ?? {};
+      setBillFields([
+        ...saved.fields.map(label => ({ label, value: onBill[label] ?? "" })),
+        ...Object.entries(onBill)
+          .filter(([label]) => !saved.fields.includes(label))
+          .map(([label, value]) => ({ label, value })),
+      ]);
       setRows((lineRows ?? []).map(l => ({
         key: crypto.randomUUID(),
         product_id: l.product_id, description: l.description, hsn: l.hsn,
@@ -95,6 +118,7 @@ function NewSalesInvoice() {
         unit: l.unit, mrp: l.mrp != null ? Number(l.mrp) : null,
         rate: Number(l.rate), discount_pct: Number(l.discount_pct ?? 0),
         gst_rate: Number(l.gst_rate ?? 0), cost_price: l.cost_price != null ? Number(l.cost_price) : null,
+        extra: ((l as { extra?: Record<string, string> | null }).extra ?? {}),
       })));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,14 +128,21 @@ function NewSalesInvoice() {
     (async () => {
       const { orgId } = await getOrg();
       const { data } = await supabase.from("organizations")
-        .select("state_code, default_margin_pct, gstin").eq("id", orgId).single();
+        .select("state_code, default_margin_pct, gstin, bill_columns").eq("id", orgId).single();
       if (data) {
         setOrgState(data.state_code ?? null);
         setOrgGstin(data.gstin ?? null);
         setOrgMargin(Number(data.default_margin_pct ?? 15));
+        // Editing an existing bill loads that bill's own layout below; this
+        // must not overwrite it with the workspace default.
+        if (!editId) {
+          const l = layoutForNewBill(data.bill_columns);
+          setLayout(l);
+          setBillFields(l.fields.map(label => ({ label, value: "" })));
+        }
       }
     })();
-  }, [getOrg]);
+  }, [getOrg, editId]);
 
   const { data: retailers } = useQuery({
     queryKey: ["retailers"],
@@ -171,6 +202,17 @@ function NewSalesInvoice() {
 
 
   const computed = useMemo(() => rows.map(r => ({ ...r, ...computeLine(r, isInterstate) })), [rows, isInterstate]);
+
+  /*
+   * Product is the description column, and the money columns are worked out
+   * rather than typed, so what is left is the set this screen has to ask for.
+   * Under the built-in layout that comes to HSN, Batch, Qty, Disc% and GST% —
+   * the five inputs this table always had.
+   */
+  const entryCols = useMemo(
+    () => layout.columns.filter(k => k !== "description" && (isCustom(k) || !!builtIn(k)?.input)),
+    [layout],
+  );
   const totals = useMemo(() => computeInvoiceTotals(computed), [computed]);
 
   // Mirrors the server guard in issueSalesInvoice. Tax on the invoice is what
@@ -254,6 +296,16 @@ function NewSalesInvoice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, order, products, retailers, stockGroups, overrides]);
 
+  /** Adopt any default field the layout names that this bill does not have yet. */
+  const applyLayout = (next: BillLayout) => {
+    setLayout(next);
+    setBillFields(cur => [
+      ...cur,
+      ...next.fields.filter(f => !cur.some(c => c.label === f)).map(label => ({ label, value: "" })),
+    ]);
+    setColumnsOpen(false);
+  };
+
   const updateRow = (key: string, patch: Partial<RowDraft>) =>
     setRows(rs => rs.map(r => r.key === key ? { ...r, ...patch } : r));
 
@@ -275,6 +327,14 @@ function NewSalesInvoice() {
         is_interstate: isInterstate,
         notes: notes || null,
         status,
+        // Copied onto the bill, so a reprint months from now is this document
+        // and not whatever the workspace default has become since.
+        bill_columns: layout,
+        extra: Object.fromEntries(
+          billFields
+            .map(f => [f.label.trim(), f.value.trim()] as const)
+            .filter(([label, value]) => label && value),
+        ),
         ...totals,
         lines: computed
           .filter(r => r.description && r.quantity > 0)
@@ -306,6 +366,9 @@ function NewSalesInvoice() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setColumnsOpen(true)}>
+            <Columns3 className="h-4 w-4 mr-2"/>{t("Columns")}
+          </Button>
           <Button variant="outline" onClick={() => submit("draft")} disabled={saving}><Save className="h-4 w-4 mr-2"/>{t("Save draft")}</Button>
           <Button onClick={() => submit("issued")} disabled={saving || blockIssue !== null}
             title={blockIssue ?? undefined}>
@@ -364,11 +427,14 @@ function NewSalesInvoice() {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[240px]">{t("Product")}</TableHead>
-                <TableHead>{t("HSN")}</TableHead>
-                <TableHead>{t("Batch")}</TableHead>
-                <TableHead className="w-20">{t("Qty")}</TableHead>
-                <TableHead className="w-20">{t("Disc%")}</TableHead>
-                <TableHead className="w-20">{t("GST%")}</TableHead>
+                {/* Exactly the columns this bill prints that somebody has to
+                    type. Switch Expiry on and the input appears here; switch
+                    Batch off and it stops being asked for. */}
+                {entryCols.map(key => (
+                  <TableHead key={key} className={widthFor(key)}>
+                    {isCustom(key) ? headingFor(key, layout) : t(headingFor(key, layout))}
+                  </TableHead>
+                ))}
                 <TableHead className="text-right">{t("Taxable")}</TableHead>
                 <TableHead className="text-right">{t("Tax")}</TableHead>
                 <TableHead className="text-right">{t("Total")}</TableHead>
@@ -391,11 +457,12 @@ function NewSalesInvoice() {
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell><Input value={r.hsn ?? ""} onChange={e => updateRow(r.key, { hsn: e.target.value })} /></TableCell>
-                  <TableCell><Input value={r.batch ?? ""} onChange={e => updateRow(r.key, { batch: e.target.value })} /></TableCell>
-                  <TableCell><Input type="number" value={r.quantity} onChange={e => updateRow(r.key, { quantity: Number(e.target.value) })} /></TableCell>
-                  <TableCell><Input type="number" value={r.discount_pct} onChange={e => updateRow(r.key, { discount_pct: Number(e.target.value) })} /></TableCell>
-                  <TableCell><Input type="number" value={r.gst_rate} onChange={e => updateRow(r.key, { gst_rate: Number(e.target.value) })} /></TableCell>
+                  {entryCols.map(key => (
+                    <TableCell key={key}>
+                      <LineField col={key} row={r} onChange={patch => updateRow(r.key, patch)}
+                        label={isCustom(key) ? headingFor(key, layout) : t(headingFor(key, layout))} />
+                    </TableCell>
+                  ))}
                   <TableCell className="text-right tabular-nums">{r.taxable_value.toFixed(2)}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.tax_amount.toFixed(2)}</TableCell>
                   <TableCell className="text-right tabular-nums font-medium">{r.line_total.toFixed(2)}</TableCell>
@@ -409,6 +476,58 @@ function NewSalesInvoice() {
           </Table>
         </CardContent>
       </Card>
+
+      {billFields.length > 0 && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle>{t("Bill details")}</CardTitle>
+            <Button size="sm" variant="outline"
+              onClick={() => setBillFields(f => [...f, { label: "", value: "" }])}>
+              <Plus className="h-4 w-4 mr-2"/>{t("Add a field")}
+            </Button>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {billFields.map((f, i) => (
+              <div key={i} className="flex items-end gap-2">
+                <div className="w-40 shrink-0">
+                  <Label className="text-xs">{t("Field")}</Label>
+                  <Input aria-label={t("Field name")} value={f.label} placeholder={t("Transport")}
+                    onChange={e => setBillFields(cur => cur.map((c, n) => n === i ? { ...c, label: e.target.value } : c))} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Label className="text-xs">{t("Value")}</Label>
+                  <Input aria-label={t("Field value")} value={f.value} maxLength={MAX_VALUE_LEN}
+                    onChange={e => setBillFields(cur => cur.map((c, n) => n === i ? { ...c, value: e.target.value } : c))} />
+                </div>
+                <Button size="sm" variant="ghost" className="text-destructive"
+                  onClick={() => setBillFields(cur => cur.filter((_, n) => n !== i))}>
+                  <Trash2 className="h-3.5 w-3.5"/>
+                </Button>
+              </div>
+            ))}
+            {/* An empty value is left off the printed bill rather than
+                printing a heading with nothing after it. */}
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              {t("Printed above the totals. A field you leave blank is not printed.")}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {billFields.length === 0 && (
+        <Button variant="outline" size="sm"
+          onClick={() => setBillFields([{ label: "", value: "" }])}>
+          <Plus className="h-4 w-4 mr-2"/>{t("Add a bill field (transport, LR number…)")}
+        </Button>
+      )}
+
+      <BillColumnsDialog
+        open={columnsOpen}
+        onOpenChange={setColumnsOpen}
+        layout={layout}
+        scope="bill"
+        onSave={applyLayout}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -445,6 +564,58 @@ function NewSalesInvoice() {
       </div>
     </div>
   );
+}
+
+/** Narrow inputs for the short numeric columns, so the row still fits. */
+function widthFor(key: string) {
+  const i = isCustom(key) ? null : builtIn(key)?.input;
+  if (i === "number") return "w-24";
+  if (i === "date") return "w-40";
+  return "";
+}
+
+/**
+ * One typed cell on the entry row.
+ *
+ * Every branch writes a real typed field except the custom one, which writes
+ * free text into `extra`. That split is the whole point: expiry goes into
+ * `expiry_date` where a report can find it, not into a column named "Expiry"
+ * that only a human will ever read.
+ */
+function LineField({ col, row, onChange, label }: {
+  col: string;
+  row: RowDraft;
+  onChange: (patch: Partial<RowDraft>) => void;
+  /** The column heading, so the input is named for a screen reader. */
+  label: string;
+}) {
+  const a = { "aria-label": label };
+  if (isCustom(col)) {
+    const id = customId(col);
+    return (
+      <Input {...a} value={row.extra?.[id] ?? ""} maxLength={MAX_VALUE_LEN}
+        onChange={e => onChange({ extra: { ...row.extra, [id]: e.target.value } })} />
+    );
+  }
+  const num = (v: string) => Number(v === "" ? 0 : v);
+  switch (col) {
+    case "hsn": return <Input {...a} value={row.hsn ?? ""} onChange={e => onChange({ hsn: e.target.value })} />;
+    case "batch": return <Input {...a} value={row.batch ?? ""} onChange={e => onChange({ batch: e.target.value })} />;
+    case "unit": return <Input {...a} value={row.unit ?? ""} onChange={e => onChange({ unit: e.target.value || null })} />;
+    case "expiry_date": return <Input {...a} type="date" value={row.expiry_date ?? ""}
+      onChange={e => onChange({ expiry_date: e.target.value || null })} />;
+    case "quantity": return <Input {...a} type="number" value={row.quantity}
+      onChange={e => onChange({ quantity: num(e.target.value) })} />;
+    case "free_quantity": return <Input {...a} type="number" value={row.free_quantity}
+      onChange={e => onChange({ free_quantity: num(e.target.value) })} />;
+    case "mrp": return <Input {...a} type="number" value={row.mrp ?? ""}
+      onChange={e => onChange({ mrp: e.target.value === "" ? null : Number(e.target.value) })} />;
+    case "discount_pct": return <Input {...a} type="number" value={row.discount_pct}
+      onChange={e => onChange({ discount_pct: num(e.target.value) })} />;
+    case "gst_rate": return <Input {...a} type="number" value={row.gst_rate}
+      onChange={e => onChange({ gst_rate: num(e.target.value) })} />;
+    default: return null;
+  }
 }
 
 function Line({ label, v }: { label: string; v: number }) {

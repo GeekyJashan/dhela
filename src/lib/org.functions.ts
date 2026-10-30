@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { normaliseLayout } from "./bill-columns";
 
 /** Save the org's bank details + authorized signature for printed invoices. */
 export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
@@ -48,6 +49,33 @@ export const updateOrgInvoiceProfile = createServerFn({ method: "POST" })
     const { error } = await supabase.from("organizations").update(update).eq("id", mem.org_id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * The workspace's default printed-bill layout.
+ *
+ * Only a default. It is copied onto each bill as that bill saves, so changing
+ * it here never reaches a bill that already exists — the invoice a retailer is
+ * holding and the invoice Dhela reprints stay the same document.
+ */
+export const updateOrgBillColumns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ layout: z.unknown() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: mem } = await supabase.from("memberships")
+      .select("org_id, role").eq("user_id", userId).limit(1).maybeSingle();
+    if (!mem) throw new Error("No organization");
+    if (mem.role !== "admin") throw new Error("Only an admin can change the bill layout");
+
+    // Normalised server-side for the same reason it is normalised on save: a
+    // stale tab could post a layout missing HSN, and a default that is not
+    // compliant would seed every new bill in the workspace.
+    const layout = normaliseLayout(data.layout);
+    const { error } = await supabase.from("organizations")
+      .update({ bill_columns: layout }).eq("id", mem.org_id);
+    if (error) throw new Error(error.message);
+    return { ok: true, layout };
   });
 
 /**

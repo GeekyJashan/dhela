@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createLogger } from "./logger";
+import { normaliseLayout, cleanExtra, cleanBillFields } from "./bill-columns";
 
 const log = createLogger("sales.functions");
 
@@ -28,6 +29,9 @@ const LineInput = z.object({
   line_total: z.number().default(0),
   cost_price: z.number().nullable(),
   profit: z.number().default(0),
+  // Values for the bill's custom columns, keyed by custom column id. Free text
+  // a person reads; nothing below computes with it.
+  extra: z.record(z.string(), z.string()).default({}),
 });
 
 const InvoiceInput = z.object({
@@ -50,6 +54,13 @@ const InvoiceInput = z.object({
   grand_total: z.number(),
   total_cost: z.number(),
   total_profit: z.number(),
+  // The column layout this bill prints with, copied onto the invoice so a
+  // reprint matches the copy the retailer is holding. Validated server-side
+  // rather than trusted: normaliseLayout drops anything unrecognised and puts
+  // the GST-mandatory columns back whatever the client sent.
+  bill_columns: z.unknown().optional(),
+  // Bill-level custom fields (transport, LR number), keyed by their own label.
+  extra: z.record(z.string(), z.string()).default({}),
   lines: z.array(LineInput).min(1),
 });
 
@@ -65,7 +76,19 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
     if (memErr || !mem) throw new Error("No organization");
     const orgId = mem.org_id;
 
-    const { lines, id, ...header } = data;
+    const { lines, id, bill_columns, extra, ...rest } = data;
+
+    // Decided here, not in the browser. A layout posted by a stale tab could
+    // name a column that no longer exists, or drop HSN; normalising puts the
+    // mandatory columns back and discards the rest, so what lands on the
+    // invoice is always printable and always compliant.
+    const layout = normaliseLayout(bill_columns);
+    const allowedCustom = new Set(layout.custom.map(c => c.id));
+    const header = {
+      ...rest,
+      bill_columns: layout,
+      extra: cleanBillFields(extra),
+    };
 
     let invoiceId = id;
     let invoiceNumber: string | null = null;
@@ -140,6 +163,10 @@ export const saveSalesInvoice = createServerFn({ method: "POST" })
 
     const linePayload = priced.map((l, i) => ({
       ...l,
+      // A value whose column was removed from the layout is dropped rather
+      // than carried invisibly — otherwise deleting a custom column and adding
+      // another with the same id would resurrect the old values on a reprint.
+      extra: cleanExtra(l.extra, allowedCustom),
       org_id: orgId,
       sales_invoice_id: invoiceId,
       line_no: l.line_no ?? i + 1,
@@ -301,6 +328,42 @@ export const issueSalesInvoice = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     log.info("issue:done", { invoiceId: data.id, totalProfit });
     return { ok: true };
+  });
+
+/**
+ * Change the columns one already-saved bill prints with.
+ *
+ * Separate from saveSalesInvoice because this is the common case: the bill is
+ * right, the print is not, and someone noticed at the printer. Re-saving the
+ * whole invoice to move a column would re-run pricing and stock, which is a
+ * lot of machinery to re-point a heading.
+ *
+ * Deliberately allowed on an issued bill. The layout is presentation, not
+ * figures — nothing here touches a quantity, a rate or a tax head.
+ */
+export const updateSalesBillColumns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), layout: z.unknown() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const layout = normaliseLayout(data.layout);
+    const { error } = await context.supabase.from("sales_invoices")
+      .update({ bill_columns: layout }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+
+    // Values whose column has gone are cleared, so re-adding a column later
+    // cannot resurrect figures from a layout nobody is looking at any more.
+    const allowed = new Set(layout.custom.map(c => c.id));
+    const { data: lines } = await context.supabase.from("sales_invoice_lines")
+      .select("id, extra").eq("sales_invoice_id", data.id);
+    for (const l of lines ?? []) {
+      const kept = cleanExtra(l.extra as Record<string, unknown> | null, allowed);
+      if (JSON.stringify(kept) === JSON.stringify(l.extra ?? {})) continue;
+      await context.supabase.from("sales_invoice_lines")
+        .update({ extra: kept }).eq("id", l.id);
+    }
+    log.info("bill_columns:updated", { id: data.id, columns: layout.columns.length });
+    return { ok: true, layout };
   });
 
 export const deleteSalesInvoice = createServerFn({ method: "POST" })

@@ -1048,6 +1048,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          bill_columns: Json | null
           address: string | null
           bank_account_no: string | null
           bank_branch: string | null
@@ -1072,6 +1073,7 @@ export type Database = {
           upi_id: string | null
         }
         Insert: {
+          bill_columns?: Json | null
           address?: string | null
           bank_account_no?: string | null
           bank_branch?: string | null
@@ -1096,6 +1098,7 @@ export type Database = {
           upi_id?: string | null
         }
         Update: {
+          bill_columns?: Json | null
           address?: string | null
           bank_account_no?: string | null
           bank_branch?: string | null
@@ -1536,6 +1539,7 @@ export type Database = {
       }
       sales_invoice_lines: {
         Row: {
+          extra: Json
           batch: string | null
           cgst_amount: number | null
           cost_price: number | null
@@ -1564,6 +1568,7 @@ export type Database = {
           unit: string | null
         }
         Insert: {
+          extra?: Json
           batch?: string | null
           cgst_amount?: number | null
           cost_price?: number | null
@@ -1592,6 +1597,7 @@ export type Database = {
           unit?: string | null
         }
         Update: {
+          extra?: Json
           batch?: string | null
           cgst_amount?: number | null
           cost_price?: number | null
@@ -1645,6 +1651,8 @@ export type Database = {
       }
       sales_invoices: {
         Row: {
+          bill_columns: Json | null
+          extra: Json
           amount_paid: number | null
           cgst_total: number | null
           created_at: string
@@ -1681,6 +1689,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bill_columns?: Json | null
+          extra?: Json
           amount_paid?: number | null
           cgst_total?: number | null
           created_at?: string
@@ -1717,6 +1727,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bill_columns?: Json | null
+          extra?: Json
           amount_paid?: number | null
           cgst_total?: number | null
           created_at?: string

@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { updateOrgProfile, clearOrgData, updateOrgInvoiceProfile } from "@/lib/org.functions";
+import { updateOrgProfile, clearOrgData, updateOrgInvoiceProfile, updateOrgBillColumns } from "@/lib/org.functions";
+import { BillColumnsDialog } from "@/components/bill-columns-dialog";
+import { layoutForNewBill, headingFor, isCustom } from "@/lib/bill-columns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Building2, Landmark, TriangleAlert, LogOut } from "lucide-react";
+import { Building2, Landmark, TriangleAlert, LogOut, Columns3 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { describeError } from "@/lib/offline";
 
@@ -26,6 +28,7 @@ type Org = {
   bank_name: string | null; bank_account_no: string | null; bank_ifsc: string | null;
   bank_branch: string | null; upi_id: string | null; signatory_name: string | null;
   show_dhela_branding: boolean | null;
+  bill_columns: unknown;
 };
 
 function AccountPage() {
@@ -35,6 +38,9 @@ function AccountPage() {
   const saveProfile = useServerFn(updateOrgProfile);
   const saveInvoiceProfile = useServerFn(updateOrgInvoiceProfile);
   const clearData = useServerFn(clearOrgData);
+  const saveBillColumns = useServerFn(updateOrgBillColumns);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [savingColumns, setSavingColumns] = useState(false);
 
   const { data: org } = useQuery({
     queryKey: ["org_profile"],
@@ -42,7 +48,7 @@ function AccountPage() {
       const { data, error } = await supabase.from("organizations")
         .select("id, name, gstin, address, state_code, phone, email, "
           + "bank_name, bank_account_no, bank_ifsc, bank_branch, upi_id, signatory_name, "
-          + "show_dhela_branding")
+          + "show_dhela_branding, bill_columns")
         .limit(1).single();
       if (error) throw error;
       return data as unknown as Org;
@@ -53,6 +59,10 @@ function AccountPage() {
     queryKey: ["auth_user"],
     queryFn: async () => (await supabase.auth.getUser()).data.user,
   });
+
+  // Null means this workspace has never set one, which reads as the built-in
+  // layout rather than an empty bill.
+  const orgLayout = layoutForNewBill(org?.bill_columns);
 
   const [biz, setBiz] = useState<Partial<Org>>({});
   const [bank, setBank] = useState<Partial<Org>>({});
@@ -153,6 +163,52 @@ function AccountPage() {
           <Button onClick={submitBiz}>{t("Save business details")}</Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Columns3 className="h-4 w-4 text-primary" />{t("Bill columns")}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {t("What the line table shows on a sales bill. This is the starting point for new bills — anything already issued keeps the layout it went out with.")}
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {orgLayout.columns.map(key => (
+              <span key={key} className="rounded border bg-muted/50 px-2 py-0.5 text-xs">
+                {isCustom(key) ? headingFor(key, orgLayout) : t(headingFor(key, orgLayout))}
+              </span>
+            ))}
+          </div>
+          {orgLayout.fields.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t("Bill fields")}: {orgLayout.fields.join(", ")}
+            </p>
+          )}
+          <Button variant="outline" onClick={() => setColumnsOpen(true)}>
+            <Columns3 className="h-4 w-4 mr-2" />{t("Change columns")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <BillColumnsDialog
+        open={columnsOpen}
+        onOpenChange={setColumnsOpen}
+        layout={orgLayout}
+        scope="org"
+        saving={savingColumns}
+        onSave={async (next) => {
+          setSavingColumns(true);
+          try {
+            await saveBillColumns({ data: { layout: next } });
+            toast.success(t("Saved"));
+            setColumnsOpen(false);
+            qc.invalidateQueries({ queryKey: ["org_profile"] });
+          } catch (e) { toast.error(describeError(e)); }
+          finally { setSavingColumns(false); }
+        }}
+      />
 
       <Card>
         <CardHeader className="pb-3">

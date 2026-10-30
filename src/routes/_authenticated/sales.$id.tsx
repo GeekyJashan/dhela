@@ -4,6 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { updateOrgInvoiceProfile } from "@/lib/org.functions";
+import { updateSalesBillColumns } from "@/lib/sales.functions";
+import { BillColumnsDialog } from "@/components/bill-columns-dialog";
 import { amountInWords } from "@/lib/pricing";
 import { EwayBillButton, EwayBillStamp, type EwayInvoice } from "@/components/eway-bill";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,11 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine } from "lucide-react";
+import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine, Columns3 } from "lucide-react";
 import { DhelaCoin } from "@/components/logo";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { describeError } from "@/lib/offline";
+import {
+  layoutForInvoice, headingFor, alignFor, cellValue, isCustom,
+  type PrintableLine,
+} from "@/lib/bill-columns";
 
 export const Route = createFileRoute("/_authenticated/sales/$id")({
   head: () => ({ meta: [{ title: "Sales bill - Dhela" }] }),
@@ -37,6 +43,7 @@ function SalesInvoiceView() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const saveProfile = useServerFn(updateOrgInvoiceProfile);
+  const saveColumns = useServerFn(updateSalesBillColumns);
 
   const { data } = useQuery({
     queryKey: ["sales_invoice", id],
@@ -56,11 +63,24 @@ function SalesInvoiceView() {
   const [bank, setBank] = useState({ bank_name: "", bank_account_no: "", bank_ifsc: "", bank_branch: "", upi_id: "" });
   const [sign, setSign] = useState({ signatory_name: "", signature_image: "" });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [savingColumns, setSavingColumns] = useState(false);
 
   if (!data) return <div className="p-4 sm:p-8 text-muted-foreground">{t("Loading…")}</div>;
   const { inv, lines } = data;
   const org = (inv.org ?? {}) as Org;
   const r = inv.retailer as { name?: string; gstin?: string; address?: string; state_code?: string; phone?: string; city?: string; pincode?: string };
+
+  /*
+   * What THIS bill prints, not what the workspace currently prefers. A bill
+   * issued before columns were customisable stores nothing and renders the
+   * original eleven, so no invoice ever changes shape after it has gone out.
+   */
+  const layout = layoutForInvoice((inv as { bill_columns?: unknown }).bill_columns);
+  const showsExpiry = layout.columns.includes("expiry_date");
+  const billFields = Object.entries(
+    ((inv as { extra?: Record<string, string> | null }).extra ?? {}),
+  ).filter(([, v]) => !!v);
 
   const hasBank = !!(org.bank_name || org.bank_account_no || org.upi_id);
   const hasSign = !!(org.signature_image || org.signatory_name);
@@ -106,6 +126,9 @@ function SalesInvoiceView() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={openBank}><Landmark className="h-4 w-4 mr-2" /> {hasBank ? t("Edit bank details") : t("Add bank details")}</Button>
           <Button variant="outline" onClick={openSign}><PenLine className="h-4 w-4 mr-2" /> {hasSign ? t("Edit signature") : t("Add signature")}</Button>
+          <Button variant="outline" onClick={() => setColumnsOpen(true)}>
+            <Columns3 className="h-4 w-4 mr-2" /> {t("Columns")}
+          </Button>
           <Button variant="outline" onClick={() => navigate({ to: "/sales/new", search: { edit: id } })}>
             <Pencil className="h-4 w-4 mr-2" /> {t("Edit")}
           </Button>
@@ -157,40 +180,52 @@ function SalesInvoiceView() {
             </div>
           </div>
 
-          <table className="w-full text-sm">
-            <thead className="border-y bg-muted/40">
-              <tr className="text-left">
-                <th className="p-2">#</th>
-                <th className="p-2">{t("Description")}</th>
-                <th className="p-2">{t("HSN")}</th>
-                <th className="p-2">{t("Batch")}</th>
-                <th className="p-2 text-right">{t("Qty")}</th>
-                <th className="p-2 text-right">{t("Rate")}</th>
-                <th className="p-2 text-right">{t("Disc%")}</th>
-                <th className="p-2 text-right">{t("Taxable")}</th>
-                <th className="p-2 text-right">{t("GST%")}</th>
-                <th className="p-2 text-right">{t("Tax")}</th>
-                <th className="p-2 text-right">{t("Total")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lines.map((l) => (
-                <tr key={l.id} className="border-b">
-                  <td className="p-2">{l.line_no}</td>
-                  <td className="p-2">{l.description}{l.expiry_date ? <div className="text-xs text-muted-foreground">{t("Exp")}: {l.expiry_date}</div> : null}</td>
-                  <td className="p-2 font-mono text-xs">{l.hsn ?? "—"}</td>
-                  <td className="p-2">{l.batch ?? "—"}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.quantity).toString()}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.rate).toFixed(2)}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.discount_pct ?? 0).toFixed(1)}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.taxable_value).toFixed(2)}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.gst_rate ?? 0).toFixed(1)}</td>
-                  <td className="p-2 text-right tabular-nums">{Number(l.tax_amount).toFixed(2)}</td>
-                  <td className="p-2 text-right tabular-nums font-medium">{Number(l.line_total).toFixed(2)}</td>
+          {/* Scrolls on a phone rather than forcing the whole bill narrow;
+              print has no viewport to overflow so the table lays out in full. */}
+          <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full text-sm">
+              <thead className="border-y bg-muted/40">
+                <tr className="text-left">
+                  {layout.columns.map(key => (
+                    <th key={key} className={`p-2 ${alignFor(key) === "right" ? "text-right" : ""}`}>
+                      {isCustom(key) ? headingFor(key, layout) : t(headingFor(key, layout))}
+                    </th>
+                  ))}
                 </tr>
+              </thead>
+              <tbody>
+                {lines.map((l) => (
+                  <tr key={l.id} className="border-b">
+                    {layout.columns.map(key => (
+                      <td key={key} className={cellClass(key)}>
+                        {cellValue(key, l as unknown as PrintableLine, layout)}
+                        {/* Expiry has always ridden under the description. It
+                            keeps doing so until it is given a column of its
+                            own, so switching the column on moves it rather
+                            than printing it twice. */}
+                        {key === "description" && !showsExpiry && l.expiry_date ? (
+                          <div className="text-xs text-muted-foreground">{t("Exp")}: {l.expiry_date}</div>
+                        ) : null}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {billFields.length > 0 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-1 border-t pt-4 text-sm sm:grid-cols-3">
+              {billFields.map(([label, value]) => (
+                <div key={label}>
+                  {/* Their wording, kept verbatim — it is the word they chose
+                      to print and the one the retailer will read. */}
+                  <span className="text-muted-foreground">{label}: </span>
+                  <span className="font-medium">{value}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <div className="w-80 text-sm space-y-1">
@@ -273,6 +308,24 @@ function SalesInvoiceView() {
         </CardContent>
       </Card>
 
+      <BillColumnsDialog
+        open={columnsOpen}
+        onOpenChange={setColumnsOpen}
+        layout={layout}
+        scope="bill"
+        saving={savingColumns}
+        onSave={async (next) => {
+          setSavingColumns(true);
+          try {
+            await saveColumns({ data: { id, layout: next } });
+            toast.success(t("Columns updated"));
+            setColumnsOpen(false);
+            qc.invalidateQueries({ queryKey: ["sales_invoice", id] });
+          } catch (e) { toast.error(describeError(e)); }
+          finally { setSavingColumns(false); }
+        }}
+      />
+
       {/* Bank details dialog */}
       <Dialog open={bankOpen} onOpenChange={setBankOpen}>
         <DialogContent className="max-w-md">
@@ -317,6 +370,14 @@ function SalesInvoiceView() {
       </Dialog>
     </div>
   );
+}
+
+/** Keeps each column looking exactly as the fixed table styled it. */
+function cellClass(key: string) {
+  const base = alignFor(key) === "right" ? "p-2 text-right tabular-nums" : "p-2";
+  if (key === "hsn") return `${base} font-mono text-xs`;
+  if (key === "line_total") return `${base} font-medium`;
+  return base;
 }
 
 function Row({ label, v }: { label: string; v: number | string | null }) {
