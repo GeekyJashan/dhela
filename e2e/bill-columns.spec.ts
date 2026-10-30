@@ -70,7 +70,10 @@ async function openSeededBill(page: Page, number = "S-9") {
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();
   await page.waitForURL(/\/sales\/[0-9a-f-]{36}/);
-  await expect(page.locator("table thead th").first()).toBeVisible({ timeout: 30_000 });
+  // "Tax Invoice" only exists on the bill, so this waits for the bill screen
+  // rather than for any table. The list is still mounted for a moment after
+  // the URL changes, and its own thead is a table a looser wait accepts.
+  await expect(page.getByText("Tax Invoice")).toBeVisible({ timeout: 30_000 });
 }
 
 test("a bill issued before columns were customisable still prints its original layout", async ({ page }) => {
