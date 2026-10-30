@@ -271,7 +271,12 @@ def _coerce_number(value: Any) -> Any:
 _LINE_NUMBERS = ("quantity", "free_quantity", "rate", "mrp", "discount_pct",
                  "gst_rate", "taxable_value", "tax_amount", "line_total", "confidence")
 _HEADER_NUMBERS = ("subtotal", "other_charges", "tax_total", "grand_total",
-                   "overall_confidence", "line_count_on_bill")
+                   "overall_confidence", "line_count_on_bill",
+                   # Left out when this tuple was written, and it is the one
+                   # field a model most often has nothing to put in: most bills
+                   # never print a page count. Claude writes the string "null",
+                   # pydantic rejects it as an int, the whole bill 502s.
+                   "total_pages_on_bill")
 
 
 class InvoiceLine(BaseModel):
