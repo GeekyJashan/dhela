@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus, Save, Send, AlertTriangle, Columns3 } from "lucide-react";
 import { BillColumnsDialog } from "@/components/bill-columns-dialog";
+import { RetailerPicker } from "@/components/retailer-picker";
 import {
   layoutForNewBill, normaliseLayout, builtIn, isCustom, customId, headingFor,
   MAX_VALUE_LEN, type BillLayout,
@@ -64,6 +65,7 @@ function NewSalesInvoice() {
   const { orderId, edit: editId } = Route.useSearch();
   const save = useServerFn(saveSalesInvoice);
   const getOrg = useServerFn(getCurrentOrg);
+  const qc = useQueryClient();
 
   const [orgState, setOrgState] = useState<string | null>(null);
   const [orgGstin, setOrgGstin] = useState<string | null>(null);
@@ -395,16 +397,14 @@ function NewSalesInvoice() {
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="md:col-span-2">
             <Label>{t("Retailer *")}</Label>
-            <Select value={retailerId} onValueChange={setRetailerId}>
-              <SelectTrigger><SelectValue placeholder={t("Choose retailer")} /></SelectTrigger>
-              <SelectContent>
-                {retailers?.map(r => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}{r.state_code ? ` — ${r.state_code}` : ""}{r.gstin ? ` · ${r.gstin}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Type to search, and name one that is not on the list yet
+                without losing the bill in progress. */}
+            <RetailerPicker
+              retailers={retailers}
+              value={retailerId}
+              onChange={setRetailerId}
+              onCreated={() => qc.invalidateQueries({ queryKey: ["retailers"] })}
+            />
           </div>
           <div>
             <Label>{t("Bill date")}</Label>

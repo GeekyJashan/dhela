@@ -1,6 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
-import fs from "node:fs";
+import { db, e2eOrg } from "./helpers";
 
 /**
  * What a sales bill prints is the distributor's choice, with two things held
@@ -12,36 +11,6 @@ import fs from "node:fs";
  * request arrives — a layout posted by a stale tab is normalised on the way in
  * rather than trusted.
  */
-
-function env() {
-  return Object.fromEntries(
-    fs.readFileSync(".env", "utf8").split("\n").filter(l => l.includes("=")).map(l => {
-      const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")];
-    }),
-  );
-}
-
-const db = () => {
-  const e = env();
-  return createClient(e.SUPABASE_URL!, e.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
-};
-
-/**
- * The org behind E2E_EMAIL, resolved explicitly.
- *
- * The service-role client bypasses RLS, so "select … limit 1" over a shared
- * table is whatever row the database felt like returning — which here was
- * another workspace's. A test that writes must say whose workspace it means.
- */
-async function e2eOrg(sb: ReturnType<typeof db>) {
-  const { data } = await sb.auth.admin.listUsers({ perPage: 200 });
-  const user = data.users.find(u => u.email === process.env.E2E_EMAIL);
-  if (!user) throw new Error(`No user for E2E_EMAIL=${process.env.E2E_EMAIL}`);
-  const { data: mem } = await sb.from("memberships")
-    .select("org_id").eq("user_id", user.id).limit(1).single();
-  return (mem as { org_id: string }).org_id;
-}
 
 /**
  * The visible <th> text of the printed line table, in order.
@@ -181,7 +150,8 @@ test("a workspace default reaches a new bill: typed on the line, printed on the 
     await expect(page.getByRole("columnheader", { name: "Warranty", exact: true })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Batch", exact: true })).toHaveCount(0);
 
-    await page.getByRole("combobox").filter({ hasText: /Choose retailer/ }).click();
+    // The retailer field is a searchable combobox now, not a plain select.
+    await page.getByRole("combobox", { name: "Retailer", exact: true }).click();
     await page.getByRole("option").first().click();
     await page.getByRole("combobox").filter({ hasText: /Pick product/ }).first().click();
     await page.getByRole("option").first().click();
