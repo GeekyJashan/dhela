@@ -1,3 +1,4 @@
+import { expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import fs from "node:fs";
 
@@ -35,4 +36,21 @@ export async function e2eOrg(sb: SupabaseClient): Promise<string> {
   const { data: mem } = await sb.from("memberships")
     .select("org_id").eq("user_id", user.id).limit(1).single();
   return (mem as { org_id: string }).org_id;
+}
+
+/**
+ * Open a seeded bill from the sales list.
+ *
+ * The list navigates on row click, and for a moment after the URL changes the
+ * list is still mounted — so this waits for "Tax Invoice", which exists on the
+ * bill and nowhere else, rather than for any table.
+ */
+export async function openSeededBill(page: Page, number = "S-9") {
+  await page.goto("/sales");
+  // \b so S-9 does not also match S-10.
+  const row = page.getByRole("row", { name: new RegExp(`\\b${number}\\b`) }).first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await row.click();
+  await page.waitForURL(/\/sales\/[0-9a-f-]{36}/);
+  await expect(page.getByText("Tax Invoice")).toBeVisible({ timeout: 30_000 });
 }

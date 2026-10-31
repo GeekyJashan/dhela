@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine, Columns3 } from "lucide-react";
+import { Printer, ArrowLeft, Undo2, Pencil, Landmark, PenLine, Columns3, ScanLine } from "lucide-react";
 import { DhelaCoin } from "@/components/logo";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -242,6 +242,25 @@ function SalesInvoiceView() {
               <p className="text-xs italic text-muted-foreground pt-1">{amountInWords(Number(inv.grand_total))}</p>
             </div>
           </div>
+
+          {/* What the reader was unsure of when this bill was read from a
+              photo. print:hidden, and deliberately above the notes it used to
+              be mixed into: it is a message to whoever is checking the bill,
+              not to the retailer receiving it. */}
+          {(inv as { import_notes?: string | null }).import_notes && (
+            <div className="rounded-lg border border-amber-400/60 bg-warning/10 p-3 print:hidden">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <ScanLine className="h-3.5 w-3.5" />
+                {t("What the reader was unsure of")}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-sm">
+                {(inv as { import_notes?: string | null }).import_notes}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t("Only you can see this — it is not printed on the bill. Check these against the paper copy before issuing.")}
+              </p>
+            </div>
+          )}
 
           {inv.notes && (
             <div className="border-t pt-4">

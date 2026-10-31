@@ -553,6 +553,19 @@
   .plan-badge-in { opacity: 1; transform: none; }
 }
 
+/* --- nothing that floats over the app belongs on a bill --- */
+/* A toast is fixed-position, so it does not reflow out of the way when the
+   page is printed: it lands straight across the top of the invoice, and
+   because it sits in the page box it can push a second sheet out carrying
+   nothing but itself. The "a new version is ready" notice never expires by
+   design, which turns this from unlucky into the normal case — a distributor
+   printing a bill for a retailer gets our update banner on their document.
+   Matched on the attribute Sonner sets rather than a class, so it holds
+   wherever the Toaster is mounted and whatever classes it is given. */
+@media print {
+  [data-sonner-toaster] { display: none !important; }
+}
+
 /* --- the mark on a printed bill --- */
 /* The coin mints itself in from opacity 0 on mount. On screen that has long
    finished by the time anyone reaches for Print, but a print triggered while

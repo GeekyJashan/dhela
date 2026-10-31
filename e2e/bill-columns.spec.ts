@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { db, e2eOrg } from "./helpers";
+import { db, e2eOrg, openSeededBill } from "./helpers";
 
 /**
  * What a sales bill prints is the distributor's choice, with two things held
@@ -29,20 +29,6 @@ async function headings(page: Page) {
     return seen.length;
   }, { timeout: 30_000 }).toBeGreaterThan(0);
   return seen;
-}
-
-/** The list navigates on row click rather than through a link. */
-async function openSeededBill(page: Page, number = "S-9") {
-  await page.goto("/sales");
-  // \b so S-9 does not also match S-10.
-  const row = page.getByRole("row", { name: new RegExp(`\\b${number}\\b`) }).first();
-  await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.click();
-  await page.waitForURL(/\/sales\/[0-9a-f-]{36}/);
-  // "Tax Invoice" only exists on the bill, so this waits for the bill screen
-  // rather than for any table. The list is still mounted for a moment after
-  // the URL changes, and its own thead is a table a looser wait accepts.
-  await expect(page.getByText("Tax Invoice")).toBeVisible({ timeout: 30_000 });
 }
 
 test("a bill issued before columns were customisable still prints its original layout", async ({ page }) => {

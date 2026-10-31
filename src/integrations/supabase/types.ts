@@ -1651,6 +1651,7 @@ export type Database = {
       }
       sales_invoices: {
         Row: {
+          import_notes: string | null
           bill_columns: Json | null
           extra: Json
           amount_paid: number | null
@@ -1689,6 +1690,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          import_notes?: string | null
           bill_columns?: Json | null
           extra?: Json
           amount_paid?: number | null
@@ -1727,6 +1729,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          import_notes?: string | null
           bill_columns?: Json | null
           extra?: Json
           amount_paid?: number | null

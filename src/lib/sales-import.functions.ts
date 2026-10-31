@@ -177,7 +177,12 @@ export const importSalesInvoice = createServerFn({ method: "POST" })
       grand_total: parsed.grand_total != null ? num(parsed.grand_total) : round(subtotal + taxTotal),
       total_cost: 0, total_profit: 0,
       is_interstate: false,
-      notes: parsed.notes ?? null,
+      // The reader's uncertainties go where the operator sees them while
+      // reviewing, NOT into `notes` — that field prints on the invoice, and a
+      // retailer should never be handed a paragraph of our extractor saying
+      // the handwriting was too faint to be sure of the quantities.
+      import_notes: parsed.notes ?? null,
+      notes: null,
       created_by: userId,
     }).select("id").single();
     if (insErr) throw new Error(insErr.message);
